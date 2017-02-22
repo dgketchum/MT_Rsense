@@ -17,8 +17,6 @@
 # standard library imports ======================================================
 import sys
 import os
-import gdal
-from numpy import array
 sys.path.append('/data01/anaconda2/bin')
 import gdal_merge as gm
 
@@ -29,7 +27,7 @@ def merge_rasters(in_folder, out_location, out_name):
 
     tifs = [os.path.join(in_folder, x) for x in os.listdir(in_folder) if x.endswith('.tif')]
     print 'tif files: \n {}'.format(tifs)
-    sys.argv = ['-o, {}'.format(os.path.join(out_location, out_name))] + tifs
+    sys.argv = ['-o {}'.format(os.path.join(out_location, out_name))] + tifs
     print 'args: {}'.format(sys.argv)
     gm.main()
 
@@ -37,10 +35,9 @@ def merge_rasters(in_folder, out_location, out_name):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    root = os.path.abspath(os.path.join(home, os.pardir))
-    images = os.path.join(root, 'images')
+    images = os.path.join(home, 'images')
     tiles = os.path.join(images, 'DEM', 'elevation_NED30M_mt_20033_01', 'elevation')
-    merge_rasters(tiles, os.path.join(images, 'DEM'), 'mt_dem_full_30m.tif')
+    merge_rasters(tiles, os.path.join(images, 'DEM'), 'mt_dem_full_30m_test22FEB2017.tif')
 
 
 # ============= EOF ============================================================

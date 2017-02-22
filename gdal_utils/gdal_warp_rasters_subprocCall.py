@@ -33,7 +33,7 @@ def merge_rasters(in_folder, out_location, out_name):
     source_epsg = 4326
     target_epsg = 32100
 
-    warp = 'gdal_warp -s_srs {} -t_srs {} -tr 30 -r cubic -srcnodata 0.0 dstnodata 0.0 - wm 6000 \n' \
+    warp = 'gdal_warp.py -s_srs {} -t_srs {} -tr 30 -r cubic -srcnodata 0.0 dstnodata 0.0 \n' \
            '{} {}'.format(source_epsg,
                           target_epsg, tif_string, os.path.join(out_location, out_name))
 
@@ -44,8 +44,7 @@ def merge_rasters(in_folder, out_location, out_name):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    root = os.path.abspath(os.path.join(home, os.pardir))
-    images = os.path.join(root, 'images')
+    images = os.path.join(home, 'images')
     tiles = os.path.join(images, 'DEM', 'elevation_NED30M_id_22371_01', 'elevation')
     merge_rasters(tiles, os.path.join(images, 'DEM'), 'id_dem_full_30m_proj.tif')
 

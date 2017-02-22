@@ -32,7 +32,9 @@ def merge_rasters(in_folder, out_location, out_name):
     print 'tif string to save: {}'.format(tif_string)
 
     f = open(os.path.join(out_location, 'saveTest.txt'), 'w')
-    f.write(os.path.join(out_location, out_name) + ' ')
+    out_path = os.path.join(out_location, out_name) + ' '
+    print 'outpath: {}'.format(out_path)
+    f.write(out_path)
     f.write(tif_string)
     f.close()
 
@@ -43,8 +45,7 @@ def merge_rasters(in_folder, out_location, out_name):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    root = os.path.abspath(os.path.join(home, os.pardir))
-    images = os.path.join(root, 'images')
+    images = os.path.join(home, 'images')
     tiles = os.path.join(images, 'DEM', 'elevation_NED30M_id_22371_01', 'elevation')
     merge_rasters(tiles, os.path.join(images, 'DEM'), 'mt_dem_full_30m.tif')
 
