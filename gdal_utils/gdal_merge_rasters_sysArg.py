@@ -25,9 +25,12 @@ import gdal_merge as gm
 
 def merge_rasters(in_folder, out_location, out_name):
 
+    # runs but shuffles tiles and names them 'out.tif' and places them in same
+    # directory as this script file
     tifs = [os.path.join(in_folder, x) for x in os.listdir(in_folder) if x.endswith('.tif')]
     print 'tif files: \n {}'.format(tifs)
-    sys.argv = ['-o {}'.format(os.path.join(out_location, out_name))] + tifs
+    tifs = sorted(tifs)
+    sys.argv = ['-o {}'.format(os.path.join(out_location, out_name))] + tifs[0:3]
     print 'args: {}'.format(sys.argv)
     gm.main()
 

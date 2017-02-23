@@ -16,39 +16,57 @@
 
 # standard library imports ======================================================
 import os
-import numpy as np
-import gdal
 from subprocess import call
-
+from itertools import izip
 
 # local imports ======================================================
 
 
-def merge_rasters(in_folder, out_location, out_name):
+def recursive_raster_merge(in_folder, out_loc, out_named, level=0):
 
+    # this still places tile incorrectly
     tifs = [os.path.join(in_folder, x) for x in os.listdir(in_folder) if x.endswith('.tif')]
-    print 'tif files: \n {}'.format(tifs)
-    tif_string = ' '.join(tifs)
-    print 'tif string to save: {}'.format(tif_string)
 
-    f = open(os.path.join(out_location, 'saveTest.txt'), 'w')
-    out_path = os.path.join(out_location, out_name) + ' '
-    print 'outpath: {}'.format(out_path)
-    f.write(out_path)
-    f.write(tif_string)
-    f.close()
+    level += 1
+    print 'length of tif list: {}'.format(len(tifs))
+    print 'tif list\n{}'.format(tifs)
+    tifs.append(None)
+    pairs = izip(tifs[::2], tifs[1::2])
+    new_dir = out_loc + str(level)
+    for i in pairs:
+        if not os.path.exists(new_dir):
+            os.mkdir(new_dir)
+        merge_rasters(i, new_dir)
+    recursive_raster_merge(new_dir, new_dir, out_named, level=level)
 
-    # merge = 'gdal_merge.py -o {}, {}'.format(os.path.join(out_location, out_name), tif_string)
-    # print 'merge cmd: {}'.format(merge)
-    # call(merge, shell=True)
+
+def merge_rasters(tif_subset, out_location):
+
+    try:
+        tif_string = ' '.join(tif_subset)
+        # print '\ntif inputs: {}'.format(tif_string)
+
+        name_1, name_2 = tif_subset[0].split('.')[0], tif_subset[1].split('.')[0]
+        name_1, name_2 = name_1[-5:], name_2[-5:]
+        out_string = '{}.tif'.format('_'.join([name_1, name_2]))
+        print 'saving... {}'.format(out_string)
+
+        merge = 'gdal_merge.py -o {} {}'.format(os.path.join(out_location, out_string), tif_string)
+        print 'merge cmd: {}'.format(merge)
+
+    except TypeError:
+        out_string = tif_subset[0][-3:]
+        merge = 'gdal_merge.py -o {} {}'.format(os.path.join(out_location, out_string), tif_subset)
+
+    call(merge, shell=True)
+
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
     images = os.path.join(home, 'images')
     tiles = os.path.join(images, 'DEM', 'elevation_NED30M_id_22371_01', 'elevation')
-    merge_rasters(tiles, os.path.join(images, 'DEM'), 'mt_dem_full_30m.tif')
+    recursive_raster_merge(tiles, tiles, 'mt_dem_full_30m_test2.tif')
 
 
 # ============= EOF ============================================================
-
