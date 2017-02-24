@@ -33,9 +33,16 @@ def merge_rasters(in_folder, out_location, out_name):
     source_epsg = 4326
     target_epsg = 32100
 
+    print 'working space: {}'.format(os.getcwd())
+    os.chdir(in_folder)
+    vrt_str = 'vrt_merge_id.vrt'
+
+    vrts = 'gdalbuildvrt -allow_projection_difference {} {}'.format(vrt_str, tif_string)
+    call(vrts, shell=True)
+
     warp = 'gdal_warp -s_srs {} -t_srs {} -tr 30 -r cubic -srcnodata 0.0 dstnodata 0.0 \n' \
            '{} {}'.format(source_epsg,
-                          target_epsg, tif_string, os.path.join(out_location, out_name))
+                          target_epsg, vrt_str, os.path.join(out_location, out_name))
 
     print 'warp cmd: {}'.format(warp)
     call(warp, shell=True)
