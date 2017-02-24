@@ -51,7 +51,7 @@ def merge_rasters(tif_subset, out_location):
         out_string = '{}.tif'.format('_'.join([name_1, name_2]))
         print 'saving... {}'.format(out_string)
 
-        merge = 'gdal_merge.py -o {} {}'.format(os.path.join(out_location, out_string), tif_string)
+        merge = 'gdal_merge.py -co COMPRESS=DEFLATE -o {} {}'.format(os.path.join(out_location, out_string), tif_string)
         print 'merge cmd: {}'.format(merge)
 
     except TypeError:

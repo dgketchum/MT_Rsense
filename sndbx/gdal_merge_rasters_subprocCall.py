@@ -25,28 +25,31 @@ from subprocess import call
 
 
 def merge_rasters(in_folder, out_location, out_name):
+
+    # so far runs but shuffles the tiles to bad geolocation
+    # names and places the file correctly in dst directory
     tifs = [os.path.join(in_folder, x) for x in os.listdir(in_folder) if x.endswith('.tif')]
     print 'tif files: \n {}'.format(tifs)
     tif_string = ' '.join(tifs)
     print 'tif string to save: {}'.format(tif_string)
 
-    source_epsg = 4326
-    target_epsg = 32100
+    # f = open(os.path.join(out_location, 'saveTest.txt'), 'w')
+    # out_path = os.path.join(out_location, out_name) + ' '
+    # print 'outpath: {}'.format(out_path)
+    # f.write(out_path)
+    # f.write(tif_string)
+    # f.close()
 
-    warp = 'gdal_warp -s_srs {} -t_srs {} -tr 30 -r cubic -srcnodata 0.0 dstnodata 0.0 \n' \
-           '{} {}'.format(source_epsg,
-                          target_epsg, tif_string, os.path.join(out_location, out_name))
-
-    print 'warp cmd: {}'.format(warp)
-    call(warp, shell=True)
-
+    merge = 'gdal_merge.py -o {} {}'.format(os.path.join(out_location, out_name), tif_string)
+    print 'merge cmd: {}'.format(merge)
+    # call(merge, shell=True)
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
     images = os.path.join(home, 'images')
     tiles = os.path.join(images, 'DEM', 'elevation_NED30M_id_22371_01', 'elevation')
-    merge_rasters(tiles, os.path.join(images, 'DEM'), 'id_dem_full_30m_proj.tif')
+    merge_rasters(tiles, os.path.join(images, 'DEM'), 'mt_dem_full_30m_test2.tif')
 
 
 # ============= EOF ============================================================
