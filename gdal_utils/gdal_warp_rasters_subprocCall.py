@@ -17,35 +17,55 @@
 # standard library imports ======================================================
 import os
 import gdal
-from gdalconst import*
 import osr
-from subprocess import call
 
 
-def merge_rasters(in_folder, out_location, out_name, out_proj):
-
+def merge_rasters(in_folder, out_location, out_proj):
     tifs = [os.path.join(in_folder, x) for x in os.listdir(in_folder) if x.endswith('.tif')]
 
-    target_crs = osr.SpatialReference()
-    target_crs.ImportFromEPSG(out_proj)
+    print 'tif files: \n {}'.format(tifs)
+    tif_string = ' '.join(tifs)
+    print 'tif string to save: {}'.format(tif_string)
+
+    t_srs = osr.SpatialReference()
+    t_srs.ImportFromEPSG(out_proj)
+    t_proj = t_srs.ExportToWkt()
+    print 'target srs strirng: {}'.format(t_proj)
 
     for tif in tifs:
         dataset = gdal.Open(tif)
-        print 'source srs: {}'.format(dataset.GetProjection())
+        band = dataset.GetRasterBand(1)
+        band_ct = dataset.RasterCount
+        geo_t = dataset.GetGeoTransform()
+        proj_info = dataset.GetProjection()
+        src_srs = osr.SpatialReference()
+        src_srs.ImportFromWkt(proj_info)
+        src_proj = src_srs.ExportToWkt()
+        print 'source srs: {}'.format(src_proj)
 
-    print 'working space: {}'.format(os.getcwd())
-    os.chdir(in_folder)
-    vrt_str = 'vrt_merge_id.vrt'
+        driver = gdal.GetDriverByName('GTiff')
+        out_name = tif.replace('.tif', '_32100.tif')
+        print 'out name: {}'.format(out_name)
+        # dest = driver.Create(out_name, dataset.RasterXSize, dataset.RasterYSize,
+        #                      band_ct, band.DataType)
+        dest = driver.ReprojectImage(dataset, dest, src_proj, t_srs, gdal.GRA_Cubic)
+        dest.SetGeoTransform(geo_t)
+        dest.SetProjection(t_proj)
+        out_band = dest.GetRasterBand(1)
+        dest = None
 
-    vrts = 'gdalbuildvrt -overwrite -allow_projection_difference {} {}'.format(vrt_str, tif_string)
-    call(vrts, shell=True)
+        # driver = gdal.GetDriverByName('GTiff')
+        # out_data_set = driver.Create(filename, self._geo['cols'], self._geo['rows'],
+        #                              self._geo['bands'], self._geo['data_type'])
+        # out_data_set.SetGeoTransform(self._geo['geotransform'])
+        # out_data_set.SetProjection(self._geo['projection'])
+        # output_band = out_data_set.GetRasterBand(1)
+        # output_band.WriteArray(array_to_save, 0, 0)
+        #
+        # raster_geo_dict = {'cols': dataset.RasterXSize, 'rows': dataset.RasterYSize, 'bands': dataset.RasterCount,
+        #            'data_type': band.DataType, 'projection': dataset.GetProjection(),
+        #            'geotransform': dataset.GetGeoTransform(), 'resolution': dataset.GetGeoTransform()[1]}
 
-    warp = 'gdalwarp -s_srs {} -t_srs {} -tr 30 -r cubic -srcnodata 0.0 dstnodata 0.0 \n' \
-           '{} {}'.format(source_epsg,
-                          target_crs, vrt_str, os.path.join(out_location, out_name))
-
-    print 'warp cmd: {}'.format(warp)
-    call(warp, shell=True)
 
 
 if __name__ == '__main__':
@@ -53,7 +73,7 @@ if __name__ == '__main__':
     # print 'home: {}'.format(home)
     images = os.path.join(home, 'images')
     tiles = os.path.join(images, 'DEM', 'elevation_NED30M_id_22371_01', 'elevation')
-    merge_rasters(tiles, os.path.join(images, 'DEM'), 'id_dem_full_30m_proj.tif', out_proj=32100)
+    merge_rasters(tiles, os.path.join(images, 'DEM'), out_proj=32100)
 
 
 # ============= EOF ============================================================
