@@ -72,9 +72,7 @@ def unzip_all(dir_name, _type='folders', replace_ext='exe'):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    print 'home: {}'.format(home)
-    root = os.path.abspath(os.path.join(home, os.pardir))
-    images = os.path.join(root, 'images')
+    images = os.path.join(home, 'images')
     tiles = os.path.join(images, 'executables')
     unzip_all(tiles, _type='files')
 
