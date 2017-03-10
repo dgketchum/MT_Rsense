@@ -94,6 +94,8 @@ def merge_rasters(in_folder, out_location, out_name, out_proj):
         print 'warp vrt-> tif cmd: {}\n'.format(warp)
         call(warp, shell=True)
 
+    # non-working code to merge geometry into an empty raster then mosaic it with warp
+    # DEM rasters on which this was developed were too big for merge
     # # create empty tif, merge cmd finishes with {out} {in}
     # print 'reprojected tifs: {}'.format(out_reproj_tifs)
     # merge = """gdal_merge.py -createonly {} {}""".format(' '.join(out_reproj_tifs), out_name)
@@ -111,8 +113,8 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
     images = os.path.join(home, 'images')
-    tiles = os.path.join(images, 'DEM', 'elevation_NED30M_wy_3377498_01', 'elevation')
-    merge_rasters(tiles, os.path.join(images, 'DEM'), 'wy_dem.tif', out_proj=32100)
+    tiles = os.path.join(images, 'DEM', 'elevation_NED30M_mt_20033_01', 'elevation')
+    merge_rasters(tiles, os.path.join(images, 'DEM'), 'mt_dem.tif', out_proj=32100)
 
 
 # ============= EOF ============================================================
