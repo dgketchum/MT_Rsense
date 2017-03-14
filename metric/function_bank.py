@@ -1,4 +1,5 @@
 import math
+import numpy as np
 
 
 # quick function used to print status updates to the screen (including arcpy messages)
@@ -9,7 +10,7 @@ def print_stats(variable, name):
         for i, var in enumerate(variable):
             print_stats(var, name + str(i))
 
-    if isinstance(variable, raster):
+    if isinstance(variable, np.ndarray):
 
         # sanitize nonetypes
         if not variable.maximum:

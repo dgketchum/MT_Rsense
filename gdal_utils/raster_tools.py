@@ -25,7 +25,7 @@ from datetime import datetime
 import os
 
 
-def convert_raster_to_array(input_raster_path, raster, band=1):
+def convert_raster_to_array(input_raster_path, raster=None, band=1):
     """
     Convert .tif raster into a numpy numerical array.
 
@@ -34,7 +34,10 @@ def convert_raster_to_array(input_raster_path, raster, band=1):
     :param band: Band of raster sought.
     :return: Numpy array.
     """
-    raster_open = gdal.Open(os.path.join(input_raster_path, raster))
+    try:
+        raster_open = gdal.Open(os.path.join(input_raster_path, raster))
+    except TypeError:
+        raster_open = gdal.Open(input_raster_path)
     ras = array(raster_open.GetRasterBand(band).ReadAsArray(), dtype=float)
     return ras
 

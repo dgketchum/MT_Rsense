@@ -13,17 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===============================================================================
+import os
+from metric.metric_py import run
 
-# standard library imports ======================================================
 
-
-# local imports ======================================================
-
+def run_metric():
+    run()
 
 
 if __name__ == '__main__':
     pass
-
-
-# ============= EOF ============================================================
-
