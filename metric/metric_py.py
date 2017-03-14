@@ -8,10 +8,9 @@ import os
 from metric import function_bank as fnbank
 from metric.function_bank import print_stats
 from metric.extract_wx_data import extract_wx_data
+from gdal_utils import raster_tools as ras
 import textio
 import landsat
-import rasterio
-import pygeoprocessing
 
 
 __author__ = ["Jeffry Ely, jeff.ely.08@gmail.com",
@@ -53,6 +52,9 @@ class MetricModel:
         self.LE_cold_cal_factor  = config["LE_ref"]
         self.L_green_fac         = config["L_green_fac"]
 
+        # projection information, check projection of all inputs
+
+
         # Landsat stuff woooo
         self.metadata_path      = os.path.join(self.work_dir, config["landsat_meta"])
         self.landsat_meta       = landsat.grab_meta(self.metadata_path)
@@ -68,7 +70,7 @@ class MetricModel:
 
         # dem info
         self.dem_path           = os.path.join(self.work_dir, config["dem_path"])
-        self.dem_file           = arcpy.sa.Float(arcpy.Raster(self.dem_path))
+        self.dem_file = ras.convert_raster_to_array(self.dem_path)
 
         self.hot_shape_path     = os.path.join(self.work_dir, config["hot_shp_path"])
         self.cold_shape_path    = os.path.join(self.work_dir, config["cold_shp_path"])
@@ -92,9 +94,9 @@ class MetricModel:
         if self.wx_zom is None:
             self.wx_zom = 0.010
 
-        arcpy.env.workspace         = self.out_dir
-        arcpy.env.scratchWorkspace  = self.geodatabase
-        arcpy.env.overwriteOutput   = True
+        # arcpy.env.workspace         = self.out_dir
+        # arcpy.env.scratchWorkspace  = self.geodatabase
+        # arcpy.env.overwriteOutput   = True
 
         self.net_radiation          = 0
         self.soil_heat_flux         = 0
@@ -122,7 +124,7 @@ class MetricModel:
             rast_attr_name = 'B{0}_rast'.format(band_names[i])
 
             setattr(self, path_attr_name, band_filepath)
-            setattr(self, rast_attr_name, arcpy.sa.Float(arcpy.Raster(getattr(self, path_attr_name))))
+            setattr(self, rast_attr_name, ras.convert_raster_to_array(getattr(self, path_attr_name)))
 
             self.landsat_bands.append(getattr(self, rast_attr_name))
         return
@@ -283,11 +285,11 @@ class MetricModel:
         if os.path.isfile(sfpath) and not self.recalc:
             print "Reading previously estimated slopes... "
             print "Reading previously estimated slopes... "
-            slope = rasterio.open(sfpath)
+            slope = ras.convert_raster_to_array(sfpath)
         else:
             print "Calculating elevation derivatives... "
             print "Calculating elevation derivatives... "
-            slope = arcpy.sa.Float(arcpy.sa.Slope(self.dem_file))
+            slope = ras.convert_raster_to_array(self.slope_file)
             
             # cap slopes at 30 degrees to reduce DEM artifacts
             slope = arcpy.sa.Con(slope, slope, 30, "VALUE < 30")
@@ -308,7 +310,7 @@ class MetricModel:
         afpath = os.path.join(self.middle_dir, afname)
         
         if os.path.isfile(afpath) and not self.recalc:
-            aspect = arcpy.Raster(afpath)
+            aspect = ras.convert_raster_to_array(afpath)
         else:
             
             aspect = arcpy.sa.Aspect(self.dem_file)
@@ -341,7 +343,7 @@ class MetricModel:
         
         if os.path.isfile(sipath) and not self.recalc:
             print "Reading previously estimated cosine of solar incidence angles... "
-            sia = arcpy.Raster(sipath)
+            sia = ras.convert_raster_to_array(sipath)
         else:
             print "Calculating cosine of solar incidence angles... "
             sia, sia1, sia2, sia3, sia4, sia5 = fnbank.Num7(declination, lat, slope, aspect, hour_angle)
@@ -363,7 +365,7 @@ class MetricModel:
             landsat_band_path = os.path.join(self.middle_dir, landsat_band_file)
             
             if os.path.isfile(landsat_band_path) and not self.recalc:
-                reflectance_band = arcpy.Raster(landsat_band_path)
+                reflectance_band = ras.convert_raster_to_array(landsat_band_path)
                 refl_bands.append(reflectance_band)
             else:
                 reflectance_band = fnbank.Num10(self.landsat_bands[i], cos_sia)
@@ -385,7 +387,7 @@ class MetricModel:
         svpath = os.path.join(self.out_dir, svname)
         
         if os.path.isfile(svpath) and not self.recalc:
-            savi = arcpy.Raster(svpath)
+            savi = ras.convert_raster_to_array(svpath)
         else:
             outFloat5 = arcpy.sa.Float(refl_band5)
             outFloat4 = arcpy.sa.Float(refl_band4)
@@ -403,7 +405,7 @@ class MetricModel:
         ndpath = os.path.join(self.out_dir, ndname)
         
         if os.path.isfile(ndpath)and not self.recalc:
-            ndvi = arcpy.Raster(ndpath)
+            ndvi = ras.convert_raster_to_array(ndpath)
         else:
             outFloat5 = arcpy.sa.Float(refl_band5)
             outFloat4 = arcpy.sa.Float(refl_band4)
@@ -421,7 +423,7 @@ class MetricModel:
         lapath = os.path.join(self.out_dir, laname)
         
         if os.path.isfile(lapath) and not self.recalc:
-            lai = arcpy.Raster(lapath)
+            lai = ras.convert_raster_to_array(lapath)
         else:
 
             #assigns LAI for 0.1 <= SAVI <= 0.687
@@ -442,7 +444,7 @@ class MetricModel:
         bbse_path = os.path.join(self.middle_dir, bbse_name)
         
         if os.path.isfile(bbse_path) and not self.recalc:
-            bbse = arcpy.Raster(bbse_path)
+            bbse = ras.convert_raster_to_array(bbse_path)
         else:
             bbse = fnbank.Num17(lai)
 
@@ -456,7 +458,7 @@ class MetricModel:
         nbe_path = os.path.join(self.middle_dir, nbe_name)
         
         if os.path.isfile(nbe_path)and not self.recalc:
-            nbe = arcpy.Raster(nbe_path)
+            nbe = ras.convert_raster_to_array(nbe_path)
         else:
             nbe = fnbank.Num22(lai)
 
@@ -472,7 +474,7 @@ class MetricModel:
         thrad10_path = os.path.join(self.middle_dir, thrad10_name)
         
         if os.path.isfile(thrad10_path)and not self.recalc:
-            therm_rad10 = arcpy.Raster(thrad10_path)
+            therm_rad10 = ras.convert_raster_to_array(thrad10_path)
         else:
             therm_rad10 = fnbank.L8_Thermal_Radiance(self.B10_rast)
 
@@ -484,7 +486,7 @@ class MetricModel:
         thrad11_path = os.path.join(self.middle_dir, thrad11_name)
         
         if os.path.isfile(thrad11_path) and not self.recalc:
-            therm_rad11 = arcpy.Raster(thrad11_path)
+            therm_rad11 = ras.convert_raster_to_array(thrad11_path)
         else:
             therm_rad11 = fnbank.L8_Thermal_Radiance(self.B11_rast)
 
@@ -510,7 +512,7 @@ class MetricModel:
         corr10_path = os.path.join(self.middle_dir, corr10_name)
         
         if os.path.isfile(corr10_path)and not self.recalc:
-            corr_rad10 = arcpy.Raster(corr10_path)
+            corr_rad10 = ras.convert_raster_to_array(corr10_path)
         else:
             corr_rad10 = fnbank.Num21(therm_rad10, path_rad, nbt, nbe, sky_rad)
 
@@ -522,7 +524,7 @@ class MetricModel:
         corr11_path = os.path.join(self.middle_dir, corr11_name)
         
         if os.path.isfile(corr11_path) and not self.recalc:
-            corr_rad11 = arcpy.Raster(corr11_path)
+            corr_rad11 = ras.convert_raster_to_array(corr11_path)
         else:
             corr_rad11 = fnbank.Num21(therm_rad11, path_rad, nbt, nbe, sky_rad)
 
@@ -539,7 +541,7 @@ class MetricModel:
         lst_path = os.path.join(self.middle_dir, lst_name)
         
         if os.path.isfile(lst_path) and not self.recalc:
-            sfcTemp = arcpy.Raster(lst_path)
+            sfcTemp = ras.convert_raster_to_array(lst_path)
         else:
             corrected_thermal_radiances = self._get_corrected_thermal_radiances(nbe)
             corr_rad10 = corrected_thermal_radiances[0]
@@ -559,7 +561,7 @@ class MetricModel:
         p_path = os.path.join(self.middle_dir, p_name)
         
         if os.path.isfile(p_path) and not self.recalc:
-            p = arcpy.Raster(p_path)
+            p = ras.convert_raster_to_array(p_path)
         else:
             p = fnbank.Num5(self.dem_file)
 
@@ -578,7 +580,7 @@ class MetricModel:
         w_path = os.path.join(self.middle_dir, w_name)
         
         if os.path.isfile(w_path) and not self.recalc:
-            w = arcpy.Raster(w_path)
+            w = ras.convert_raster_to_array(w_path)
         else:
             w = fnbank.Num6(e_a, p)
 
@@ -607,7 +609,7 @@ class MetricModel:
             ent_path = os.path.join(self.middle_dir, ent_name)
             
             if os.path.isfile(ent_path) and not self.recalc:
-                raster = arcpy.Raster(ent_path)
+                raster = ras.convert_raster_to_array(ent_path)
             else:
                 raster = fnbank.Num12(p, w, cth, kt, constants[i][0], constants[i][1],
                                   constants[i][2], constants[i][3], constants[i][4])
@@ -639,7 +641,7 @@ class MetricModel:
             ent2_path = os.path.join(self.middle_dir, ent2_name)
             
             if os.path.isfile(ent2_path) and not self.recalc:
-                raster = arcpy.Raster(ent2_path)
+                raster = ras.convert_raster_to_array(ent2_path)
             else:
                 raster = fnbank.Num13(p, w, cos_n, kt, constants[i][0], constants[i][1],
                                   constants[i][2], constants[i][3], constants[i][4])
@@ -661,7 +663,7 @@ class MetricModel:
             pr_path = os.path.join(self.middle_dir, pr_name)
             
             if os.path.isfile(pr_path) and not self.recalc:
-                raster = arcpy.Raster(pr_path)
+                raster = ras.convert_raster_to_array(pr_path)
             else:
                 raster = fnbank.Num14(entisr_bands[i], constants[i])
 
@@ -683,7 +685,7 @@ class MetricModel:
         bbat_path = os.path.join(self.middle_dir, bbat_name)
         
         if os.path.isfile(bbat_path) and not self.recalc:
-            bbat = arcpy.Raster(bbat_path)
+            bbat = ras.convert_raster_to_array(bbat_path)
         else:
             kt = 1.0
             bbat = fnbank.Num4(p, w, cth, kt)
@@ -702,7 +704,7 @@ class MetricModel:
         ibbswr_path = os.path.join(self.middle_dir, ibbswr_name)
         
         if os.path.isfile(ibbswr_path) and not self.recalc:
-            ibbswr = arcpy.Raster(ibbswr_path)
+            ibbswr = ras.convert_raster_to_array(ibbswr_path)
         else:
             ibbswr = fnbank.Num3(sia, bbat, earth_sun_distance)
 
@@ -769,7 +771,7 @@ class MetricModel:
         bsa_path = os.path.join(self.middle_dir, bsa_name)
         
         if os.path.isfile(bsa_path) and not self.recalc:
-            bsa = arcpy.Raster(bsa_path)
+            bsa = ras.convert_raster_to_array(bsa_path)
         else:
             bsa = fnbank.Num15(asr_bands)
 
@@ -785,7 +787,7 @@ class MetricModel:
         eae_path = os.path.join(self.middle_dir, eae_name)
         
         if os.path.isfile(eae_path) and not self.recalc:
-            eae = arcpy.Raster(eae_path)
+            eae = ras.convert_raster_to_array(eae_path)
         else:
             eae = fnbank.Num25(bbat)
             if self.check_saveflag("eae"):
@@ -804,7 +806,7 @@ class MetricModel:
         grat_path = os.path.join(self.middle_dir, grat_name)
         
         if os.path.isfile(grat_path) and not self.recalc:
-            g_ratio = arcpy.Raster(grat_path)
+            g_ratio = ras.convert_raster_to_array(grat_path)
         else:
             g_ratio = fnbank.Num26(bsa, sfc_temp, ndvi)
 
@@ -830,7 +832,7 @@ class MetricModel:
         ilwr_path = os.path.join(self.middle_dir, ilwr_name)
         
         if os.path.isfile(ilwr_path) and not self.recalc:
-            ilwr = arcpy.Raster(ilwr_path)
+            ilwr = ras.convert_raster_to_array(ilwr_path)
         else:
             ilwr = fnbank.Num24(eae, temp_C_mid + 273)
             if self.check_saveflag("ilwr"):
@@ -848,7 +850,7 @@ class MetricModel:
         olwr_path = os.path.join(self.middle_dir, olwr_name)
         
         if os.path.isfile(olwr_path) and not self.recalc:
-            olwr = arcpy.Raster(olwr_path)
+            olwr = ras.convert_raster_to_array(olwr_path)
         else:
             olwr = fnbank.Num16(bbse, sfc_temp)
             if self.check_saveflag("olwr"):
@@ -869,7 +871,7 @@ class MetricModel:
         netrad_path = os.path.join(self.middle_dir, netrad_name)
         
         if os.path.isfile(netrad_path)and not self.recalc:
-            self.net_radiation = arcpy.Raster(netrad_path)
+            self.net_radiation = ras.convert_raster_to_array(netrad_path)
         else:
             self.net_radiation = fnbank.Num2(ibbswr, bsa, olwr, ilwr, bbse)
             if self.check_saveflag("net_rad"):
@@ -882,7 +884,7 @@ class MetricModel:
         shflux_path = os.path.join(self.middle_dir, shflux_name)
         
         if os.path.isfile(shflux_path) and not self.recalc:
-            self.soil_heat_flux = arcpy.Raster(shflux_path)
+            self.soil_heat_flux = ras.convert_raster_to_array(shflux_path)
         else:
             self.soil_heat_flux = self.net_radiation * g_ratio
             if self.check_saveflag("soil_hf"):
