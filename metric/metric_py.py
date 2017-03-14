@@ -10,6 +10,8 @@ from metric.function_bank import print_stats
 from metric.extract_wx_data import extract_wx_data
 import textio
 import landsat
+import rasterio
+import pygeoprocessing
 
 
 __author__ = ["Jeffry Ely, jeff.ely.08@gmail.com",
@@ -280,11 +282,11 @@ class MetricModel:
         
         if os.path.isfile(sfpath) and not self.recalc:
             print "Reading previously estimated slopes... "
-            arcpy.AddMessage("Reading previously estimated slopes... ")
-            slope = arcpy.Raster(sfpath)
+            print "Reading previously estimated slopes... "
+            slope = rasterio.open(sfpath)
         else:
             print "Calculating elevation derivatives... "
-            arcpy.AddMessage("Calculating elevation derivatives... ")
+            print "Calculating elevation derivatives... "
             slope = arcpy.sa.Float(arcpy.sa.Slope(self.dem_file))
             
             # cap slopes at 30 degrees to reduce DEM artifacts
