@@ -33,11 +33,41 @@ def find_terrain_tiles(shapes, terrain_dir):
     '''
 
     for shape in shapes:
+
+        # get vector geometry
         polygon = ogr.Open(shape)
         layer = polygon.GetLayer()
+        feature = layer.GetFeature(0)
+        vector_geo = feature.GetGeometryRef()
 
-        tiles = [os.path.join(terrain_dir, x) for x in os.listdir(terrain_dir) if x.endswith('.tif')]
+        # mask_raster.SetProjection(layer.GetSpatialRf().ExportToWkt())
+        # mask_raster.SetGeoTransform(geo_object)
 
+        tiles = [os.path.join(terrain_dir, x) for x in os.listdir(terrain_dir)]
+
+        for tile in tiles:
+            tile = gdal.Open(tile)
+            transform = tile.GetGeoTransform()
+            pixelWidth = transform[1]
+            pixelHeight = transform[5]
+            cols = tile.RasterXSize
+            rows = tile.RasterYSize
+
+            xLeft = transform[0]
+            yTop = transform[3]
+            xRight = xLeft + cols * pixelWidth
+            yBottom = yTop - rows * pixelHeight
+
+            ring = ogr.Geometry(ogr.wkbLinearRing)
+            ring.AddPoint(xLeft, yTop)
+            ring.AddPoint(xLeft, yBottom)
+            ring.AddPoint(xRight, yTop)
+            ring.AddPoint(xRight, yBottom)
+            ring.AddPoint(xLeft, yTop)
+            raster_geo = ogr.Geometry(ogr.wkbPolygon)
+            raster_geo.AddGeometry(ring)
+
+            print 'raster intersects vector: {}'.format(raster_geo.Intersect(vector_geo))
 
     pass
 
