@@ -19,6 +19,7 @@ import os
 import gdal
 import osr
 import re
+import ntpath
 from subprocess import call
 
 def merge_rasters(in_folder, out_location, out_proj):
@@ -117,24 +118,39 @@ def wkt2epsg(wkt, epsg='/data01/anaconda2/share/proj/epsg/', forceProj4=False):
             return None
 
 
-def gdal_aspect(in_folder, out_folder):
+def gdal_build_vrt(in_folder, out_folder):
     tifs = [os.path.join(in_folder, x) for x in os.listdir(in_folder) if x.endswith('.tif')]
     print tifs
     for tif in tifs:
-        out_name = tif.replace('.tif', '_aspect_deg.tif')
+        out_name = ntpath.basename(tif.replace('.tif', '.vrt'))
         print 'out name: {}'.format(out_name)
         out_file = os.path.join(out_folder, out_name)
         print 'out file: {}'.format(out_file)
-        slope = 'gdaldem aspect {} {}'.format(tif, out_file)
+        slope = 'gdalbuildvrt {} {}'.format(tif, out_file)
+        # call(slope, shell=True)
+        return None
+
+
+def gdal_dem(in_folder, out_folder, type='slope'):
+    function = ['slope', 'aspect', 'hillshade']
+    tifs = [os.path.join(in_folder, x) for x in os.listdir(in_folder) if x.endswith('.tif')]
+    print tifs
+    for tif in tifs:
+        out_name = ntpath.basename(tif.replace('.tif', '_{}.tif'.fomat(function.index(type))))
+        print 'out name: {}'.format(out_name)
+        out_file = os.path.join(out_folder, out_name)
+        print 'out file: {}'.format(out_file)
+        slope = 'gdaldem {} {} {}'.format(function.index(type), tif, out_file)
         call(slope, shell=True)
+        return None
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
     terrain = os.path.join(home, 'images', 'analysis', 'elevation', 'elevation_NED30M_wy_3377498_01')
     in_tiles = os.path.join(terrain, 'DEM')
-    out_tiles = os.path.join(terrain, 'aspect')
-    # gdal_aspect(in_tiles, out_tiles)
+    out_tiles = os.path.join(terrain, 'vrt')
+    gdal_build_vrt(in_tiles, out_tiles)
 
 
 # ============= EOF ============================================================

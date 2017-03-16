@@ -62,7 +62,11 @@ class MetricModel:
         self._ingest_landsat_data(landsat_files)
 
         # dem info
+        self.vrt_path = os.path.join(self.work_dir, config["vrt_path"])
         self.dem_path = os.path.join(self.work_dir, config["dem_path"])
+        self.aspect_path = os.path.join(self.work_dir, config["aspect_path"])
+        self.slope_path = os.path.join(self.work_dir, config["slope_path"])
+
         self.dem_file = ras.convert_raster_to_array(self.dem_path)
         self.aspect_file = ras.convert_raster_to_array(self.aspect_path)
         self.slope_file = ras.convert_raster_to_array(self.slope_path)

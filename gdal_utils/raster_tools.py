@@ -18,19 +18,26 @@ The purpose of this module is to provide some simple tools needed for raster pro
 
 
 """
-from osgeo import gdal
+from osgeo import gdal, ogr
 from numpy import array, asarray
 from numpy.ma import masked_where, nomask, filled
 from datetime import datetime
 import os
 
 
-def find_terrain_tiles(shape):
-    '''  Finds all the terrrain tiles falling within rsense object
+def find_terrain_tiles(shapes, terrain_dir):
+    '''  Finds all the terrain tiles falling within rsense object
 
     :param shape: gdal feature shape
     :return: rsense object
     '''
+
+    for shape in shapes:
+        polygon = ogr.Open(shape)
+        layer = polygon.GetLayer()
+
+        tiles = [os.path.join(terrain_dir, x) for x in os.listdir(terrain_dir) if x.endswith('.tif')]
+
 
     pass
 
