@@ -12,11 +12,6 @@ from gdal_utils import raster_tools as ras
 from textio import ioconfig
 import landsat
 
-__author__ = ["Jeffry Ely, jeff.ely.08@gmail.com",
-              "Kent Sparrow",
-              "Jamie Vanderheiden",
-              "Nathan Quian"]
-
 
 class MetricModel:
     def __init__(self, config_filepath):
@@ -69,6 +64,8 @@ class MetricModel:
         # dem info
         self.dem_path = os.path.join(self.work_dir, config["dem_path"])
         self.dem_file = ras.convert_raster_to_array(self.dem_path)
+        self.aspect_file = ras.convert_raster_to_array(self.aspect_path)
+        self.slope_file = ras.convert_raster_to_array(self.slope_path)
 
         self.hot_shape_path = os.path.join(self.work_dir, config["hot_shp_path"])
         self.cold_shape_path = os.path.join(self.work_dir, config["cold_shp_path"])
@@ -288,27 +285,31 @@ class MetricModel:
 
         return slope
 
+    # use gdal_funcs to create individual aspects from DEM tiles
     def get_aspect(self):
-        """ calculates the aspect raster from the DEM"""
+        pass
 
-        afname = "aspect.tif"
-        afpath = os.path.join(self.middle_dir, afname)
-
-        if os.path.isfile(afpath) and not self.recalc:
-            aspect = ras.convert_raster_to_array(afpath)
-        else:
-
-            aspect = arcpy.sa.Aspect(self.dem_file)
-            # get rid of -1 "slope 0" flag
-            aspect = arcpy.sa.Float(arcpy.sa.Con(aspect, aspect, math.pi, "VALUE > -1"))
-
-            # convert degrees to radians and rotate half turn to put 0 aspect to south
-            aspect = (aspect * math.pi / 180) - math.pi
-
-            if self.check_saveflag("aspect"):
-                aspect.save(afpath)
-
-        return aspect
+    #     """ calculates the aspect raster from the DEM"""
+    #
+    #     afname = "aspect.tif"
+    #     afpath = os.path.join(self.middle_dir, afname)
+    #
+    #     if os.path.isfile(afpath) and not self.recalc:
+    #         aspect = ras.convert_raster_to_array(afpath)
+    #     else:
+    #
+    #         aspect = ras.get_raster_geo_attributes(self.aspect_file)
+    #         # get rid of -1 "slope 0" flag
+    #         # TODO: is this necessary?
+    #         aspect = ras.get_raster_geo_attributes(arcpy.sa.Con(aspect, aspect, math.pi, "VALUE > -1"))
+    #
+    #         # convert degrees to radians and rotate half turn to put 0 aspect to south
+    #         aspect = (aspect * math.pi / 180) - math.pi
+    #
+    #         if self.check_saveflag("aspect"):
+    #             aspect.save(afpath)
+    #
+    #     return aspect
 
     def get_solar_zenith_angle(self, declination, lat, hour_angle):
         return fnbank.Num8(declination, lat, hour_angle)
@@ -913,7 +914,7 @@ class MetricModel:
         omega = None
 
         print("========================= Sensible heat calculation: iteration 0 =========================")
-        arcpy.AddMessage("========================= Sensible heat calculation: iteration 0 =========================")
+        print("========================= Sensible heat calculation: iteration 0 =========================")
 
         # Needed parameters
         T_s_datum = self.get_T_s_datum(surface_temp)
@@ -1026,7 +1027,7 @@ class MetricModel:
             print(
                 "========================= Sensible heat calculation: iteration {0} =========================".format(
                     i))
-            arcpy.AddMessage(
+            print(
                 "========================= Sensible heat calculation: iteration {0} =========================".format(
                     i))
 
@@ -1117,12 +1118,12 @@ class MetricModel:
             i += 1
 
         print("Converged on solution to sensible heat after {0} iterations!".format(i))
-        arcpy.AddMessage("Converged on solution to sensible heat after {0} iterations!".format(i))
+        print("Converged on solution to sensible heat after {0} iterations!".format(i))
 
         self.sensible_heat_flux = H
 
         print("=========================   Finished sensible heat calculation   =========================")
-        arcpy.AddMessage("=========================   Finished sensible heat calculation   =========================")
+        print("=========================   Finished sensible heat calculation   =========================")
 
         return self.sensible_heat_flux
 
@@ -1498,7 +1499,7 @@ def run(config_filepath):
     print("Finished in {0} minutes!".format(elapsed_time.total_seconds() / 60))
 
     print("To view the outputs and intermediates, please go to the workspace{0}".format(mike.work_dir))
-    arcpy.AddMessage("To view the outputs and intermediates, please go to the workspace{0}".format(mike.work_dir))
+    print("To view the outputs and intermediates, please go to the workspace{0}".format(mike.work_dir))
 
     return mike
 

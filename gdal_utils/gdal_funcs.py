@@ -134,8 +134,7 @@ if __name__ == '__main__':
     terrain = os.path.join(home, 'images', 'analysis', 'elevation', 'elevation_NED30M_wy_3377498_01')
     in_tiles = os.path.join(terrain, 'DEM')
     out_tiles = os.path.join(terrain, 'aspect')
-    gdal_aspect(in_tiles, out_tiles)
-
+    # gdal_aspect(in_tiles, out_tiles)
 
 
 # ============= EOF ============================================================

@@ -25,6 +25,16 @@ from datetime import datetime
 import os
 
 
+def find_terrain_tiles(shape):
+    '''  Finds all the terrrain tiles falling within rsense object
+
+    :param shape: gdal feature shape
+    :return: rsense object
+    '''
+
+    pass
+
+
 def convert_raster_to_array(input_raster_path, raster=None, band=1):
     """
     Convert .tif raster into a numpy numerical array.
