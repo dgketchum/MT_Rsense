@@ -25,14 +25,20 @@ from datetime import datetime
 import os
 
 
-def find_terrain_tiles(shapes, terrain_dir):
+def find_terrain_tiles(shapes, terrain_dir, terrain_type='aspect'):
     '''  Finds all the terrain tiles falling within rsense object
 
     :param shape: gdal feature shape
     :return: rsense object
     '''
+    if shapes is type(list):
+        print 'analyzing {} shapes'.format(len(shapes))
+    else:
+        shapes = [shapes]
+    print 'shapes: {}'.format(shapes)
 
     for shape in shapes:
+        print 'starting shape: {}'.format(shape)
 
         # get vector geometry
         polygon = ogr.Open(shape)
@@ -43,10 +49,16 @@ def find_terrain_tiles(shapes, terrain_dir):
         # mask_raster.SetProjection(layer.GetSpatialRf().ExportToWkt())
         # mask_raster.SetGeoTransform(geo_object)
 
-        tiles = [os.path.join(terrain_dir, x) for x in os.listdir(terrain_dir)]
+        tiles = [os.path.join(terrain_dir, terrain_type, x) for x in
+                 os.listdir(os.path.join(terrain_dir, terrain_type))]
 
         for tile in tiles:
+            tile_id = os.path.basename(tile)[6:11]
+            print 'tile number: {}'.format(tile_id)
+            # print 'current tile: {}'.format(tile)
+            # get raster geometry
             tile = gdal.Open(tile)
+            # print 'tile is type: {}'.format(tile)
             transform = tile.GetGeoTransform()
             pixelWidth = transform[1]
             pixelHeight = transform[5]
@@ -66,10 +78,11 @@ def find_terrain_tiles(shapes, terrain_dir):
             ring.AddPoint(xLeft, yTop)
             raster_geo = ogr.Geometry(ogr.wkbPolygon)
             raster_geo.AddGeometry(ring)
+            if tile_id in ['47109', '47108', '47111', '46109', '46108']:
+                print 'tile number: {}'.format(tile_id)
+                print 'intesects: {}'.format(raster_geo.Intersect(vector_geo))
 
-            print 'raster intersects vector: {}'.format(raster_geo.Intersect(vector_geo))
-
-    pass
+    return None
 
 
 def convert_raster_to_array(input_raster_path, raster=None, band=1):
@@ -217,6 +230,10 @@ def make_results_dir(out_root, shapes):
 
 
 if __name__ == '__main__':
-    pass
+    home = os.path.expanduser('~')
+    print 'home: {}'.format(home)
+    terrain = os.path.join(home, 'images', 'analysis', 'terrain')
+    shape = os.path.join(home, 'images', 'MT_SPCS_vector', 'US_MJ_tile.shp')
+    find_terrain_tiles(shape, terrain_dir=terrain)
 
 # =================================== EOF =========================
