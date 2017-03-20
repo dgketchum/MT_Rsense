@@ -20,67 +20,72 @@ The purpose of this module is to provide some simple tools needed for raster pro
 """
 from osgeo import gdal, ogr
 from numpy import array, asarray
-from numpy.ma import masked_where, nomask, filled
+from numpy.ma import masked_where, nomask
 from datetime import datetime
 import os
 
 
-def find_terrain_tiles(shapes, terrain_dir, terrain_type='aspect'):
-    '''  Finds all the terrain tiles falling within rsense object
+def find_poly_ras_intersect(shapes, terrain_dir, terrain_type='aspect'):
+    """  Finds all the terrain tiles falling within rsense object
 
-    :param shape: gdal feature shape
+    :param shapes:
+    :param terrain_type:
+    :param terrain_dir:
     :return: rsense object
-    '''
+    """
     if shapes is type(list):
         print 'analyzing {} shapes'.format(len(shapes))
     else:
         shapes = [shapes]
     print 'shapes: {}'.format(shapes)
 
-    for shape in shapes:
-        print 'starting shape: {}'.format(shape)
+    for item in shapes:
+        print 'starting shape: {}'.format(item)
 
         # get vector geometry
-        polygon = ogr.Open(shape)
+        polygon = ogr.Open(item)
         layer = polygon.GetLayer()
         feature = layer.GetFeature(0)
         vector_geo = feature.GetGeometryRef()
+        print 'vector geometry: {}'.format(vector_geo)
 
         # mask_raster.SetProjection(layer.GetSpatialRf().ExportToWkt())
         # mask_raster.SetGeoTransform(geo_object)
 
         tiles = [os.path.join(terrain_dir, terrain_type, x) for x in
-                 os.listdir(os.path.join(terrain_dir, terrain_type))]
+                 os.listdir(os.path.join(terrain_dir, terrain_type)) if x.endswith('.tif')]
 
         for tile in tiles:
             tile_id = os.path.basename(tile)[6:11]
-            print 'tile number: {}'.format(tile_id)
+            # print 'tile number: {}'.format(tile_id)
             # print 'current tile: {}'.format(tile)
             # get raster geometry
             tile = gdal.Open(tile)
             # print 'tile is type: {}'.format(tile)
             transform = tile.GetGeoTransform()
-            pixelWidth = transform[1]
-            pixelHeight = transform[5]
+            pixel_width = transform[1]
+            pixel_height = transform[5]
             cols = tile.RasterXSize
             rows = tile.RasterYSize
 
-            xLeft = transform[0]
-            yTop = transform[3]
-            xRight = xLeft + cols * pixelWidth
-            yBottom = yTop - rows * pixelHeight
+            x_left = transform[0]
+            y_top = transform[3]
+            x_right = x_left + cols * pixel_width
+            y_bottom = y_top - rows * pixel_height
 
             ring = ogr.Geometry(ogr.wkbLinearRing)
-            ring.AddPoint(xLeft, yTop)
-            ring.AddPoint(xLeft, yBottom)
-            ring.AddPoint(xRight, yTop)
-            ring.AddPoint(xRight, yBottom)
-            ring.AddPoint(xLeft, yTop)
+            ring.AddPoint(x_left, y_top)
+            ring.AddPoint(x_left, y_bottom)
+            ring.AddPoint(x_right, y_top)
+            ring.AddPoint(x_right, y_bottom)
+            ring.AddPoint(x_left, y_top)
             raster_geo = ogr.Geometry(ogr.wkbPolygon)
             raster_geo.AddGeometry(ring)
-            if tile_id in ['47109', '47108', '47111', '46109', '46108']:
+            raster_list = []
+            if raster_geo.Intersect(vector_geo):
                 print 'tile number: {}'.format(tile_id)
                 print 'intesects: {}'.format(raster_geo.Intersect(vector_geo))
+                raster_list.append(tile)
 
     return None
 
@@ -186,11 +191,26 @@ def save_daily_pts_old(filename, day, ndvi, temp, precip, etr, petr, nlcd, dem, 
 #             wfile.write('{},{},{},{],{},{},{},{},{},{},{},{}'.format(year,this_month,month_day,*datum))
 
 
+def array_to_raster(save_array, out_path, geo):
+    key = None
+    pass
+    driver = gdal.GetDriverByName('GTiff')
+    out_data_set = driver.Create(out_path, geo['cols'], geo['rows'],
+                                 geo['bands'], geo['data_type'])
+    out_data_set.SetGeoTransform(geo['geotransform'])
+    out_data_set.SetProjection(geo['projection'])
+    output_band = out_data_set.GetRasterBand(1)
+    output_band.WriteArray(save_array, 0, 0)
+    print 'written array {} mean value: {}'.format(key, save_array.mean())
+
+    return None
+
+
 def make_results_dir(out_root, shapes):
     """
     Creates a directory tree of empty folders that will recieve ETRM model output rasters.
 
-    :param out_path: Parent directory within which an ETRM_results_date folder will be created.
+    :param out_root:
     :param shapes: Folder contains sub-directories with shapefiles of geographies to be analyzed.
     :return: dict of directory paths
     """
@@ -233,7 +253,7 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
     terrain = os.path.join(home, 'images', 'analysis', 'terrain')
-    shape = os.path.join(home, 'images', 'MT_SPCS_vector', 'US_MJ_tile.shp')
-    find_terrain_tiles(shape, terrain_dir=terrain)
+    shape = os.path.join(home, 'images', 'vector_data', 'Flux_locations', '37027_L8_Z12.shp')
+    find_poly_ras_intersect(shape, terrain_dir=terrain)
 
 # =================================== EOF =========================

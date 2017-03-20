@@ -131,26 +131,26 @@ def gdal_build_vrt(in_folder, out_folder):
     return None
 
 
-def gdal_dem(in_folder, out_folder, type='slope'):
+def gdal_dem(in_folder, out_folder, terrain_type='slope'):
+
     function = ['slope', 'aspect', 'hillshade']
-    tifs = [os.path.join(in_folder, x) for x in os.listdir(in_folder) if x.endswith('.tif')]
+    tifs = [os.path.join(in_folder, x) for x in os.listdir(in_folder) if x.endswith('dem.tif')]
     print tifs
     for tif in tifs:
-        out_name = ntpath.basename(tif.replace('.tif', '_{}.tif'.format(function.index(type))))
+        out_name = ntpath.basename(tif.replace('dem.tif', '{}.tif'.format(terrain_type)))
         print 'out name: {}'.format(out_name)
         out_file = os.path.join(out_folder, out_name)
         print 'out file: {}'.format(out_file)
-        slope = 'gdaldem {} {} {}'.format(function.index(type), tif, out_file)
+        slope = 'gdaldem {} {} {}'.format(function.index(terrain_type), tif, out_file)
         call(slope, shell=True)
         return None
+
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    terrain = os.path.join(home, 'images', 'analysis', 'elevation', 'elevation_NED30M_id_22371_01')
-    in_tiles = os.path.join(terrain, 'DEM')
-    out_tiles = os.path.join(terrain, 'vrt')
-    gdal_build_vrt(in_tiles, out_tiles)
+    terrain = os.path.join(home, 'images', 'DEM', 'N_Rockies_30m_complete')
+    gdal_dem(terrain, terrain)
 
 
 # ============= EOF ============================================================

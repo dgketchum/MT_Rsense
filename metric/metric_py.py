@@ -124,7 +124,7 @@ class MetricModel:
             setattr(self, rast_attr_name, ras.convert_raster_to_array(getattr(self, path_attr_name)))
 
             self.landsat_bands.append(getattr(self, rast_attr_name))
-        return
+        return None
 
     def check_saveflag(self, object_name):
         """

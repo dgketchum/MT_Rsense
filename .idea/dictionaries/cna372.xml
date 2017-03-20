@@ -2,6 +2,8 @@
   <dictionary name="cna372">
     <words>
       <w>createonly</w>
+      <w>gdaldem</w>
+      <w>rasters</w>
       <w>tifs</w>
     </words>
   </dictionary>
