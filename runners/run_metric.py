@@ -17,9 +17,12 @@ import os
 from metric.metric_py import run
 
 
-def run_metric():
-    run()
+def run_metric(config):
+    metric = run(config)
 
 
 if __name__ == '__main__':
-    pass
+    home = os.path.expanduser('~')
+    print 'home: {}'.format(home)
+    configuration_file = os.path.join(home, 'images', 'configs', 'conf_test.txt')
+    run_metric(configuration_file)

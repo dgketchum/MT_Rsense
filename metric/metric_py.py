@@ -9,19 +9,19 @@ from metric import function_bank as fnbank
 from metric.function_bank import print_stats
 from metric.extract_wx_data import extract_wx_data
 from gdal_utils import raster_tools as ras
-from textio import ioconfig
+from textio.ioconfig import IoConfig
 import landsat
 
 
 class MetricModel:
-    def __init__(self, config_filepath):
+    def __init__(self, config_file_path):
         """
         Loads all needed attributes from a workspace created with "prepare_metric_env" function
         """
 
         # build a config file with these inputs
-        config = ioconfig()
-        config.read(config_filepath)
+        config = IoConfig()
+        config.read(config_file_path)
 
         # flags and house keeping attributes
         self.work_dir = config["metric_workspace"]

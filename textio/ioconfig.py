@@ -2,7 +2,8 @@ import os
 
 from text_data import text_data
 
-class ioconfig(text_data):
+
+class IoConfig(text_data):
     """
     An ioconfig object is an extension to the text_data_class
     it has the same methods of text_data_class, plus an add_param function
