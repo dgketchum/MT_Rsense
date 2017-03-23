@@ -22,7 +22,7 @@ Created on Thu Aug 06 13:43:27 2015
 @author: Von P. Walden, Washington State University
 """
 
-from netCDF4 import Dataset
+from netcdf4 import Dataset
 from datetime import date, timedelta
 import sys
 from numpy import argmin, argmax

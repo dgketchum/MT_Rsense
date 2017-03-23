@@ -14,17 +14,18 @@
 # limitations under the License.
 # ===============================================================================
 import os
-from metric.metric_py import run
-from weather.get_meteo import get_gridded_met_data
+from netCDF4 import Dataset
+from datetime import date, timedelta
 
 
-def run_metric(config, (path, row)):
-    met = get_gridded_met_data()
-    metric = run(config)
+def get_gridded_met_data():
+    site = 'http://thredds.northwestknowledge.net:8080/thredds/dodsC/MET/sph/sph_2015.nc'
+    data = Dataset(site)
+    print data
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    print 'home: {}'.format(home)
-    configuration_file = os.path.join(home, 'images', 'configs', 'conf_test.txt')
-    run_metric(configuration_file, ('036', '029'))
+    get_gridded_met_data()
+
+    # ===============================================================================
