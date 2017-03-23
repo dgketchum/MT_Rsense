@@ -22,6 +22,7 @@ import re
 import ntpath
 from subprocess import call
 
+
 def merge_rasters(in_folder, out_location, out_proj):
     tifs = [os.path.join(in_folder, x) for x in os.listdir(in_folder) if x.endswith('.tif')]
 
