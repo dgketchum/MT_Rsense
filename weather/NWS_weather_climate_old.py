@@ -28,11 +28,10 @@ import sys
 from numpy import argmin, argmax
 
 
-def get_gefs_temps(lat, lon, date_range=None):
+def getGEFStemperatures(lat, lon):
     """ Function to retrieve GEFS data from yesterday."""
 
     print('Opening connection to motherlode.ucar.edu...')
-
     dateNumber = (date.today() - timedelta(days=1)).strftime('%Y%m%d')  # For yesterday
     # dateNumber = date.today().strftime('%Y%m%d')                       # For today
     fn = 'http://thredds.ucar.edu/thredds/dodsC/grib/NCEP/GEFS/Global_1p0deg_Ensemble/members/GEFS_Global_1p0deg_Ensemble_' + dateNumber + '_0000.grib2'
@@ -40,7 +39,7 @@ def get_gefs_temps(lat, lon, date_range=None):
         gefs = Dataset(fn)
     except:
         print(
-        'Data is NOT currently available from http://motherlode.ucar.edu/thredds/dodsC/grib/NCEP/GFS/Global_0p5deg/files/GFS_Global_0p5deg_' + dateNumber + '_0000.grib2')
+            'Data is NOT currently available from http://motherlode.ucar.edu/thredds/dodsC/grib/NCEP/GFS/Global_0p5deg/files/GFS_Global_0p5deg_' + dateNumber + '_0000.grib2')
         sys.exit()
 
     # The "gfs" reference in python is a set of nested dictionaries.
@@ -85,7 +84,7 @@ def getNAMtemperatures(lat, lon):
         nam = Dataset(fn)
     except:
         print(
-        'Data is NOT currently available from http://motherlode.ucar.edu/thredds/dodsC/grib/NCEP/GFS/Global_0p5deg/files/GFS_Global_0p5deg_' + dateNumber + '_0000.grib2')
+            'Data is NOT currently available from http://motherlode.ucar.edu/thredds/dodsC/grib/NCEP/GFS/Global_0p5deg/files/GFS_Global_0p5deg_' + dateNumber + '_0000.grib2')
         sys.exit()
 
     # Load time series
