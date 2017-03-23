@@ -25,41 +25,10 @@ from datetime import datetime
 import os
 
 
-def get_shape_geo(shapes):
-    """get a gdal ogr polygon object a raster, note this finds the entire extent
-
-    """
-
-    if shapes is type(list):
-        make_dict = True
-        list_geo = {}
-        print 'analyzing {} shapes'.format(len(shapes))
-    else:
-        make_dict = False
-        shapes = [shapes]
-    print 'shapes: {}'.format(shapes)
-
-    for item in shapes:
-        print 'starting shape: {}'.format(item)
-
-        # get vector geometry
-        polygon = ogr.Open(item)
-        layer = polygon.GetLayer()
-        feature = layer.GetFeature(0)
-        vector_geo = feature.GetGeometryRef()
-        print 'vector geometry: {}'.format(vector_geo)
-        if make_dict:
-            list_geo[str(item)] = vector_geo
-        else:
-            return vector_geo
-
-    return list_geo
-
-
 def get_raster_polygon(raster):
     tile_id = os.path.basename(raster)
     # print 'tile number: {}'.format(tile_id)
-    print 'get poly tile: {}'.format(tile_id)
+    # print 'get poly tile: {}'.format(tile_id)
     # get raster geometry
     tile = gdal.Open(raster)
     # print 'tile is type: {}'.format(tile)
@@ -82,30 +51,37 @@ def get_raster_polygon(raster):
     ring.AddPoint(x_left, y_top)
     raster_geo = ogr.Geometry(ogr.wkbPolygon)
     raster_geo.AddGeometry(ring)
-
+    # print 'found poly tile geo: {}'.format(raster_geo)
     return raster_geo
 
 
-def find_poly_ras_intersect(polygon, raster_dir, extension='.tif'):
-    """  Finds all the tiles falling within rsense object
+def find_poly_ras_intersect(shape, raster_dir, extension='.tif'):
+    """  Finds all the tiles falling within raster object
+    the get shape geometry should be seperated from the intesect check,
+    currently causes a exit code 139 on unix box
 
     :param polygon:
     :param extension:
     :param raster_dir:
     """
 
-    vector_geo = get_shape_geo(polygon)
+    print 'starting shape: {}'.format(shape)
+
+    # get vector geometry
+    polygon = ogr.Open(shape)
+    layer = polygon.GetLayer()
+    feature = layer.GetFeature(0)
+    vector_geo = feature.GetGeometryRef()
+    print 'vector geometry: {}'.format(vector_geo)
 
     tiles = [os.path.join(raster_dir, x) for x in
              os.listdir(os.path.join(raster_dir)) if x.endswith(extension)]
 
-    print 'all tiles: {}'.format(tiles)
     raster_list = []
     for tile in tiles:
-        print 'tile: {}'.format(tile)
         raster_geo = get_raster_polygon(tile)
         if raster_geo.Intersect(vector_geo):
-            print 'intesects: {}'.format(raster_geo.Intersect(vector_geo))
+            print 'tile: {} intersects {}'.format(os.path.basename(tile), os.path.basename(shape))
             raster_list.append(tile)
 
     return raster_list
@@ -273,7 +249,7 @@ def make_results_dir(out_root, shapes):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    terrain = os.path.join(home, 'images', 'DEM', 'N_Rockies_30m_complete', 'dem')
+    terrain = os.path.join(home, 'images', 'terrain', 'ned_tiles', 'dem')
     shape = os.path.join(home, 'images', 'vector_data', 'Flux_locations', '37027_L8_Z12.shp')
     find_poly_ras_intersect(shape, terrain)
 
