@@ -44,7 +44,7 @@ def get_gridmet(day):
     # sph = nc.variables['specific_humidity'][:]
     print 'variable of type {} has shape {}'.format(type(time_var), time_var.shape)
     print time_var
-
+    #
     # find indices of lat lon bounds in nc file
     lats = nc.variables['lat'][:]
     lons = nc.variables['lon'][:]
