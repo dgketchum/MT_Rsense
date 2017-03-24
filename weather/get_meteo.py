@@ -23,14 +23,28 @@ lat_bound = [44, 49]
 lon_bound = [-117, -104]
 
 
-def get_gridded_met_data(date_range):
-    site = 'http://thredds.northwestknowledge.net:8080/thredds/dodsC/MET/pet/pet_2016.nc'
+def get_gridmet(day):
+    """ get day values frof U of I gridmet, return as numpy array per variable
+    :param day:
+    :return:
+
+    note: dates are in xl '1900' format, i.e., number of days since 1899-12-31 23:59
+    """
+    # get dataset from internet
+    variables = ['pr', 'rmax', 'rmin', 'sph', 'srad', 'th', 'tmmn', 'tmmx', 'pet', 'vs']
+    print 'for year {}'.format(day.year)
+    site = 'http://thredds.northwestknowledge.net:8080/thredds/dodsC/MET/pet/pet_{}.nc'.format(day.year)
     nc = Dataset(site)
     print nc.variables.keys()
+
     # convert time axis to datetime object
+    date_tup = (day.year, day.month, day.day)
+    excel_date = xldate.xldate_from_date_tuple(date_tup, 0)
     time_var = nc.variables['day'][:]
-    sph = nc.variables['potential_evapotranspiration'][:]
-    print 'variable of type {} has shape {}'.format(type(sph), sph.shape)
+    # sph = nc.variables['specific_humidity'][:]
+    print 'variable of type {} has shape {}'.format(type(time_var), time_var.shape)
+    print time_var
+    #
     # find indices of lat lon bounds in nc file
     lats = nc.variables['lat'][:]
     lons = nc.variables['lon'][:]
@@ -45,7 +59,7 @@ def get_gridded_met_data(date_range):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    dates = datetime(2002, 4, 1, 12), datetime(2002, 9, 30, 12)
-    get_gridded_met_data(dates)
+    date = datetime(2016, 4, 1, 12)
+    get_gridmet(date)
 
     # ===============================================================================
