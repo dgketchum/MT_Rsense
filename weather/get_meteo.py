@@ -14,18 +14,38 @@
 # limitations under the License.
 # ===============================================================================
 import os
-from netCDF4 import Dataset
-from datetime import date, timedelta
+import numpy as np
+from netCDF4 import Dataset, num2date
+from datetime import datetime, timedelta
+from xlrd import xldate
+
+lat_bound = [44, 49]
+lon_bound = [-117, -104]
 
 
-def get_gridded_met_data():
-    site = 'http://thredds.northwestknowledge.net:8080/thredds/dodsC/MET/sph/sph_2015.nc'
-    data = Dataset(site)
-    print data
+def get_gridded_met_data(date_range):
+    site = 'http://thredds.northwestknowledge.net:8080/thredds/dodsC/MET/pet/pet_2016.nc'
+    nc = Dataset(site)
+    print nc.variables.keys()
+    # convert time axis to datetime object
+    time_var = nc.variables['day'][:]
+    sph = nc.variables['potential_evapotranspiration'][:]
+    print 'variable of type {} has shape {}'.format(type(sph), sph.shape)
+    # find indices of lat lon bounds in nc file
+    lats = nc.variables['lat'][:]
+    lons = nc.variables['lon'][:]
+    lat_lower = np.argmin(np.abs(lats - lat_bound[1]))
+    lat_upper = np.argmin(np.abs(lats - lat_bound[0]))
+    lon_lower = np.argmin(np.abs(lons - lon_bound[1]))
+    lon_upper = np.argmin(np.abs(lons - lon_bound[0]))
+
+    # subset = nc.variables['specific_humidity'][:, lat_lower:lat_upper, lon_lower:lon_upper]
+    # print subset
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    get_gridded_met_data()
+    dates = datetime(2002, 4, 1, 12), datetime(2002, 9, 30, 12)
+    get_gridded_met_data(dates)
 
     # ===============================================================================
