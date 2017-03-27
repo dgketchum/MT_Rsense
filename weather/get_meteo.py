@@ -19,14 +19,20 @@ from netCDF4 import Dataset, num2date
 from datetime import datetime, timedelta
 from xlrd import xldate
 
-
-
+# Montana bounds (lat, lon)
 lat_bound = [44, 49]
 lon_bound = [-117, -104]
 
 
-def get_gridmet(day):
-    """ get day values frof U of I gridmet, return as numpy array per variable
+def get_bounds_rectangle(lats, lons):
+    site = 'https://cida.usgs.gov/thredds/ncss/topowx?var=tmax&var=tmin&disableLLSubset=on&disableProjSubset=on&horizStride=1&time_start=1948-01-01T12%3A00%3A00Z&time_end=2015-12-31T12%3A00%3A00Z&timeStride=1&addLatLon=true'
+    nc = Dataset(site)
+    print nc
+
+
+def get_gridmet(day, variable):
+    """ get day values from U of I gridmet, return as numpy array per variable
+    :param variable:
     :param day:
     :return:
 
@@ -35,9 +41,12 @@ def get_gridmet(day):
 
     # get dataset from internet
     variables = ['pr', 'rmax', 'rmin', 'sph', 'srad', 'th', 'tmmn', 'tmmx', 'pet', 'vs']
-    print 'for year {}'.format(day.year)
+    if variable not in variables:
+        raise Exception("invalid saveflag!, must be 'ALL', 'LIMITED', or 'ET-ONLY'")
+    else:
+        print '{} for year {}'.format(variable, day.year)
 
-    site = 'http://thredds.northwestknowledge.net:8080/thredds/dodsC/MET/pet/pet_{}.nc'.format(day.year)
+    site = 'http://thredds.northwestknowledge.net:8080/thredds/dodsC/MET/pet/{}_{}.nc'.format(variable, day.year)
     nc = Dataset(site)
     print nc.variables.keys()
 
@@ -63,7 +72,7 @@ def get_gridmet(day):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    day = datetime(2016, 4, 1, 12)
-    get_gridmet(day)
+    # day = datetime(2016, 4, 1, 12)
+    get_bounds_rectangle(lat_bound, lon_bound)
 
-    # ===============================================================================
+# ===============================================================================
