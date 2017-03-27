@@ -19,7 +19,7 @@ from netCDF4 import Dataset, num2date
 from datetime import datetime, timedelta
 from xlrd import xldate
 
-import matplotlib.pyplot as plt
+
 
 lat_bound = [44, 49]
 lon_bound = [-117, -104]
@@ -53,15 +53,12 @@ def get_gridmet(day):
     lons = nc.variables['lon'][:]
     lat_lower = np.argmin(np.abs(lats - lat_bound[1]))
     lat_upper = np.argmin(np.abs(lats - lat_bound[0]))
-    get
-    basemap!
     lon_lower = np.argmin(np.abs(lons - lon_bound[0]))
     lon_upper = np.argmin(np.abs(lons - lon_bound[1]))
 
-    subset = nc.variables['potential_evapotranspiration'][date_index, lat_lower:lat_upper, lon_lower:lon_upper]
+    subset = nc.variables['potential_evapotranspiration'][date_index, :, :]  # lat_lower:lat_upper, lon_lower:lon_upper]
     nc.close()
     print 'variable of type {} has shape {}'.format(type(subset), subset.shape)
-    # print 'subset data in {} units'.format(nc.variables['potential_evapotranspiration'].units)
 
 
 if __name__ == '__main__':

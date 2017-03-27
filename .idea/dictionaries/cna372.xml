@@ -1,7 +1,9 @@
 <component name="ProjectDictionaryState">
   <dictionary name="cna372">
     <words>
+      <w>basemap</w>
       <w>createonly</w>
+      <w>evapotranspiration</w>
       <w>gdaldem</w>
       <w>gridmet</w>
       <w>rasters</w>
