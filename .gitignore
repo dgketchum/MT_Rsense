@@ -6,6 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
+# cloned dirs
+/landsat-util/*
+/obspts/*
+
 # Distribution / packaging
 .Python
 env/
