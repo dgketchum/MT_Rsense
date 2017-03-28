@@ -7,8 +7,8 @@ __pycache__/
 *.so
 
 # cloned dirs
-/landsat-util/*
-/obspts/*
+landsat-util/
+obspts/
 
 # Distribution / packaging
 .Python
