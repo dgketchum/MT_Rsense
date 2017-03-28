@@ -94,6 +94,8 @@ dependencies:
 - !!python/unicode
   'pycairo=1.10.0=py27_0'
 - !!python/unicode
+  'pycurl=7.43.0=py27_2'
+- !!python/unicode
   'pyparsing=2.1.4=py27_0'
 - !!python/unicode
   'pyqt=5.6.0=py27_2'
@@ -148,6 +150,8 @@ dependencies:
   - netcdf4==1.2.7
   - pygeoprocessing==0.3.3
   - snuggs==1.4.1
+  - suds==0.4
+  - tzwhere==2.3
   - werkzeug==0.12.1
 prefix: !!python/unicode '/data01/anaconda2/envs/test1'
 
