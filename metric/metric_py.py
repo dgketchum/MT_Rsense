@@ -1,16 +1,16 @@
 # standard imports
-from datetime import datetime
 import math
 import os
+from datetime import datetime
+
+import landsat
 from numpy import where
 
-# local imports
 from metric import function_bank as fnbank
-from metric.function_bank import print_stats
 from metric.extract_wx_data import extract_wx_data
-from gdal_utils import raster_tools as ras
-from textio.ioconfig import IoConfig
-import landsat
+from metric.function_bank import print_stats
+from metric.textio.ioconfig import IoConfig
+from utils import raster_tools as ras
 
 
 class MetricModel:
@@ -872,7 +872,7 @@ class MetricModel:
     # this function appears to be unused? why?
     def get_wind_speed_at_assumed_blending_height(self, wind_speed):
         #
-        #  LAI at weather station
+        #  LAI at obsgrid station
         lai_w = 0.764196  # hard coded value flag
 
         zom_w = 0.018 * lai_w
@@ -1337,12 +1337,12 @@ def run(config_filepath):
     crop = mike.crop
     timezone = mike.timezone
 
-    # get ugly list of reference variables from weather data (legacy formating)
+    # get ugly list of reference variables from obsgrid data (legacy formating)
     temp_C_min, temp_C_max, temp_C_mid, P_air, wind_speed, dewp_C = extract_wx_data(mike.landsat_meta.datetime_obj,
                                                                                     mike.weather_path)
     wx_save = ioconfig()
 
-    # go ahead and write these weather stats to a file in the workspace
+    # go ahead and write these obsgrid stats to a file in the workspace
     wx_save.add_param({"temp_min": temp_C_min,
                        "temp_max": temp_C_max,
                        "temp_mid": temp_C_mid,

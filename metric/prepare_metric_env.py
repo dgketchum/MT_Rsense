@@ -2,8 +2,11 @@ __author__ = 'jwely'
 
 import os
 import shutil
-import textio
+
 import arcpy
+
+from metric import textio
+
 arcpy.CheckOutExtension("Spatial")
 arcpy.env.overwriteOutput = True
 
@@ -65,13 +68,13 @@ def prepare_metric_env(workspace, landsat_band2, landsat_band3, landsat_band4, l
     dem_path:               filepath to the digital elevation model
     hot_shape_path:         filepath to the shapefile outlining the hot pixels
     cold_shape_path:        filepath to the shapefile outlining the cold pixels
-    wx_filepath:            filepath to the weather data. downloaded by following NCDC download tutorial
+    wx_filepath:            filepath to the obsgrid data. downloaded by following NCDC download tutorial
     testflag:               parameter string to regulate intermediate output file generation
                                 possible values include "ALL" , "LIMITED", "ET_ONLY"
     recalc:                 forces all calculations to be re-performed
     crop_type:              reference crop type, either "alfalfa" or "corn"
-    wx_elev                 the elevation of the weather station used
-    wx_zom                  estimate of the "zom" term at weather station (temporary)
+    wx_elev                 the elevation of the obsgrid station used
+    wx_zom                  estimate of the "zom" term at obsgrid station (temporary)
     LE_cold_cal_factor      used to calibrate LE terms. This should probably always be = 1.05
     mountains               will be either True or False, defaults to False.
     L_green_fac             reference L factor for calculating SAVI (0.1 for Idaho, 0.5 for NorthCarolina)

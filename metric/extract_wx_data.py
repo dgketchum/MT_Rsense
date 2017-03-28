@@ -1,16 +1,16 @@
 __author__ = "jwely"
 
-import time_series
-from textio.read_ds3505 import read_DS3505
-
 from datetime import datetime
+
+from metric import time_series
+from metric.textio.read_ds3505 import read_DS3505
 
 
 def extract_wx_data(time_obj, wx_path):
     """
     This function was writen to reenstate wx file parsing for tha greed upon NOAA
-    weather data format for any study area within the USA. This is THE function
-    that should be used for reading weather data, the others will not be supported.
+    obsgrid data format for any study area within the USA. This is THE function
+    that should be used for reading obsgrid data, the others will not be supported.
 
     It expects data in the format as retrieved from this URL:
         [http://gis.ncdc.noaa.gov/map/viewer/#app=cdo&cfg=cdo&theme=hourly&layers=1&node=gi]
@@ -19,7 +19,7 @@ def extract_wx_data(time_obj, wx_path):
 
     Inputs:
         time_obj    A datetime object representing the image data aquisition datetime
-        wx_path     filepath to the weather data. (hourly data)
+        wx_path     filepath to the obsgrid data. (hourly data)
 
     Returns:
         an array with specific ordering of climate variables.

@@ -15,7 +15,7 @@
 # ===============================================================================
 import os
 from metric.metric_py import run
-from weather.get_meteo import get_gridded_met_data
+from obsgrid.get_meteo import get_gridded_met_data
 
 
 def run_metric(config, (path, row)):
