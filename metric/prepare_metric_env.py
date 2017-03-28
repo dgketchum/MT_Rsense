@@ -174,7 +174,7 @@ def prepare_metric_env(workspace, landsat_band2, landsat_band3, landsat_band4, l
     #cold_shape_path = copyfile(cold_shape_path, ref_pixel_dir, workspace)
     #clip_extent = copyfile(clip_extent, dem_dir, workspace)
 
-    # move the weather data
+    # move the obsgrid data
     wx_filepath = copyfile(wx_filepath, weather_dir, workspace)
 
 

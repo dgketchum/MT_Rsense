@@ -25,7 +25,7 @@ def extract_wx_data(time_obj, wx_path):
         an array with specific ordering of climate variables.
     """
 
-    # format weather (daily and hourly) as a time series object
+    # format obsgrid (daily and hourly) as a time series object
     wx = time_series.time_series("wx_data")
     tdo = read_DS3505(wx_path, has_headers=True)
     wx.from_tdo(tdo)

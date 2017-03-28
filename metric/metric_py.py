@@ -3,14 +3,13 @@ import math
 import os
 from datetime import datetime
 
-import landsat
 from numpy import where
 
-from metric import function_bank as fnbank
+from utils import raster_tools as ras
+from metric import function_bank as fnbank, landsat
 from metric.extract_wx_data import extract_wx_data
 from metric.function_bank import print_stats
-from metric.textio.ioconfig import IoConfig
-from utils import raster_tools as ras
+from metric.textio import IoConfig
 
 
 class MetricModel:

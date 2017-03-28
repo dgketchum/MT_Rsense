@@ -14,8 +14,6 @@ dependencies:
 - !!python/unicode
   'click-plugins=1.0.3=py27_0'
 - !!python/unicode
-  'curl=7.45.0=0'
-- !!python/unicode
   'cycler=0.10.0=py27_0'
 - !!python/unicode
   'dbus=1.10.10=0'
@@ -32,8 +30,6 @@ dependencies:
 - !!python/unicode
   'gdal=2.0.0=py27_1'
 - !!python/unicode
-  'geos=3.4.2=0'
-- !!python/unicode
   'geotiff=1.4.1=0'
 - !!python/unicode
   'glib=2.50.2=1'
@@ -44,27 +40,19 @@ dependencies:
 - !!python/unicode
   'hdf4=4.2.12=0'
 - !!python/unicode
-  'hdf5=1.8.15.1=3'
-- !!python/unicode
   'icu=54.1=0'
 - !!python/unicode
   'jbig=2.1=0'
 - !!python/unicode
   'jpeg=8d=2'
 - !!python/unicode
-  'kealib=1.4.5=0'
-- !!python/unicode
   'libffi=3.2.1=1'
 - !!python/unicode
   'libgcc=5.2.0=0'
 - !!python/unicode
-  'libgdal=2.0.0=2'
-- !!python/unicode
   'libgfortran=3.0.0=1'
 - !!python/unicode
   'libiconv=1.14=0'
-- !!python/unicode
-  'libnetcdf=4.3.3.1=3'
 - !!python/unicode
   'libpng=1.6.27=0'
 - !!python/unicode
@@ -139,19 +127,31 @@ dependencies:
   'gdal-data=1.10.1=1'
 - pip:
   - affine==2.0.0.post1
+  - certifi==2017.1.23
   - cligj==0.4.0
   - cython==0.25.2
+  - decorator==4.0.11
   - flask==0.12
+  - futures==3.0.5
+  - geocoder==1.21.2
+  - homura==0.1.5
+  - humanize==0.5.1
   - itsdangerous==0.24
   - jinja2==2.9.5
+  - landsat-util==0.13.1
   - lxml==3.7.3
   - markupsafe==1.0
   - natcap.versioner==0.5.0
   - netcdf4==1.2.7
   - pygeoprocessing==0.3.3
+  - ratelim==0.1.6
+  - requests==2.7.0
+  - requests-futures==0.9.7
   - snuggs==1.4.1
   - suds==0.4
+  - termcolor==1.1.0
   - tzwhere==2.3
+  - usgs==0.1.9
   - werkzeug==0.12.1
 prefix: !!python/unicode '/data01/anaconda2/envs/test1'
 
