@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===============================================================================
+import os
 from mechanize import Browser, _http
 
 
-def lat_lon_to_path_row(lat, lon):
+def open_browser(site):
+
     br = Browser()
     br.set_handle_equiv(True)
     br.set_handle_gzip(True)
@@ -27,11 +29,31 @@ def lat_lon_to_path_row(lat, lon):
     br.set_debug_http(True)
     br.set_debug_redirects(True)
     br.set_debug_responses(True)
-    br.addheaders = [('User-agent', 'Mozilla/5.0 (X11; U; \n'
-                                    'Linux i686; en-US; rv:1.9.0.1) Gecko/2008071615 Fedora/3.0.1-1.fc9 Firefox/3.0.1')]
+
+    r = br.open(site)
+    html = r.read()
+    print 'Check out the available forms:'
+    for f in br.forms():
+        print f
+
+    return br
+
+
+def lat_lon_to_path_row(lat, lon):
+    site = 'https://landsat.usgs.gov/wrs-2-pathrow-latitudelongitude-converter'
+    # site = 'http://google.com'
+    browser = open_browser(site)
+    browser.select_form(nr=0)
+    browser.form['search_block_form'] = str(lat)
+    # browser.form['q'] = str(lat)
+    browser.submit()
+    print 'response: {}'.format(browser.response().read())
+
 
 
 if __name__ == '__main__':
-    pass
+    home = os.path.expanduser('~')
+    print 'home: {}'.format(home)
+    lat_lon_to_path_row(47.5, 107.2)
 
     # ===============================================================================
