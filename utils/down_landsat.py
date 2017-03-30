@@ -13,16 +13,19 @@ from os.path import join
 from osgeo import ogr
 import os
 import requests.packages.urllib3
+from datetime import datetime
+
 
 from vector_tools import lat_lon_to_ogr_point, get_path_row
 
 requests.packages.urllib3.disable_warnings()
 
 
-def download_landsat((start_date, end_date), (path, row)=None, (lat, lon)=None, shape=None, output_path=None,
+def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None, shape=None, output_path=None,
                      dry_run=False, max_cloud=None, return_scenes=10):
 
     if shape:
+        # assumes shapefile has a 'path' and a 'row' field
         shp_filename = shape
         ds = ogr.Open(shape)
         lyr = ds.GetLayer()
@@ -32,9 +35,10 @@ def download_landsat((start_date, end_date), (path, row)=None, (lat, lon)=None, 
 
     elif lat and lon:
         point = lat_lon_to_ogr_point(lat, lon)
-        image_index = get_path_row(point)
+        print point
+        image_index = get_path_row(point, shape)
         assert type(image_index) == list
-        print 'Downloading landsate by lat/lon: {}'.format(lat, lon)
+        print 'Downloading landsat by lat/lon: {}'.format(lat, lon)
 
     elif path and row:
         image_index = [(path, row)]
@@ -60,7 +64,7 @@ def download_landsat((start_date, end_date), (path, row)=None, (lat, lon)=None, 
             print
         print '{} is empty'.format(destination_path)
 
-        dwner = Downloader(verbose=False, download_dir='{}\\{}'.format(output_path, destination_path))
+        downer = Downloader(verbose=False, download_dir='{}\\{}'.format(output_path, destination_path))
 
         candidate_scenes = searcher.search(paths_rows='{},{},{},{}'.format(path, row, path, row),
                                            start_date=start_date,
@@ -69,14 +73,15 @@ def download_landsat((start_date, end_date), (path, row)=None, (lat, lon)=None, 
                                            cloud_max=max_cloud_percent,
                                            limit=return_scenes)
         print 'total images for tile {} is {}'.format(tile, candidate_scenes['total_returned'])
-
+        if dry_run:
+            break
         x = 0
         if candidate_scenes['status'] == 'SUCCESS':
             for scene_image in candidate_scenes['results']:
                 print 'Downloading:', (str(scene_image['sceneID']))
                 print 'Downloading tile {} of {}'.format(x, candidate_scenes['total_returned'])
                 try:
-                    dwner.download([str(scene_image['sceneID'])])
+                    downer.download([str(scene_image['sceneID'])])
                     Simple(
                         join('{}\\{}'.format(output_path, destination_path), str(scene_image['sceneID']) + '.tar.bz'))
                     x += 1
@@ -90,6 +95,13 @@ def download_landsat((start_date, end_date), (path, row)=None, (lat, lon)=None, 
 
 
 if __name__ == '__main__':
-    pass
+    home = os.path.expanduser('~')
+    print 'home: {}'.format(home)
+    start = datetime(2012, 5, 1)
+    end = datetime(2012, 9, 30)
+    shape = os.path.join(home, 'images', 'vector', 'MT_SPCS_vector', 'US_MJ_tile.shp')
+    lat, lon = 47.4, -109.5
+    path, row = 38, 27
+    download_landsat((start, end), (lat, lon), dry_run=True)
 
     # ===============================================================================

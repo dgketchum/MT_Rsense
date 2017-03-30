@@ -7,6 +7,7 @@
       <w>gdaldem</w>
       <w>gridmet</w>
       <w>rasters</w>
+      <w>shapefile</w>
       <w>tifs</w>
     </words>
   </dictionary>
