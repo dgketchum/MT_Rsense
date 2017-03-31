@@ -14,41 +14,24 @@
 # limitations under the License.
 # ===============================================================================
 import os
-from mechanize import Browser, _http
-
-
-def open_browser(site):
-
-    br = Browser()
-    br.set_handle_equiv(True)
-    br.set_handle_gzip(True)
-    br.set_handle_redirect(True)
-    br.set_handle_referer(True)
-    br.set_handle_robots(False)
-    br.set_handle_refresh(_http.HTTPRefreshProcessor(), max_time=1)
-    br.set_debug_http(True)
-    br.set_debug_redirects(True)
-    br.set_debug_responses(True)
-
-    r = br.open(site)
-    html = r.read()
-    print 'Check out the available forms:'
-    for f in br.forms():
-        print f
-
-    return br
+import requests
+import collections
 
 
 def lat_lon_to_path_row(lat, lon):
-    site = 'https://landsat.usgs.gov/wrs-2-pathrow-latitudelongitude-converter'
-    # site = 'http://google.com'
-    browser = open_browser(site)
-    browser.select_form(nr=0)
-    browser.form['search_block_form'] = str(lat)
-    # browser.form['q'] = str(lat)
-    browser.submit()
-    print 'response: {}'.format(browser.response().read())
+    # site = 'https://landsat.usgs.gov/wrs-2-pathrow-latitudelongitude-converter'
+    site = 'https://landsat.usgs.gov/landsat/lat_long_converter/tools_latlong.php'
 
+    data = [('rs', 'convert_ll_to_pr'),
+            ('rsargs[]', str(lat)),
+            ('rsargs[]', str(lon)),
+            ('rsargs[]', '1'),
+            ('rsrnd', '1490993174595')]
+
+    data = collections.OrderedDict(data)
+    r = requests.get(site, data=data)
+    print r.apparent_encoding
+    print r.content
 
 
 if __name__ == '__main__':

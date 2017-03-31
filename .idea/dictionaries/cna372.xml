@@ -2,6 +2,7 @@
   <dictionary name="cna372">
     <words>
       <w>basemap</w>
+      <w>controlers</w>
       <w>createonly</w>
       <w>evapotranspiration</w>
       <w>gdaldem</w>
@@ -9,6 +10,7 @@
       <w>rasters</w>
       <w>shapefile</w>
       <w>tifs</w>
+      <w>webdriver</w>
     </words>
   </dictionary>
 </component>
