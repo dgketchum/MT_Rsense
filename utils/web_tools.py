@@ -21,16 +21,16 @@ from lxml import html
 
 
 def lat_lon_to_path_row(lat, lon):
-    # data = [('rs', 'convert_ll_to_pr'),
-    #         ('rsargs1[]', str(lat)),
-    #         ('rsargs2[]', str(lon)),
-    #         ('rsargs3[]', '1'),
-    #         ('rsrnd', '1490993174595')]
-    #
-    # data = collections.OrderedDict(data)
+    data = [('rs', 'convert_ll_to_pr'),
+            ('rsargs1[]', str(lat)),
+            ('rsargs2[]', str(lon)),
+            ('rsargs3[]', '1'),
+            ('rsrnd', '1490993174595')]
+
+    data = collections.OrderedDict(data)
 
     full_url = 'https://landsat.usgs.gov/landsat/lat_long_converter/tools_latlong.php?rs=convert_ll_to_pr&rsargs[]=\n' \
-               '47&rsargs[]=-109&rsargs[]=1&rsrnd=1490995492704'
+               '{}&rsargs[]={}&rsargs[]=1&rsrnd=1490995492704'.format(data['rsargs1[]'], data['rsargs2[]'])
 
     r = requests.get(full_url)
     tree = html.fromstring(r.text)
@@ -42,10 +42,12 @@ def lat_lon_to_path_row(lat, lon):
     row = int(re.search(r'\d+', r_string[0]).group())
     print 'path: {}, row: {}'.format(path, row)
 
+    return path, row
+
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    lat_lon_to_path_row(47.5, 107.2)
+    lat_lon_to_path_row(47.5, -107.2)
 
 # ===============================================================================
