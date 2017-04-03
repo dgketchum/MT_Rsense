@@ -36,7 +36,7 @@ def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None, s
         assert type(image_index) == list
         print 'Downloading landsat by row/path shapefile: {}'.format(shape)
 
-    elif lat and lon:
+    elif lat_lon_tuple:
         point = lat_lon_to_ogr_point(lat, lon)
         print point
         image_index = [lat_lon_to_path_row(lat, lon)]
@@ -105,7 +105,7 @@ def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None, s
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    start = datetime(2012, 5, 1)
+    start = datetime(2010, 5, 1)
     end = datetime(2012, 9, 30)
     output = os.path.join(home, 'images', 'tar_landsat')
     poly = os.path.join(home, 'images', 'vector', 'MT_SPCS_vector', 'US_MJ_tile.shp')
