@@ -51,6 +51,7 @@ def find_point_poly_intersect(shapes, points):
 def get_path_row(layer, shape=None):
 
     path_list = []
+
     if isinstance(layer, ogr.Geometry):
         try:
             iter_test = iter(layer)
@@ -58,8 +59,7 @@ def get_path_row(layer, shape=None):
             row = str(layer.GetField('ROW'))
             path_list.append((path.rjust(3, '0'), row.rjust(3, '0')))
         except TypeError:
-            try:
-
+            pass
 
         print path_list
         print 'number of tiles : {}'.format(len(path_list))

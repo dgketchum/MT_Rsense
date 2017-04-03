@@ -16,22 +16,31 @@
 import os
 import requests
 import collections
+import re
+from lxml import html
 
 
 def lat_lon_to_path_row(lat, lon):
-    # site = 'https://landsat.usgs.gov/wrs-2-pathrow-latitudelongitude-converter'
-    site = 'https://landsat.usgs.gov/landsat/lat_long_converter/tools_latlong.php'
+    # data = [('rs', 'convert_ll_to_pr'),
+    #         ('rsargs1[]', str(lat)),
+    #         ('rsargs2[]', str(lon)),
+    #         ('rsargs3[]', '1'),
+    #         ('rsrnd', '1490993174595')]
+    #
+    # data = collections.OrderedDict(data)
 
-    data = [('rs', 'convert_ll_to_pr'),
-            ('rsargs[]', str(lat)),
-            ('rsargs[]', str(lon)),
-            ('rsargs[]', '1'),
-            ('rsrnd', '1490993174595')]
+    full_url = 'https://landsat.usgs.gov/landsat/lat_long_converter/tools_latlong.php?rs=convert_ll_to_pr&rsargs[]=\n' \
+               '47&rsargs[]=-109&rsargs[]=1&rsrnd=1490995492704'
 
-    data = collections.OrderedDict(data)
-    r = requests.get(site, data=data)
-    print r.apparent_encoding
-    print r.content
+    r = requests.get(full_url)
+    tree = html.fromstring(r.text)
+
+    # remember to view source html to build xpath
+    p_string = tree.xpath('//table/tr[1]/td[2]/text()')
+    path = int(re.search(r'\d+', p_string[0]).group())
+    r_string = tree.xpath('//table/tr[1]/td[4]/text()')
+    row = int(re.search(r'\d+', r_string[0]).group())
+    print 'path: {}, row: {}'.format(path, row)
 
 
 if __name__ == '__main__':
@@ -39,4 +48,4 @@ if __name__ == '__main__':
     print 'home: {}'.format(home)
     lat_lon_to_path_row(47.5, 107.2)
 
-    # ===============================================================================
+# ===============================================================================
