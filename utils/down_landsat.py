@@ -5,15 +5,11 @@ select an area you want images for, save the selection and
 pass shapefile to this program,
 or just choose location coordinates
 """
-from landsat.image import Simple
-from landsat.downloader import Downloader
-from landsat.downloader import RemoteFileDoesntExist
-from landsat.search import Search
-from os.path import join
-from osgeo import ogr
 import os
 import requests.packages.urllib3
+from osgeo import ogr
 from datetime import datetime
+from landsat import image, downloader, search
 
 from vector_tools import lat_lon_to_ogr_point, get_path_row
 from web_tools import lat_lon_to_path_row
@@ -24,7 +20,6 @@ requests.packages.urllib3.disable_warnings()
 def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None,
                      shape=None, output_path=None,
                      dry_run=False, max_cloud=None, return_scenes=100):
-
     start_date, end_date = start_end_tuple[0], start_end_tuple[1]
     print 'Date range: {} to {}'.format(start_date, end_date)
 
@@ -55,7 +50,7 @@ def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None,
 
     for tile in image_index:
         path, row = tile[0], tile[1]
-        searcher = Search()
+        searcher = search.Search()
         destination_path = os.path.join(output_path, 'd_{}_{}'.format(path, row))
         os.chdir(output_path)
 
@@ -64,7 +59,7 @@ def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None,
         if os.listdir(destination_path):
             print
 
-        downer = Downloader(verbose=False, download_dir=destination_path)
+        downer = downloader.Downloader(verbose=False, download_dir=destination_path)
 
         candidate_scenes = searcher.search(paths_rows='{},{},{},{}'.format(path, row, path, row),
                                            start_date=start_date,
@@ -84,11 +79,11 @@ def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None,
                     try:
                         print 'Downloading tile {} of {}'.format(x, candidate_scenes['total_returned'])
                         downer.download([str(scene_image['sceneID'])])
-                        Simple(
-                            join('{}\\{}'.format(output_path, destination_path),
-                                 str(scene_image['sceneID']) + '.tar.bz'))
+                        image.Simple(
+                            os.path.join('{}\\{}'.format(output_path, destination_path),
+                                         str(scene_image['sceneID']) + '.tar.bz'))
                         x += 1
-                    except RemoteFileDoesntExist:
+                    except downloader.RemoteFileDoesntExist:
                         print 'Skipping:', (str(scene_image['sceneID']))
 
         else:
