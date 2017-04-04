@@ -15,7 +15,6 @@ import os
 import requests.packages.urllib3
 from datetime import datetime
 
-
 from vector_tools import lat_lon_to_ogr_point, get_path_row
 from web_tools import lat_lon_to_path_row
 
@@ -23,7 +22,7 @@ requests.packages.urllib3.disable_warnings()
 
 
 def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None, shape=None, output_path=None,
-                     dry_run=False, max_cloud=None, return_scenes=10):
+                     dry_run=False, max_cloud=None, return_scenes=None):
 
     start_date, end_date = start_end_tuple[0], start_end_tuple[1]
 
@@ -52,21 +51,20 @@ def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None, s
         raise NotImplementedError('Must give path/row tuple, lat/lon tuple plus row/path \n'
                                   'shapefile, or a path/rows shapefile!')
 
-    return_scenes = 100
-    if max_cloud:
-        max_cloud_percent = 20
-
     for tile in image_index:
+
         path, row = tile[0], tile[1]
         print 'path {}, row {}'.format(path, row)
         searcher = Search()
         destination_path = os.path.join(output_path, 'd_{}_{}'.format(path, row))
         os.chdir(output_path)
+
         if not os.path.exists(destination_path):
             os.makedirs(destination_path)
         # if os.listdir(destination_path) == []:
         if os.listdir(destination_path):
             print
+
         print '{} is empty'.format(destination_path)
 
         downer = Downloader(verbose=False, download_dir=destination_path)
@@ -75,7 +73,7 @@ def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None, s
                                            start_date=start_date,
                                            end_date=end_date,
                                            cloud_min=0,
-                                           cloud_max=max_cloud_percent,
+                                           cloud_max=max_cloud,
                                            limit=return_scenes)
 
         print 'candidate scenes: {}'.format(candidate_scenes)
@@ -83,6 +81,7 @@ def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None, s
 
         if dry_run:
             break
+
         x = 0
         if candidate_scenes['status'] == 'SUCCESS':
             for scene_image in candidate_scenes['results']:
@@ -105,12 +104,12 @@ def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None, s
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    start = datetime(2010, 5, 1)
-    end = datetime(2012, 9, 30)
+    start = datetime(2013, 5, 1).strftime('%Y-%m-%d')
+    end = datetime(2013, 9, 30).strftime('%Y-%m-%d')
     output = os.path.join(home, 'images', 'tar_landsat')
     poly = os.path.join(home, 'images', 'vector', 'MT_SPCS_vector', 'US_MJ_tile.shp')
     lat, lon = 47.4, -109.5
     path_int, row_int = 38, 27
-    download_landsat((start, end), lat_lon_tuple=(lat, lon), dry_run=True, output_path=output, max_cloud=20)
+    download_landsat((start, end), lat_lon_tuple=(lat, lon), dry_run=True, output_path=output, max_cloud=70)
 
     # ===============================================================================
