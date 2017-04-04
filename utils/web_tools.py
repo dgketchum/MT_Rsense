@@ -42,7 +42,7 @@ def lat_lon_to_path_row(lat, lon):
     row = int(re.search(r'\d+', r_string[0]).group())
     print 'path: {}, row: {}'.format(path, row)
 
-    return path, row
+    return int(path), int(row)
 
 
 if __name__ == '__main__':

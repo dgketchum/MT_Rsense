@@ -67,6 +67,7 @@ def get_path_row(layer, shape=None):
 
     elif shape:
         path, row = find_point_poly_intersect(shape, layer)
+        return path, row
 
 
 if __name__ == '__main__':

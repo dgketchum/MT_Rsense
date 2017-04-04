@@ -22,13 +22,12 @@ requests.packages.urllib3.disable_warnings()
 
 
 def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None, shape=None, output_path=None,
-                     dry_run=False, max_cloud=None, return_scenes=None):
-
+                     dry_run=False, max_cloud=None, return_scenes=100):
     start_date, end_date = start_end_tuple[0], start_end_tuple[1]
+    print start_date, end_date
 
     if shape:
         # assumes shapefile has a 'path' and a 'row' field
-        shp_filename = shape
         ds = ogr.Open(shape)
         lyr = ds.GetLayer()
         image_index = [get_path_row(lyr)]
@@ -51,8 +50,10 @@ def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None, s
         raise NotImplementedError('Must give path/row tuple, lat/lon tuple plus row/path \n'
                                   'shapefile, or a path/rows shapefile!')
 
-    for tile in image_index:
+    print 'Image Ind: {}'.format(image_index)
 
+    for tile in image_index:
+        print 'tile: {}'.format(tile)
         path, row = tile[0], tile[1]
         print 'path {}, row {}'.format(path, row)
         searcher = Search()
@@ -61,7 +62,6 @@ def download_landsat(start_end_tuple, path_row_tuple=None, lat_lon_tuple=None, s
 
         if not os.path.exists(destination_path):
             os.makedirs(destination_path)
-        # if os.listdir(destination_path) == []:
         if os.listdir(destination_path):
             print
 
@@ -106,10 +106,11 @@ if __name__ == '__main__':
     print 'home: {}'.format(home)
     start = datetime(2013, 5, 1).strftime('%Y-%m-%d')
     end = datetime(2013, 9, 30).strftime('%Y-%m-%d')
-    output = os.path.join(home, 'images', 'tar_landsat')
+    output = os.path.join(home, 'images', 'Landsat_8')
     poly = os.path.join(home, 'images', 'vector', 'MT_SPCS_vector', 'US_MJ_tile.shp')
     lat, lon = 47.4, -109.5
-    path_int, row_int = 38, 27
-    download_landsat((start, end), lat_lon_tuple=(lat, lon), dry_run=True, output_path=output, max_cloud=70)
+    path_int, row_int = 36, 25
+    download_landsat((start, end), path_row_tuple=(path_int, row_int), dry_run=True,
+                     output_path=output, max_cloud=70)
 
     # ===============================================================================
