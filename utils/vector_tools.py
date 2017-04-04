@@ -52,22 +52,20 @@ def get_path_row(layer, shape=None):
 
     path_list = []
 
-    if isinstance(layer, ogr.Geometry):
+    if isinstance(layer, ogr.Layer):
         try:
-            iter_test = iter(layer)
-            path = str(layer.GetField('PATH'))
-            row = str(layer.GetField('ROW'))
-            path_list.append((path.rjust(3, '0'), row.rjust(3, '0')))
+            for feature in layer:
+                path = str(feature.GetField('PATH'))
+                row = str(feature.GetField('ROW'))
+                path_list.append((path.rjust(3, '0'), row.rjust(3, '0')))
         except TypeError:
             pass
 
-        print path_list
         print 'number of tiles : {}'.format(len(path_list))
-        return path, row
+        return path_list
 
-    elif shape:
-        path, row = find_point_poly_intersect(shape, layer)
-        return path, row
+    else:
+        raise NotImplementedError('get_path_row requires osgeo.ogr.Layer instance')
 
 
 if __name__ == '__main__':
