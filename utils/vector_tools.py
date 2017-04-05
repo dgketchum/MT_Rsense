@@ -25,22 +25,28 @@ def lat_lon_to_ogr_point(lat, lon):
 
 def read_shapes(shape):
     reader = ogr.Open(shape)
+    print 'reader obj: {}'.format(reader)
     layer = reader.GetLayer(0)
     shape_geos = []
     for i in range(layer.GetFeatureCount()):
         feature = layer.GetFeature(i)
         shape_geos.append(feature)
-
+    print 'shape geometries: {}'.format(shape_geos)
     return shape_geos
 
 
-def find_point_poly_intersect(shapes, points):
-    points = [point for point in read_shapes(points)]
+def find_point_poly_intersect(points, shapes):
+    print 'find intersect with {}\n' \
+          'point: {}'.format(shapes, points)
     multi_polygon = read_shapes(shapes)
     path_row_pairs = []
+    if not isinstance(points, list):
+        points = [points]
     for i, pt in enumerate(points):
+        print 'pt: {}'.format(pt)
         for poly in multi_polygon:
             point = ogr.Geometry(pt['geometry'])
+            print 'point to intersect: {}'.format(point)
             if point.within(ogr.Geometry(poly['geometry'])):
                 path, row = get_path_row(ogr.Geometry(points[i]['geometry']))
                 path_row_pairs.append((path, row))
@@ -48,7 +54,7 @@ def find_point_poly_intersect(shapes, points):
     return path_row_pairs
 
 
-def get_path_row(layer, shape=None):
+def get_path_row(layer, multi_polygon=None):
 
     path_list = []
 
@@ -62,6 +68,11 @@ def get_path_row(layer, shape=None):
             pass
 
         print 'number of tiles : {}'.format(len(path_list))
+        return path_list
+
+    elif isinstance(layer, ogr.Geometry):
+        path_list = find_point_poly_intersect(layer, multi_polygon)
+        print 'number of tiles multipoly: {}'.format(len(path_list))
         return path_list
 
     else:

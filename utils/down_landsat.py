@@ -19,7 +19,8 @@ requests.packages.urllib3.disable_warnings()
 
 def download_landsat(start_end_tuple, satellite='L8', path_row_tuple=None, lat_lon_tuple=None,
                      shape=None, output_path=None,
-                     dry_run=False, max_cloud=None, return_scenes=100):
+                     dry_run=False, max_cloud=None, return_scenes=100, point_seek_multipath=None):
+
     start_date, end_date = start_end_tuple[0], start_end_tuple[1]
     print 'Date range: {} to {}'.format(start_date, end_date)
 
@@ -32,9 +33,14 @@ def download_landsat(start_end_tuple, satellite='L8', path_row_tuple=None, lat_l
         print 'Downloading landsat by row/path shapefile: {}'.format(shape)
 
     elif lat_lon_tuple:
-        point = lat_lon_to_ogr_point(lat, lon)
-        image_index = [lat_lon_to_path_row(lat, lon)]
-        print 'Downloading landsat by lat/lon: {}, {}'.format(lat, lon)
+        if point_seek_multipath:
+            point = lat_lon_to_ogr_point(lat, lon)
+            image_index = [get_path_row(point, point_seek_multipath)]
+            print 'Downloading landsat by lat/lon: {}, {}\n' \
+                  'and shape: {}'.format(lat, lon, point_seek_multipath)
+        else:
+            image_index = [lat_lon_to_path_row(lat, lon)]
+            print 'Downloading landsat by lat/lon: {}, {}'.format(lat, lon)
 
     elif path_row_tuple:
         path, row = path_row_tuple[0], path_row_tuple[1]
@@ -96,7 +102,7 @@ if __name__ == '__main__':
     poly = os.path.join(home, 'images', 'vector_data', 'wrs2_descending', 'path_rows_Z11.shp')
     lat, lon = 47.4, -109.5
     path_int, row_int = 36, 25
-    download_landsat((start, end), shape=poly, dry_run=True,
-                     output_path=output, max_cloud=70)
+    download_landsat((start, end), lat_lon_tuple=(lat, lon), dry_run=True,
+                     output_path=output, max_cloud=70, point_seek_multipath=poly)
 
     # ===============================================================================
