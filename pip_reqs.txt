@@ -22,11 +22,9 @@ numpy==1.10.4
 olefile==0.44
 Pillow==4.0.0
 polyline==1.3
-pycurl==7.43.0
 pyparsing==2.2.0
 python-dateutil==2.5.1
 pytz==2016.10
-rasterio==0.32.0
 ratelim==0.1.6
 requests==2.7.0
 requests-futures==0.9.7

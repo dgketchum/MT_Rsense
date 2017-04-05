@@ -150,8 +150,6 @@ def gdal_dem(in_folder, out_folder, terrain_type='slope'):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    terrain = os.path.join(home, 'images', 'DEM', 'N_Rockies_30m_complete')
-    gdal_dem(terrain, terrain)
 
 
 # ============= EOF ============================================================

@@ -52,20 +52,6 @@ def get_pr_from_field(shapefile):
     return path_list
 
 
-def get_pr_from_lat_lon_shp_intersect(lat, lon, poly_shapefile):
-    path_list = []
-    point = lat_lon_to_ogr_point(lat, lon)
-    poly_features = shp_to_org_features(poly_shapefile)
-    poly_geo_refs = [poly.GetGeometryRef() for poly in poly_features]
-    for j, polygon in enumerate(poly_geo_refs):
-        if point.Within(polygon):
-            path, row = poly_features[j].GetField('PATH'), poly_features[j].GetField('ROW')
-            print path, row
-
-    print 'Path list: {}'.format(path_list)
-    return path_list
-
-
 def get_multipoint_multipath_shp_intesects(pt_shapefile, poly_shapefile):
     path_list = []
     pt_features = shp_to_org_features(pt_shapefile)
@@ -82,11 +68,6 @@ def get_multipoint_multipath_shp_intesects(pt_shapefile, poly_shapefile):
 
 
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
-    print 'home: {}'.format(home)
-    flux_sites = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'amf_mt_SPCS.shp')
-    poly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'MT_row_paths.shp')
-    lat, lon = 44.91, -106.55
-    print get_pr_from_lat_lon_shp_intersect(lat, lon, poly)
+    pass
 
 # ===============================================================================
