@@ -23,64 +23,70 @@ def lat_lon_to_ogr_point(lat, lon):
     return point
 
 
-def read_shapes(shape):
+def shp_to_org_features(shape):
     reader = ogr.Open(shape)
-    print 'reader obj: {}'.format(reader)
-    layer = reader.GetLayer(0)
-    shape_geos = []
+    layer = reader.GetLayer()
+    features = []
     for i in range(layer.GetFeatureCount()):
         feature = layer.GetFeature(i)
-        shape_geos.append(feature)
-    print 'shape geometries: {}'.format(shape_geos)
-    return shape_geos
+        features.append(feature)
+    return features
 
 
-def find_point_poly_intersect(points, shapes):
-    print 'find intersect with {}\n' \
-          'point: {}'.format(shapes, points)
-    multi_polygon = read_shapes(shapes)
-    path_row_pairs = []
-    if not isinstance(points, list):
-        points = [points]
-    for i, pt in enumerate(points):
-        print 'pt: {}'.format(pt)
-        for poly in multi_polygon:
-            point = ogr.Geometry(pt['geometry'])
-            print 'point to intersect: {}'.format(point)
-            if point.within(ogr.Geometry(poly['geometry'])):
-                path, row = get_path_row(ogr.Geometry(points[i]['geometry']))
-                path_row_pairs.append((path, row))
-
-    return path_row_pairs
+def shp_to_ogr_geometries(shape):
+    reader = ogr.Open(shape)
+    layer = reader.GetLayer()
+    geometries = []
+    for feature in layer:
+        geom = feature.GetGeometryRef()
+        geometries.append(geom)
+    return geometries
 
 
-def get_path_row(layer, multi_polygon=None):
-
+def get_pr_from_field(shapefile):
     path_list = []
+    for feature in shapefile:
+        path = str(feature.GetField('PATH'))
+        row = str(feature.GetField('ROW'))
+        path_list.append((path.rjust(3, '0'), row.rjust(3, '0')))
+    return path_list
 
-    if isinstance(layer, ogr.Layer):
-        try:
-            for feature in layer:
-                path = str(feature.GetField('PATH'))
-                row = str(feature.GetField('ROW'))
-                path_list.append((path.rjust(3, '0'), row.rjust(3, '0')))
-        except TypeError:
-            pass
 
-        print 'number of tiles : {}'.format(len(path_list))
-        return path_list
+def get_pr_from_lat_lon_shp_intersect(lat, lon, poly_shapefile):
+    path_list = []
+    point = lat_lon_to_ogr_point(lat, lon)
+    poly_features = shp_to_org_features(poly_shapefile)
+    poly_geo_refs = [poly.GetGeometryRef() for poly in poly_features]
+    for j, polygon in enumerate(poly_geo_refs):
+        if point.Within(polygon):
+            path, row = poly_features[j].GetField('PATH'), poly_features[j].GetField('ROW')
+            print path, row
 
-    elif isinstance(layer, ogr.Geometry):
-        path_list = find_point_poly_intersect(layer, multi_polygon)
-        print 'number of tiles multipoly: {}'.format(len(path_list))
-        return path_list
+    print 'Path list: {}'.format(path_list)
+    return path_list
 
-    else:
-        raise NotImplementedError('get_path_row requires osgeo.ogr.Layer instance')
+
+def get_multipoint_multipath_shp_intesects(pt_shapefile, poly_shapefile):
+    path_list = []
+    pt_features = shp_to_org_features(pt_shapefile)
+    poly_features = shp_to_org_features(poly_shapefile)
+    pt_geo_refs = [pt.GetGeometryRef() for pt in pt_features]
+    poly_geo_refs = [poly.GetGeometryRef() for poly in poly_features]
+    for point in pt_geo_refs:
+        for j, polygon in enumerate(poly_geo_refs):
+            if point.Within(polygon):
+                path, row = poly_features[j].GetField('PATH'), poly_features[j].GetField('ROW')
+                path_list.append((path, row))
+    print 'number of tiles: {}'.format(len(path_list))
+    return path_list
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
+    flux_sites = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'amf_mt_SPCS.shp')
+    poly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'MT_row_paths.shp')
+    lat, lon = 44.91, -106.55
+    print get_pr_from_lat_lon_shp_intersect(lat, lon, poly)
 
-    # ===============================================================================
+# ===============================================================================
