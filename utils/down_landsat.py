@@ -9,7 +9,8 @@ import os
 import requests.packages.urllib3
 from osgeo import ogr
 from datetime import datetime
-from landsat import image, downloader, search
+
+import landsat
 
 from vector_tools import get_pr_from_field
 from web_tools import lat_lon_to_path_row
@@ -57,11 +58,11 @@ def download_landsat(start_end_tuple, satellite='L8', path_row_tuple=None, lat_l
 
     for tile in image_index:
         path, row = tile[0], tile[1]
-        searcher = search.Search()
+        searcher = landsat.search.Search()
         destination_path = os.path.join(output_path, 'd_{}_{}'.format(path, row))
         os.chdir(output_path)
 
-        downer = downloader.Downloader(verbose=False, download_dir=destination_path)
+        downer = landsat.downloader.Downloader(verbose=False, download_dir=destination_path)
 
         candidate_scenes = searcher.search(paths_rows='{},{},{},{}'.format(path, row, path, row),
                                            start_date=start_date,
@@ -81,11 +82,11 @@ def download_landsat(start_end_tuple, satellite='L8', path_row_tuple=None, lat_l
                     try:
                         print 'Downloading tile {} of {}'.format(x, candidate_scenes['total_returned'])
                         downer.download([str(scene_image['sceneID'])])
-                        image.Simple(
+                        landsat.image.Simple(
                             os.path.join(output_path, destination_path,
                                          '{}.tar.bz'.format(str(scene_image['sceneID']))))
                         x += 1
-                    except downloader.RemoteFileDoesntExist:
+                    except landsat.downloader.RemoteFileDoesntExist:
                         print 'Skipping:', (str(scene_image['sceneID']))
 
         else:
