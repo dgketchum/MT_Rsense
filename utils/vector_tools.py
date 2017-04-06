@@ -17,13 +17,85 @@ import os
 from osgeo import ogr
 
 
-def lat_lon_to_ogr_point(lat, lon):
+def lat_lon_to_ogr_point(lon, lat):
     point = ogr.Geometry(ogr.wkbPoint)
-    point.AddPoint(lat, lon)
+    point.AddPoint(lon, lat)
     return point
 
 
-def shp_to_org_features(shape):
+def points_to_shapefile(points_x_y, output_file):
+    geo = ogr.Geometry(ogr.wkbPoint)
+    for pt in points_x_y:
+        geo.AddPoint(pt[0], pt[1])
+
+    driver = ogr.GetDriverByName('Esri Shapefile')
+    ds = driver.CreateDataSource(output_file)
+    layer = ds.CreateLayer('', None, ogr.wkbPoint)
+    defn = layer.GetLayerDefn()
+    feat = ogr.Feature(defn)
+    feat.SetField('id', 123)
+    feat.SetGeometry(geo)
+    layer.CreateFeature(feat)
+
+
+def points_to_ogr_polygon(args):
+    ring = ogr.Geometry(ogr.wkbLinearRing)
+    for point in args:
+        ring.AddPoint(point[0], point[1])
+    ring_poly = ogr.Geometry(ogr.wkbPolygon)
+    ring_poly.AddGeometry(ring)
+    return ring_poly
+
+
+def shp_poly_to_pts_list(poly, include_z_vals=False):
+    ds = ogr.Open(poly)
+    layer1 = ds.GetLayer()
+    print layer1.GetExtent()
+    for feat in layer1:
+        geom = feat.GetGeometryRef()
+        ring = geom.GetGeometryRef(0)
+        point_ct = ring.GetPointCount()
+    points = []
+    for p in xrange(point_ct):
+        lon, lat, z = ring.GetPoint(p)
+        points.append((lon, lat, z))
+        if include_z_vals:
+            print 'Points from shape: {}'.format(points)
+            return points
+    latlon = []
+    for ll in points:
+        lat, lon = ll[0], ll[1]
+        latlon.append((lat, lon))
+    print 'Points from shape: {}'.format(latlon)
+    return latlon
+
+
+def poly_to_shp(polygon, output_file, field_attr_dict=None):
+    driver = ogr.GetDriverByName('Esri Shapefile')
+    ds = driver.CreateDataSource(output_file)
+    layer = ds.CreateLayer('', None, ogr.wkbPolygon)
+    defn = layer.GetLayerDefn()
+    feat = ogr.Feature(defn)
+    if field_attr_dict:
+        for key, val in field_attr_dict:
+            feat.SetFieldInteger64('ID', key)
+            if type(val) is dict:
+                for second_key, sub_val in val:
+                    if second_key == 'PATH':
+                        feat.SetFieldInteger64('PATH', sub_val)
+                    elif second_key == 'ROW':
+                        feat.SetFieldInteger64('ROW', sub_val)
+                    else:
+                        print 'There are fields not set: {} has {}'.format(second_key, sub_val)
+
+    feat.SetField('id', 123)
+    feat.SetGeometry(polygon)
+    layer.CreateFeature(feat)
+    print ds
+    return None
+
+
+def shp_to_ogr_features(shape):
     reader = ogr.Open(shape)
     layer = reader.GetLayer()
     features = []
@@ -52,12 +124,24 @@ def get_pr_from_field(shapefile):
     return path_list
 
 
-def get_multipoint_multipath_shp_intesects(pt_shapefile, poly_shapefile):
+def get_pr_multipath(points, poly_shapefile):
+
     path_list = []
-    pt_features = shp_to_org_features(pt_shapefile)
-    poly_features = shp_to_org_features(poly_shapefile)
-    pt_geo_refs = [pt.GetGeometryRef() for pt in pt_features]
-    poly_geo_refs = [poly.GetGeometryRef() for poly in poly_features]
+
+    if isinstance(points, tuple):
+        pt_geo_refs = lat_lon_to_ogr_point(points[0], points[1])
+    elif isinstance(points, list):
+        pt_geo_refs = []
+        for pt in points:
+            pt_geo_refs.append(lat_lon_to_ogr_point(pt[0], pt[1]))
+    elif isinstance(points, str):
+        pt_features = shp_to_ogr_features(points)
+        poly_features = shp_to_ogr_features(poly_shapefile)
+        pt_geo_refs = [pt.GetGeometryRef() for pt in pt_features]
+        poly_geo_refs = [pl.GetGeometryRef() for pl in poly_features]
+    else:
+        raise NotImplementedError('Function takes first arg type tuple, list, or string')
+
     for point in pt_geo_refs:
         for j, polygon in enumerate(poly_geo_refs):
             if point.Within(polygon):
@@ -68,6 +152,12 @@ def get_multipoint_multipath_shp_intesects(pt_shapefile, poly_shapefile):
 
 
 if __name__ == '__main__':
-    pass
+    home = os.path.expanduser('~')
+    print 'home: {}'.format(home)
+    flux_sites = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'amf_mt_SPCS.shp')
+    poly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'US_MJ_tile.shp')
+    out_file = os.path.join(home, 'images', 'test_data', 'points_out.shp')
+    lat, lon = 44.91, -106.55
+    print get_pr_multipath(flux_sites, poly)
 
 # ===============================================================================

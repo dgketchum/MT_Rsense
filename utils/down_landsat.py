@@ -18,7 +18,7 @@ requests.packages.urllib3.disable_warnings()
 
 
 def download_landsat(start_end_tuple, satellite='L8', path_row_tuple=None, lat_lon_tuple=None,
-                     shape=None, output_path=None,
+                     shape=None, output_path=None, seek_multipath=False,
                      dry_run=False, max_cloud=None, return_scenes=100):
 
     start_date, end_date = start_end_tuple[0], start_end_tuple[1]
@@ -32,15 +32,22 @@ def download_landsat(start_end_tuple, satellite='L8', path_row_tuple=None, lat_l
         assert type(image_index) == list
         print 'Downloading landsat by row/path shapefile: {}'.format(shape)
 
+    if seek_multipath:
+    # for case with path,row shapefile and point(s) attempts to get path, row overlapping scenes
+    # thereby increasing images/time
+
+
+
     elif lat_lon_tuple:
+        # for case of lat and lon
         image_index = [lat_lon_to_path_row(lat, lon)]
         print 'Downloading landsat by lat/lon: {}, {}'.format(lat, lon)
 
     elif path_row_tuple:
+        # for case of given path row tuple
         path, row = path_row_tuple[0], path_row_tuple[1]
         image_index = [(path, row)]
         print 'Downloading landsat by path/row: {}, {}'.format(path, row)
-        assert type(image_index) == list
 
     else:
         raise NotImplementedError('Must give path/row tuple, lat/lon tuple plus row/path \n'
@@ -93,10 +100,11 @@ if __name__ == '__main__':
     start = datetime(2013, 5, 1).strftime('%Y-%m-%d')
     end = datetime(2013, 9, 30).strftime('%Y-%m-%d')
     output = os.path.join(home, 'images', 'Landsat_8')
-    poly = os.path.join(home, 'images', 'vector_data', 'wrs2_descending', 'path_rows_Z11.shp')
+    flux_sites = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'amf_mt_SPCS.shp')
+    poly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'MT_row_paths.shp')
     lat, lon = 44.91, -106.55
     path_int, row_int = 36, 25
-    download_landsat((start, end), lat_lon_tuple=(lat, lon), dry_run=True,
+    download_landsat((start, end), shape=poly, seek_multipath=True, dry_run=True,
                      output_path=output, max_cloud=70)
 
     # ===============================================================================
