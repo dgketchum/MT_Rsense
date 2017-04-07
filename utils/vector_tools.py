@@ -38,7 +38,7 @@ def points_to_shapefile(points_x_y, output_file, dst_srs_epsg=4326):
     defn = layer.GetLayerDefn()
     for pt in points_x_y:
         geo = ogr.Geometry(ogr.wkbPoint)
-        geo.SetPoint(pt[0], pt[1])
+        geo.AddPoint(pt[0], pt[1])
         feat = ogr.Feature(defn)
         feat.SetGeometry(geo)
         feat.SetField('id', 123)
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     flux_sites = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'amf_mt_SPCS.shp')
     poly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'US_MJ_tile.shp')
     out_file = os.path.join(home, 'images', 'test_data', 'points_out.shp')
-    lat, lon = 44.91, -106.55
+    latitude, longitude = 44.91, -106.55
     poly_interior_points = [(-110.4, 48.3), (-108.1, 47.9), (-108.7, 46.6),
                             (-110.8, 46.9)]
     print points_to_shapefile(poly_interior_points, out_file)
