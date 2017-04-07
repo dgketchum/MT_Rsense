@@ -14,7 +14,7 @@
 # limitations under the License.
 # ===============================================================================
 import os
-from osgeo import ogr
+from osgeo import ogr, osr
 
 
 def lat_lon_to_ogr_point(lon, lat):
@@ -23,19 +23,29 @@ def lat_lon_to_ogr_point(lon, lat):
     return point
 
 
-def points_to_shapefile(points_x_y, output_file):
-    geo = ogr.Geometry(ogr.wkbPoint)
-    for pt in points_x_y:
-        geo.AddPoint(pt[0], pt[1])
+def points_to_shapefile(points_x_y, output_file, dst_srs_epsg=4326):
 
     driver = ogr.GetDriverByName('Esri Shapefile')
     ds = driver.CreateDataSource(output_file)
-    layer = ds.CreateLayer('', None, ogr.wkbPoint)
+
+    if dst_srs_epsg:
+        srs = osr.SpatialReference()
+        srs.ImportFromEPSG(dst_srs_epsg)
+    else:
+        srs = None
+
+    layer = ds.CreateLayer(output_file.replace('.shp', ''), srs, ogr.wkbPoint)
     defn = layer.GetLayerDefn()
-    feat = ogr.Feature(defn)
-    feat.SetField('id', 123)
-    feat.SetGeometry(geo)
-    layer.CreateFeature(feat)
+    for pt in points_x_y:
+        geo = ogr.Geometry(ogr.wkbPoint)
+        geo.SetPoint(pt[0], pt[1])
+        feat = ogr.Feature(defn)
+        feat.SetGeometry(geo)
+        feat.SetField('id', 123)
+        layer.CreateFeature(feat)
+        geo.Destroy()
+        feat.Destroy()
+    return None
 
 
 def points_to_ogr_polygon(args):
@@ -57,23 +67,28 @@ def shp_poly_to_pts_list(poly, include_z_vals=False):
         point_ct = ring.GetPointCount()
     points = []
     for p in xrange(point_ct):
-        lon, lat, z = ring.GetPoint(p)
-        points.append((lon, lat, z))
+        longi, lati, z = ring.GetPoint(p)
+        points.append((longi, lati, z))
         if include_z_vals:
             print 'Points from shape: {}'.format(points)
             return points
-    latlon = []
+    longlat = []
     for ll in points:
-        lat, lon = ll[0], ll[1]
-        latlon.append((lat, lon))
-    print 'Points from shape: {}'.format(latlon)
-    return latlon
+        lati, longi = ll[0], ll[1]
+        longlat.append((longi, lati))
+    print 'Points from shape: {}'.format(longlat)
+    return longlat
 
 
-def poly_to_shp(polygon, output_file, field_attr_dict=None):
+def poly_to_shp(polygon, output_file, field_attr_dict=None, dst_srs_epsg=4326):
     driver = ogr.GetDriverByName('Esri Shapefile')
     ds = driver.CreateDataSource(output_file)
-    layer = ds.CreateLayer('', None, ogr.wkbPolygon)
+    if dst_srs_epsg:
+        srs = osr.SpatialReference()
+        srs.ImportFromEPSG(dst_srs_epsg)
+    else:
+        srs = None
+    layer = ds.CreateLayer('', srs, ogr.wkbPolygon)
     defn = layer.GetLayerDefn()
     feat = ogr.Feature(defn)
     if field_attr_dict:
@@ -86,7 +101,8 @@ def poly_to_shp(polygon, output_file, field_attr_dict=None):
                     elif second_key == 'ROW':
                         feat.SetFieldInteger64('ROW', sub_val)
                     else:
-                        print 'There are fields not set: {} has {}'.format(second_key, sub_val)
+                        print 'There are fields not set: {} has \n' \
+                              '{}'.format(second_key, sub_val)
 
     feat.SetField('id', 123)
     feat.SetGeometry(polygon)
@@ -158,6 +174,8 @@ if __name__ == '__main__':
     poly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'US_MJ_tile.shp')
     out_file = os.path.join(home, 'images', 'test_data', 'points_out.shp')
     lat, lon = 44.91, -106.55
-    print get_pr_multipath(flux_sites, poly)
+    poly_interior_points = [(-110.4, 48.3), (-108.1, 47.9), (-108.7, 46.6),
+                            (-110.8, 46.9)]
+    print points_to_shapefile(poly_interior_points, out_file)
 
 # ===============================================================================

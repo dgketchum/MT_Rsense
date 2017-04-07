@@ -28,6 +28,8 @@ class TestVector(unittest.TestCase):
         self.out_shp = os.path.join(self.temp_foler, 'out.shp')
         self.lat = 46.99
         self.lon = -109.61
+        self.poly_interior_points = [(-110.4, 48.3), (-108.1, 47.9), (-108.7, 46.6),
+                                     (-110.8, 46.9)]
         self.tup = (38, 27)
         self.lst = [(38, 27)]
         self.points = [(488245.30243298115, 292668.1008154524), (488238.7897641528, 292669.6144005801),
@@ -53,7 +55,7 @@ class TestVector(unittest.TestCase):
             type(self.poly) is not ogr.Geometry
 
     def test_poly_to_shp(self):
-        self.shp = vector_tools.poly_to_shp(self.poly, self.out_shp)
+        self.shp = vector_tools.points_to_shapefile(self.poly, self.out_shp)
         self.assertTrue(ogr.Open(self.shp), ogr.DataSource)
 
     def test_shp_to_feat(self):
@@ -76,7 +78,8 @@ class TestVector(unittest.TestCase):
     def test_point_multipath(self):
         tup_result = vector_tools.get_pr_multipath(self.tup, self.shp)
         lst_result = vector_tools.get_pr_multipath(self.lst, self.shp)
-        shp_result =
+        points_shp = vector_tools.points_to_shapefile()
+        shp_result = vector_tools.get_pr_multipath()
 
 
 if __name__ == '__main__':
