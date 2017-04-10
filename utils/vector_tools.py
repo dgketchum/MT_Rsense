@@ -23,10 +23,8 @@ def lat_lon_to_ogr_point(lon, lat):
     return point
 
 
-def points_to_shapefile(points_x_y, output_file, dst_srs_epsg=4326):
-
-    driver = ogr.GetDriverByName('Esri Shapefile')
-    ds = driver.CreateDataSource(output_file)
+def points_to_shapefile(points_x_y, output_file, field_attr_dict=None,
+                        dst_srs_epsg=4326):
 
     if dst_srs_epsg:
         srs = osr.SpatialReference()
@@ -34,17 +32,30 @@ def points_to_shapefile(points_x_y, output_file, dst_srs_epsg=4326):
     else:
         srs = None
 
-    layer = ds.CreateLayer(output_file.replace('.shp', ''), srs, ogr.wkbPoint)
+    driver = ogr.GetDriverByName('Esri Shapefile')
+    ds = driver.CreateDataSource(output_file)
+    layer = ds.CreateLayer('Points_DGK', srs, ogr.wkbPoint)
+    layer.CreateField(ogr.FieldDefn('FID', ogr.OFTString))
+    for key in field_attr_dict['1'].keys():
+        layer.CreateField(ogr.FieldDefn(key, ogr.OFTString))
     defn = layer.GetLayerDefn()
-    for pt in points_x_y:
-        geo = ogr.Geometry(ogr.wkbPoint)
-        geo.AddPoint(pt[0], pt[1])
-        feat = ogr.Feature(defn)
-        feat.SetGeometry(geo)
-        feat.SetField('id', 123)
-        layer.CreateFeature(feat)
-        geo.Destroy()
-        feat.Destroy()
+
+    pt = 0
+    for key, val in field_attr_dict.iteritems():
+        feature = ogr.Feature(defn)
+        wkt = 'POINT({} {})'.format(points_x_y[pt][0], points_x_y[pt][1])
+        print wkt
+        point = ogr.CreateGeometryFromWkt(wkt)
+
+        for field_name, field_value in val.iteritems():
+            feature.SetField(field_name, str(field_value))
+
+        feature.SetField('FID', str(pt + 1))
+        feature.SetGeometry(point)
+        layer.CreateFeature(feature)
+        feature = None
+        pt += 1
+
     return None
 
 
@@ -57,8 +68,8 @@ def points_to_ogr_polygon(args):
     return ring_poly
 
 
-def shp_poly_to_pts_list(poly, include_z_vals=False):
-    ds = ogr.Open(poly)
+def shp_poly_to_pts_list(poli, include_z_vals=False):
+    ds = ogr.Open(poli)
     layer1 = ds.GetLayer()
     print layer1.GetExtent()
     for feat in layer1:
@@ -76,7 +87,7 @@ def shp_poly_to_pts_list(poly, include_z_vals=False):
     for ll in points:
         lati, longi = ll[0], ll[1]
         longlat.append((longi, lati))
-    print 'Points from shape: {}'.format(longlat)
+    print 'Points x, y from shape: {}'.format(longlat)
     return longlat
 
 
@@ -92,8 +103,8 @@ def poly_to_shp(polygon, output_file, field_attr_dict=None, dst_srs_epsg=4326):
     defn = layer.GetLayerDefn()
     feat = ogr.Feature(defn)
     if field_attr_dict:
-        for key, val in field_attr_dict:
-            feat.SetFieldInteger64('ID', key)
+        for key, val in field_attr_dict.iteritems():
+            feat.SetField('ID', key)
             if type(val) is dict:
                 for second_key, sub_val in val:
                     if second_key == 'PATH':
@@ -122,26 +133,45 @@ def shp_to_ogr_features(shape):
 
 
 def shp_to_ogr_geometries(shape):
-    reader = ogr.Open(shape)
-    layer = reader.GetLayer()
+    ds = ogr.Open(shape)
+    lyr = ds.GetLayer()
     geometries = []
-    for feature in layer:
+    for feature in lyr:
         geom = feature.GetGeometryRef()
         geometries.append(geom)
     return geometries
 
 
+def shp_to_attr_dict(shapefile):
+    ds = ogr.Open(shapefile)
+    lyr = ds.GetLayer()
+    defn = lyr.GetLayerDefn()
+    fields_dct = {}
+    for field in xrange(defn.GetFieldCount()):
+        f_name = defn.GetFieldDefn(field).GetName()
+        fields_dct[f_name] = None
+
+    shp_dct = {}
+    for i, feature in enumerate(lyr):
+        sub_dct = {}
+        for key in fields_dct.keys():
+            sub_dct[key] = feature.GetField(key)
+        shp_dct[i + 1] = sub_dct
+    return shp_dct
+
+
 def get_pr_from_field(shapefile):
+    dct = shp_to_attr_dict(shapefile)
     path_list = []
-    for feature in shapefile:
-        path = str(feature.GetField('PATH'))
-        row = str(feature.GetField('ROW'))
+    for val in dct.itervalues():
+        path = str(val['PATH'])
+        row = str(val['ROW'])
         path_list.append((path.rjust(3, '0'), row.rjust(3, '0')))
+    print path_list
     return path_list
 
 
 def get_pr_multipath(points, poly_shapefile):
-
     path_list = []
 
     if isinstance(points, tuple):
@@ -173,9 +203,13 @@ if __name__ == '__main__':
     flux_sites = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'amf_mt_SPCS.shp')
     poly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'US_MJ_tile.shp')
     out_file = os.path.join(home, 'images', 'test_data', 'points_out.shp')
-    latitude, longitude = 44.91, -106.55
-    poly_interior_points = [(-110.4, 48.3), (-108.1, 47.9), (-108.7, 46.6),
-                            (-110.8, 46.9)]
-    print points_to_shapefile(poly_interior_points, out_file)
+    points = [(-110.4, 48.3), (-108.1, 47.9), (-108.7, 46.6),
+              (-110.8, 46.9)]
+    attrs = {'1': {'PATH': 38, 'ROW': 27},
+             '2': {'PATH': 39, 'ROW': 28},
+             '3': {'PATH': 40, 'ROW': 29},
+             '4': {'PATH': 41, 'ROW': 30}}
+    points_to_shapefile(points, out_file, field_attr_dict=attrs)
+
 
 # ===============================================================================
