@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===============================================================================
-import os
 from osgeo import ogr, osr
 
 
@@ -29,16 +28,29 @@ def lat_lon_to_ogr_point(lon, lat):
 
 
 def shp_spatial_reference(shapefile, definition_type='proj4'):
+    """Get spatial reference from an ESRI .shp shapefile
+
+    :param shapefile: ESRI type .shp
+    :param definition_type: osr.SpatialReference type
+    :return: spatial reference in specified format
+    """
     ds = ogr.Open(shapefile)
     layer = ds.GetLayer()
     layer_srs = layer.GetSpatialRef()
     if definition_type == 'proj4':
         comp = layer_srs.ExportToProj4()
+    elif definition_type == 'USGS':
+        comp = layer_srs.ExportToUSGS()
+    elif definition_type == 'XML':
+        comp = layer_srs.ExportToXML()
+    elif definition_type == 'PWkt':
+        comp = layer_srs.ExportToPrettyWkt()
+    else:
+        raise NotImplementedError('Need to choose one of given projection def formats.')
     return comp
 
 
-def points_to_shapefile(field_attr_dict, output_file,
-                        dst_srs_epsg=4326):
+def points_to_shapefile(field_attr_dict, output_file, dst_srs_epsg=4326):
     """ Converts dict of point coordinates and attributes to point shapefile.
     :param field_attr_dict: dict of dicts e.g. {'1': {'LAT': 23.5, 'LON': -110.1, 'ATTR1': 4.}}
     :param output_file: .shp ESRI shapefile
@@ -67,7 +79,6 @@ def points_to_shapefile(field_attr_dict, output_file,
 
         for field_name, field_value in val.iteritems():
             feature.SetField(field_name, str(field_value))
-
         feature.SetField('FID', key)
         feature.SetGeometry(point)
         layer.CreateFeature(feature)
@@ -139,7 +150,6 @@ def poly_to_shp(polygon, output_file, field_attr_dict=None, dst_srs_epsg=4326):
     layer = ds.CreateLayer('', srs, ogr.wkbPolygon)
 
     for key, val in field_attr_dict['1'].iteritems():
-        print 'type: {}'.format(type(val))
         if isinstance(val, float):
             layer.CreateField(ogr.FieldDefn(key, ogr.OFTReal))
         elif isinstance(val, str):
@@ -166,7 +176,10 @@ def poly_to_shp(polygon, output_file, field_attr_dict=None, dst_srs_epsg=4326):
 
 
 def shp_to_ogr_features(shape):
-
+    """ Convert shapefile features to ogr.Feature list
+    :param shape: ESRI Shapefile .shp
+    :return: List of ogr.Feature features
+    """
     reader = ogr.Open(shape)
     layer = reader.GetLayer()
     features = []
@@ -177,6 +190,10 @@ def shp_to_ogr_features(shape):
 
 
 def shp_to_ogr_geometries(shape):
+    """ Convert shapefile to list of geometries
+    :param shape: ESRI Shapefile .shp
+    :return: list of ogr.Geometry
+    """
     ds = ogr.Open(shape)
     lyr = ds.GetLayer()
     geometries = []
@@ -187,7 +204,10 @@ def shp_to_ogr_geometries(shape):
 
 
 def shp_to_attr_dict(shapefile):
-
+    """Create a nested dict of attributes {FID: {ATTR1: X, ATTR2: Y}}
+    :param shapefile: ESRI Shapefile .shp
+    :return: Dict of attributes by ID
+    """
     ds = ogr.Open(shapefile)
     lyr = ds.GetLayer()
     defn = lyr.GetLayerDefn()
@@ -207,6 +227,10 @@ def shp_to_attr_dict(shapefile):
 
 
 def get_pr_from_field(shapefile):
+    """ Get PATH, ROW from shapefile attributes
+    :param shapefile: ESRI Shapefile with PATH, ROW attributes
+    :return: list of (path, row) tuples
+    """
     dct = shp_to_attr_dict(shapefile)
     path_list = []
     for val in dct.itervalues():
@@ -218,17 +242,19 @@ def get_pr_from_field(shapefile):
 
 
 def get_pr_multipath(points, poly_shapefile):
-
+    """ Finds coincident point(s) intersection with shapefile polygons, makes list (path, row) tuples
+    :param points: tuple, list of tuples, points ESRI shapefile
+    :param poly_shapefile: ESRI shapefile of Landsat path, row
+    :return: List of path, row tuples
+    """
     path_list = []
 
     poly_features = shp_to_ogr_features(poly_shapefile)
     poly_geo_refs = [pl.GetGeometryRef() for pl in poly_features]
     poly_srs = shp_spatial_reference(poly_shapefile)
 
-    print 'Polygon SRS: {}\n type {}'.format(poly_srs, type(poly_srs))
-
     if isinstance(points, tuple):
-        pt_geo_refs = lat_lon_to_ogr_point(points[0], points[1])
+        pt_geo_refs = [lat_lon_to_ogr_point(points[0], points[1])]
     elif isinstance(points, list):
         pt_geo_refs = []
         for pt in points:
@@ -237,7 +263,6 @@ def get_pr_multipath(points, poly_shapefile):
         pt_features = shp_to_ogr_features(points)
         pt_geo_refs = [pt.GetGeometryRef() for pt in pt_features]
         point_srs = shp_spatial_reference(points)
-        print 'Points SRS: {}\n type {}'.format(point_srs, type(point_srs))
         print 'Poly and Point SRS same: {}'.format(poly_srs == point_srs)
     else:
         raise NotImplementedError('Function takes first arg type tuple, list, or string')
@@ -249,28 +274,10 @@ def get_pr_multipath(points, poly_shapefile):
                 if (path, row) not in path_list:
                     path_list.append((path, row))
 
-    print 'number of tiles: {}\n{}'.format(len(path_list), path_list)
     return path_list
 
 
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
-    print 'home: {}'.format(home)
-    test_points = os.path.join(home, 'images', 'test_data', 'points_out.shp')
-    # flux_sites = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'amf_mt_SPCS.shp')
-    polly = os.path.join(home, 'images', 'vector_data', 'WGS_vector', 'mt_row_paths_WGS.shp')
-    # out_file = os.path.join(home, 'images', 'test_data', 'points_out.shp')
-
-    attrs = {'1': {'PATH': 38, 'ROW': 27, 'LON': -110.4, 'LAT': 48.3},
-             '2': {'PATH': 39, 'ROW': 28, 'LON': -108.1, 'LAT': 47.9},
-             '3': {'PATH': 40, 'ROW': 29, 'LON': -108.7, 'LAT': 46.6},
-             '4': {'PATH': 41, 'ROW': 30, 'LON': -110.8, 'LAT': 46.9}}
-
-    points_to_shapefile(attrs, test_points)
-    get_pr_multipath(test_points, polly)
-    os.remove(test_points)
-    os.remove(test_points.replace('shp', 'prj'))
-    os.remove(test_points.replace('shp', 'dbf'))
-    os.remove(test_points.replace('shp', 'shx'))
+    pass
 
 # ===============================================================================
