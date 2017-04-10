@@ -28,6 +28,13 @@ def lat_lon_to_ogr_point(lon, lat):
     return point
 
 
+def shp_spatial_reference(shapefile):
+    ds = ogr.Open(shapefile)
+    layer = ds.GetLayer()
+    srs = layer.GetSpatialRef()
+    return srs
+
+
 def points_to_shapefile(field_attr_dict, output_file,
                         dst_srs_epsg=4326):
     """ Converts dict of point coordinates and attributes to point shapefile.
@@ -43,6 +50,7 @@ def points_to_shapefile(field_attr_dict, output_file,
         srs = None
 
     driver = ogr.GetDriverByName('Esri Shapefile')
+
     ds = driver.CreateDataSource(output_file)
     layer = ds.CreateLayer('Points_DGK', srs, ogr.wkbPoint)
     layer.CreateField(ogr.FieldDefn('FID', ogr.OFTString))
@@ -156,6 +164,7 @@ def poly_to_shp(polygon, output_file, field_attr_dict=None, dst_srs_epsg=4326):
 
 
 def shp_to_ogr_features(shape):
+
     reader = ogr.Open(shape)
     layer = reader.GetLayer()
     features = []
@@ -207,6 +216,7 @@ def get_pr_from_field(shapefile):
 
 
 def get_pr_multipath(points, poly_shapefile):
+
     path_list = []
 
     if isinstance(points, tuple):
@@ -217,26 +227,35 @@ def get_pr_multipath(points, poly_shapefile):
             pt_geo_refs.append(lat_lon_to_ogr_point(pt[0], pt[1]))
     elif isinstance(points, str):
         pt_features = shp_to_ogr_features(points)
-        poly_features = shp_to_ogr_features(poly_shapefile)
         pt_geo_refs = [pt.GetGeometryRef() for pt in pt_features]
-        poly_geo_refs = [pl.GetGeometryRef() for pl in poly_features]
+        point_srs = shp_spatial_reference(points)
+        print 'Points SRS: {}'.format(point_srs)
     else:
         raise NotImplementedError('Function takes first arg type tuple, list, or string')
+
+    poly_features = shp_to_ogr_features(poly_shapefile)
+    poly_geo_refs = [pl.GetGeometryRef() for pl in poly_features]
+    poly_srs = shp_spatial_reference(poly_shapefile)
+
+    print 'Polygon SRS: {}'.format(poly_srs)
 
     for point in pt_geo_refs:
         for j, polygon in enumerate(poly_geo_refs):
             if point.Within(polygon):
                 path, row = poly_features[j].GetField('PATH'), poly_features[j].GetField('ROW')
-                path_list.append((path, row))
-    print 'number of tiles: {}'.format(len(path_list))
+                if (path, row) not in path_list:
+                    path_list.append((path, row))
+
+    print 'number of tiles: {}\n{}'.format(len(path_list), path_list)
     return path_list
 
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
+    test_points = os.path.join(home, 'images', 'test_data', 'points_out.shp')
     flux_sites = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'amf_mt_SPCS.shp')
-    polly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'US_MJ_tile.shp')
+    polly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'MT_row_paths.shp')
     out_file = os.path.join(home, 'images', 'test_data', 'points_out.shp')
 
     attrs = {'1': {'PATH': 38, 'ROW': 27, 'LON': -110.4, 'LAT': 48.3},
@@ -244,7 +263,8 @@ if __name__ == '__main__':
              '3': {'PATH': 40, 'ROW': 29, 'LON': -108.7, 'LAT': 46.6},
              '4': {'PATH': 41, 'ROW': 30, 'LON': -110.8, 'LAT': 46.9}}
 
-    points_to_shapefile(attrs, out_file)
-
+    points_to_shapefile(attrs, test_points)
+    get_pr_multipath(test_points, polly)
+    os.remove(test_points)
 
 # ===============================================================================
