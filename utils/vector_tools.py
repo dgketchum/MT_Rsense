@@ -28,11 +28,13 @@ def lat_lon_to_ogr_point(lon, lat):
     return point
 
 
-def shp_spatial_reference(shapefile):
+def shp_spatial_reference(shapefile, definition_type='proj4'):
     ds = ogr.Open(shapefile)
     layer = ds.GetLayer()
-    srs = layer.GetSpatialRef()
-    return srs
+    layer_srs = layer.GetSpatialRef()
+    if definition_type == 'proj4':
+        comp = layer_srs.ExportToProj4()
+    return comp
 
 
 def points_to_shapefile(field_attr_dict, output_file,
@@ -219,6 +221,12 @@ def get_pr_multipath(points, poly_shapefile):
 
     path_list = []
 
+    poly_features = shp_to_ogr_features(poly_shapefile)
+    poly_geo_refs = [pl.GetGeometryRef() for pl in poly_features]
+    poly_srs = shp_spatial_reference(poly_shapefile)
+
+    print 'Polygon SRS: {}\n type {}'.format(poly_srs, type(poly_srs))
+
     if isinstance(points, tuple):
         pt_geo_refs = lat_lon_to_ogr_point(points[0], points[1])
     elif isinstance(points, list):
@@ -229,15 +237,10 @@ def get_pr_multipath(points, poly_shapefile):
         pt_features = shp_to_ogr_features(points)
         pt_geo_refs = [pt.GetGeometryRef() for pt in pt_features]
         point_srs = shp_spatial_reference(points)
-        print 'Points SRS: {}'.format(point_srs)
+        print 'Points SRS: {}\n type {}'.format(point_srs, type(point_srs))
+        print 'Poly and Point SRS same: {}'.format(poly_srs == point_srs)
     else:
         raise NotImplementedError('Function takes first arg type tuple, list, or string')
-
-    poly_features = shp_to_ogr_features(poly_shapefile)
-    poly_geo_refs = [pl.GetGeometryRef() for pl in poly_features]
-    poly_srs = shp_spatial_reference(poly_shapefile)
-
-    print 'Polygon SRS: {}'.format(poly_srs)
 
     for point in pt_geo_refs:
         for j, polygon in enumerate(poly_geo_refs):
@@ -254,9 +257,9 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
     test_points = os.path.join(home, 'images', 'test_data', 'points_out.shp')
-    flux_sites = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'amf_mt_SPCS.shp')
-    polly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'MT_row_paths.shp')
-    out_file = os.path.join(home, 'images', 'test_data', 'points_out.shp')
+    # flux_sites = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'amf_mt_SPCS.shp')
+    polly = os.path.join(home, 'images', 'vector_data', 'WGS_vector', 'mt_row_paths_WGS.shp')
+    # out_file = os.path.join(home, 'images', 'test_data', 'points_out.shp')
 
     attrs = {'1': {'PATH': 38, 'ROW': 27, 'LON': -110.4, 'LAT': 48.3},
              '2': {'PATH': 39, 'ROW': 28, 'LON': -108.1, 'LAT': 47.9},
@@ -266,5 +269,8 @@ if __name__ == '__main__':
     points_to_shapefile(attrs, test_points)
     get_pr_multipath(test_points, polly)
     os.remove(test_points)
+    os.remove(test_points.replace('shp', 'prj'))
+    os.remove(test_points.replace('shp', 'dbf'))
+    os.remove(test_points.replace('shp', 'shx'))
 
 # ===============================================================================
