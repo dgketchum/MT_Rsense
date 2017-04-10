@@ -18,14 +18,24 @@ from osgeo import ogr, osr
 
 
 def lat_lon_to_ogr_point(lon, lat):
+    """ Converts (lon, lat) to ogr Geometry
+    :param lon: Longitude, float
+    :param lat: Latitude, float
+    :return: osgeo.ogr.Geometry
+    """
     point = ogr.Geometry(ogr.wkbPoint)
     point.AddPoint(lon, lat)
     return point
 
 
-def points_to_shapefile(points_x_y, output_file, field_attr_dict=None,
+def points_to_shapefile(field_attr_dict, output_file,
                         dst_srs_epsg=4326):
-
+    """ Converts dict of point coordinates and attributes to point shapefile.
+    :param field_attr_dict: dict of dicts e.g. {'1': {'LAT': 23.5, 'LON': -110.1, 'ATTR1': 4.}}
+    :param output_file: .shp ESRI shapefile
+    :param dst_srs_epsg: EPSG spatial reference system code (spatialreference.org)
+    :return: None
+    """
     if dst_srs_epsg:
         srs = osr.SpatialReference()
         srs.ImportFromEPSG(dst_srs_epsg)
@@ -40,26 +50,27 @@ def points_to_shapefile(points_x_y, output_file, field_attr_dict=None,
         layer.CreateField(ogr.FieldDefn(key, ogr.OFTString))
     defn = layer.GetLayerDefn()
 
-    pt = 0
     for key, val in field_attr_dict.iteritems():
         feature = ogr.Feature(defn)
-        wkt = 'POINT({} {})'.format(points_x_y[pt][0], points_x_y[pt][1])
-        print wkt
+        wkt = 'POINT({} {})'.format(val['LON'], val['LAT'])
         point = ogr.CreateGeometryFromWkt(wkt)
 
         for field_name, field_value in val.iteritems():
             feature.SetField(field_name, str(field_value))
 
-        feature.SetField('FID', str(pt + 1))
+        feature.SetField('FID', key)
         feature.SetGeometry(point)
         layer.CreateFeature(feature)
         feature = None
-        pt += 1
 
     return None
 
 
 def points_to_ogr_polygon(args):
+    """ Converts list of point tuples [(lon, lat)] to polygon geometry.
+    :param args: List of point tuples i.e. [(-110., 45.3), (-109.5, 46.1)]
+    :return: osgeo.ogr.Geometry (polygon)
+    """
     ring = ogr.Geometry(ogr.wkbLinearRing)
     for point in args:
         ring.AddPoint(point[0], point[1])
@@ -69,6 +80,13 @@ def points_to_ogr_polygon(args):
 
 
 def shp_poly_to_pts_list(poli, include_z_vals=False):
+    """ Converts polygon from shapefile to list of vertex coordinates.
+
+    :param poli: ESRI shapefile with polygon
+    :param include_z_vals: Include elevation values
+    :return: List of coordinate tuples [(lon, lat)]
+    """
+
     ds = ogr.Open(poli)
     layer1 = ds.GetLayer()
     print layer1.GetExtent()
@@ -92,33 +110,48 @@ def shp_poly_to_pts_list(poli, include_z_vals=False):
 
 
 def poly_to_shp(polygon, output_file, field_attr_dict=None, dst_srs_epsg=4326):
-    driver = ogr.GetDriverByName('Esri Shapefile')
-    ds = driver.CreateDataSource(output_file)
+    """ Converts ogr.Geometry polygon to shapefile.
+
+    :param polygons: org.Geometry of polygon type
+    :param output_file: path to save .shp
+    :param field_attr_dict: dict of dicts e.g. {'1': {'FOO': 23.5, 'BAR': -110.1, 'ATTR1': 4.}}
+    :param dst_srs_epsg: EPSG spatial reference system code (spatialreference.org)
+    :return: None
+    """
     if dst_srs_epsg:
         srs = osr.SpatialReference()
         srs.ImportFromEPSG(dst_srs_epsg)
     else:
         srs = None
-    layer = ds.CreateLayer('', srs, ogr.wkbPolygon)
-    defn = layer.GetLayerDefn()
-    feat = ogr.Feature(defn)
-    if field_attr_dict:
-        for key, val in field_attr_dict.iteritems():
-            feat.SetField('ID', key)
-            if type(val) is dict:
-                for second_key, sub_val in val:
-                    if second_key == 'PATH':
-                        feat.SetFieldInteger64('PATH', sub_val)
-                    elif second_key == 'ROW':
-                        feat.SetFieldInteger64('ROW', sub_val)
-                    else:
-                        print 'There are fields not set: {} has \n' \
-                              '{}'.format(second_key, sub_val)
 
-    feat.SetField('id', 123)
-    feat.SetGeometry(polygon)
-    layer.CreateFeature(feat)
-    print ds
+    driver = ogr.GetDriverByName('Esri Shapefile')
+    ds = driver.CreateDataSource(output_file)
+    layer = ds.CreateLayer('', srs, ogr.wkbPolygon)
+
+    for key, val in field_attr_dict['1'].iteritems():
+        print 'type: {}'.format(type(val))
+        if isinstance(val, float):
+            layer.CreateField(ogr.FieldDefn(key, ogr.OFTReal))
+        elif isinstance(val, str):
+            layer.CreateField(ogr.FieldDefn(key, ogr.OFTString))
+        elif isinstance(val, int):
+            layer.CreateField(ogr.FieldDefn(key, ogr.OFTInteger))
+        else:
+            raise TypeError('Found attribute of unknown type!')
+
+    defn = layer.GetLayerDefn()
+
+    for key, val in field_attr_dict.iteritems():
+        feature = ogr.Feature(defn)
+
+        for field_name, field_value in val.iteritems():
+            feature.SetField(field_name, str(field_value))
+
+        feature.SetField('FID', str(key))
+        feature.SetGeometry(polygon)
+        layer.CreateFeature(feature)
+        feature = None
+
     return None
 
 
@@ -143,6 +176,7 @@ def shp_to_ogr_geometries(shape):
 
 
 def shp_to_attr_dict(shapefile):
+
     ds = ogr.Open(shapefile)
     lyr = ds.GetLayer()
     defn = lyr.GetLayerDefn()
@@ -155,8 +189,9 @@ def shp_to_attr_dict(shapefile):
     for i, feature in enumerate(lyr):
         sub_dct = {}
         for key in fields_dct.keys():
-            sub_dct[key] = feature.GetField(key)
-        shp_dct[i + 1] = sub_dct
+            attr_value = feature.GetField(key)
+            sub_dct[key] = attr_value
+        shp_dct[str(i + 1)] = sub_dct
     return shp_dct
 
 
@@ -201,15 +236,15 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
     flux_sites = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'amf_mt_SPCS.shp')
-    poly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'US_MJ_tile.shp')
+    polly = os.path.join(home, 'images', 'vector_data', 'MT_SPCS_vector', 'US_MJ_tile.shp')
     out_file = os.path.join(home, 'images', 'test_data', 'points_out.shp')
-    points = [(-110.4, 48.3), (-108.1, 47.9), (-108.7, 46.6),
-              (-110.8, 46.9)]
-    attrs = {'1': {'PATH': 38, 'ROW': 27},
-             '2': {'PATH': 39, 'ROW': 28},
-             '3': {'PATH': 40, 'ROW': 29},
-             '4': {'PATH': 41, 'ROW': 30}}
-    points_to_shapefile(points, out_file, field_attr_dict=attrs)
+
+    attrs = {'1': {'PATH': 38, 'ROW': 27, 'LON': -110.4, 'LAT': 48.3},
+             '2': {'PATH': 39, 'ROW': 28, 'LON': -108.1, 'LAT': 47.9},
+             '3': {'PATH': 40, 'ROW': 29, 'LON': -108.7, 'LAT': 46.6},
+             '4': {'PATH': 41, 'ROW': 30, 'LON': -110.8, 'LAT': 46.9}}
+
+    points_to_shapefile(attrs, out_file)
 
 
 # ===============================================================================
