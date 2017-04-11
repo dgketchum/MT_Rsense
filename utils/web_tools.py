@@ -17,10 +17,47 @@ import os
 import requests
 import collections
 import re
+from datetime import datetime, timedelta
 from lxml import html
+from dateutil.rrule import rrule, DAILY
 
 
-def lat_lon_to_path_row((lat, lon)):
+def landsat_7_8_overpass_data((path, row), start_date, satellite='L7'):
+    delta = timedelta(days=17)
+    end = start_date + delta
+    for day in rrule(DAILY, dtstart=start_date, until=end):
+
+        base = 'https://landsat.usgs.gov/landsat/all_in_one_pending_acquisition/'
+
+        tail = '{}/Pend_Acq/y{}/{}/{}.txt'.format(satellite, day.year,
+                                                  day.strftime('%b'),
+                                                  day.strftime('%b-%d-%Y'))
+
+        print 'Start: {}'.format(day.strftime('%b-%d-%Y'))
+        url = '{}{}'.format(base, tail)
+        r = requests.get(url)
+        print r.content
+        for line in r.iter_lines():
+            l = line.split()
+            try:
+                add
+                lat, lon
+                to
+                L7 and L5
+                path
+                row, make
+                test
+                if l[0] == str(path):
+                    if l[1] == str(row):
+                        # dtime is in GMT
+                        dct = dict(path=l[0], row=l[1], dtime=l[2], station=l[3])
+            except IndexError:
+                pass
+
+    return dct
+
+
+def lat_lon_to_wrs2_path_row((lat, lon)):
     data = [('rs', 'convert_ll_to_pr'),
             ('rsargs1[]', str(lat)),
             ('rsargs2[]', str(lon)),
@@ -48,6 +85,8 @@ def lat_lon_to_path_row((lat, lon)):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    lat_lon_to_path_row((47.5, -107.2))
+    path_row = (36, 25)
+    start = datetime(2007, 05, 01)
+    landsat_7_8_overpass_data(path_row, start_date=start, satellite='L5')
 
 # ===============================================================================

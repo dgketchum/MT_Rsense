@@ -163,6 +163,7 @@ def next_overpass(date1, path, sat):
     date0_L5 = datetime.datetime(1985, 5, 4)
     date0_L7 = datetime.datetime(1999, 1, 11)
     date0_L8 = datetime.datetime(2013, 5, 1)
+
     if sat == 'LT5':
         date0 = date0_L5
     elif sat == 'LE7':
@@ -486,6 +487,7 @@ def main():
             day_end = int(options.end_date[6:8])
             date_end = datetime.datetime(year_end, month_end, day_end)
         else:
+            pythonpy
             date_end = datetime.datetime.now()
 
         if options.proxy != None:
