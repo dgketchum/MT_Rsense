@@ -1,4 +1,4 @@
-# Adapted from Olivier Hagolle
+# Adapted from Olivier Hagolle and DevelopmentSeed
 # https://github.com/olivierhagolle/LANDSAT-Download
 import os
 import urllib
@@ -7,7 +7,9 @@ import time
 import re
 import sys
 import math
-from datetime import datetime
+import subprocess
+
+from landsat.search import Search
 
 
 def connect_earthexplorer_proxy(proxy_info, usgs):
@@ -149,7 +151,7 @@ def sizeof_fmt(num):
 
 def unzipimage(tgzfile, outputdir):
     success = 0
-    if (os.path.exists(outputdir + '/' + tgzfile + '.tgz')):
+    if os.path.exists(outputdir + '/' + tgzfile + '.tgz'):
         print "\nunzipping..."
         try:
             if sys.platform.startswith('linux'):
@@ -166,59 +168,8 @@ def unzipimage(tgzfile, outputdir):
     return success
 
 
-def read_cloudcover_in_metadata(image_path):
-    output_list = []
-    fields = ['CLOUD_COVER']
-    cloud_cover = 0
-    imagename = os.path.basename(os.path.normpath(image_path))
-    metadatafile = os.path.join(image_path, imagename + '_MTL.txt')
-    metadata = open(metadatafile, 'r')
-    # metadata.replace('\r','')
-    for line in metadata:
-        line = line.replace('\r', '')
-        for f in fields:
-            if line.find(f) >= 0:
-                lineval = line[line.find('= ') + 2:]
-                cloud_cover = lineval.replace('\n', '')
-    return float(cloud_cover)
-
-
-def check_cloud_limit(imagepath, limit):
-    removed = 0
-    cloudcover = read_cloudcover_in_metadata(imagepath)
-    if cloudcover > limit:
-        shutil.rmtree(imagepath)
-        print "Image was removed because the cloud cover value of " + str(
-            cloudcover) + " exceeded the limit defined by the user!"
-        removed = 1
-    return removed
-
-
-def find_in_collection_metadata(collection_file, cc_limit, date_start, date_end, wr2path, wr2row):
-    print "Searching for images in catalog..."
-    cloudcoverlist = []
-    cc_values = []
-    with open(collection_file) as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            year_acq = int(row['acquisitionDate'][0:4])
-            month_acq = int(row['acquisitionDate'][5:7])
-            day_acq = int(row['acquisitionDate'][8:10])
-            acqdate = datetime.datetime(year_acq, month_acq, day_acq)
-            if int(row['path']) == int(wr2path) and int(row['row']) == int(wr2row) and row[
-                'DATA_TYPE_L1'] != 'PR' and float(
-                row['cloudCoverFull']) <= cc_limit and date_start < acqdate < date_end:
-                cloudcoverlist.append(row['cloudCoverFull'] + '--' + row['sceneID'])
-                cc_values.append(float(row['cloudCoverFull']))
-            else:
-                sceneID = ''
-    for i in cloudcoverlist:
-        if float(i.split('--')[0]) == min(cc_values):
-            sceneID = i.split('--')[1]
-    return sceneID
-
-
 def get_credentials(usgs_path):
+    print 'USGS txt path: {}'.format(usgs_path)
     with file(usgs_path) as f:
         (account, passwd) = f.readline().split(' ')
         if passwd.endswith('\n'):
@@ -241,18 +192,52 @@ def get_station_list_identifier(product):
     else:
         raise NotImplementedError('Must provide valid product string...')
 
-    return stations, identifier
+    return identifier, stations
+
+
+def get_candidate_scenes_list(path_row, start_date, end_date, satellite='L8',
+                              max_cloud_cover=70, limit_scenes=100):
+    path, row = path_row[0], path_row[1]
+
+    if satellite == 'L8':
+        searcher = Search()
+        candidate_scenes = searcher.search(paths_rows='{},{},{},{}'.format(path, row, path, row),
+                                           start_date=start_date,
+                                           end_date=end_date,
+                                           cloud_min=0,
+                                           cloud_max=max_cloud_cover,
+                                           limit=limit_scenes)
+        results = candidate_scenes['results']
+        scene_list = []
+
+        for item in results:
+            print item['sceneID']
+            scene_list.append(item['sceneID'])
+
+        return scene_list
+
+    else:
+        pass
+
+
+def down_usgs_by_list(scene_list, output_dir, usgs_creds_txt):
+    usgs_creds = get_credentials(usgs_creds_txt)
+    connect_earthexplorer_no_proxy(usgs_creds)
+
+    for product in scene_list:
+        identifier, stations = get_station_list_identifier(product)
+        base_url = 'https://earthexplorer.usgs.gov/download/'
+        tail_string = '{}/{}/STANDARD/EE'.format(identifier, product)
+        url = '{}{}'.format(base_url, tail_string)
+
+        tgz_file = '{}.tgz'.format(product)
+        download_chunks(url, output_dir, tgz_file)
+        unzipimage(tgz_file, output_dir)
+
+    return None
 
 
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
-    start = datetime(2013, 5, 1).strftime('%Y-%m-%d')
-    end = datetime(2013, 9, 30).strftime('%Y-%m-%d')
-    output = os.path.join(home, 'images', 'Landsat_8')
-    usgs_creds = os.path.join(home, 'images', 'usgs.txt')
-    lat, lon = 44.91, -106.55
-
-
-
+    pass
 
 # ===============================================================================

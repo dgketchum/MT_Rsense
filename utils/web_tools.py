@@ -20,7 +20,7 @@ import re
 from lxml import html
 
 
-def lat_lon_to_path_row(lat, lon):
+def lat_lon_to_path_row((lat, lon)):
     data = [('rs', 'convert_ll_to_pr'),
             ('rsargs1[]', str(lat)),
             ('rsargs2[]', str(lon)),
@@ -48,6 +48,6 @@ def lat_lon_to_path_row(lat, lon):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    lat_lon_to_path_row(47.5, -107.2)
+    lat_lon_to_path_row((47.5, -107.2))
 
 # ===============================================================================

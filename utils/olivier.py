@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-
 """
     Landsat Data download from earth explorer
 """
@@ -12,7 +11,6 @@ import csv
 import re
 
 
-###########################################################################
 class OptionParser(optparse.OptionParser):
     def check_required(self, opt):
         option = self.get_option(opt)
@@ -21,8 +19,6 @@ class OptionParser(optparse.OptionParser):
         if getattr(self.values, option.dest) is None:
             self.error("%s option not supplied" % option)
 
-
-# ############################"Connection to Earth explorer with proxy
 
 def connect_earthexplorer_proxy(proxy_info, usgs):
     print "Establishing connection to Earthexplorer with proxy..."
@@ -41,7 +37,7 @@ def connect_earthexplorer_proxy(proxy_info, usgs):
         token = m.group(1)
     else:
         print "Error : CSRF_Token not found"
-        sys.exit(-3)
+        # sys.exit(-3)
     # parametres de connection
     params = urllib.urlencode(dict(username=usgs['account'], password=usgs['passwd'], csrf_token=token))
     # utilisation
@@ -57,8 +53,6 @@ def connect_earthexplorer_proxy(proxy_info, usgs):
     return
 
 
-# ############################"Connection to Earth explorer without proxy
-
 def connect_earthexplorer_no_proxy(usgs):
     # mkmitchel (https://github.com/mkmitchell) solved the token issue
     cookies = urllib2.HTTPCookieProcessor()
@@ -71,7 +65,7 @@ def connect_earthexplorer_no_proxy(usgs):
         token = m.group(1)
     else:
         print "Error : CSRF_Token not found"
-        sys.exit(-3)
+        # sys.exit(-3)
 
     params = urllib.urlencode(dict(username=usgs['account'], password=usgs['passwd'], csrf_token=token))
     request = urllib2.Request("https://ers.cr.usgs.gov/login", params, headers={})
@@ -81,18 +75,15 @@ def connect_earthexplorer_no_proxy(usgs):
     f.close()
     if data.find('You must sign in as a registered user to download data or place orders for USGS EROS products') > 0:
         print "Authentification failed"
-        sys.exit(-1)
+        # sys.exit(-1)
     return
 
-
-#############################
 
 def sizeof_fmt(num):
     for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
         if num < 1024.0:
             return "%3.1f %s" % (num, x)
         num /= 1024.0
-        #############################
 
 
 def downloadChunks(url, rep, nom_fic):
@@ -153,7 +144,6 @@ def downloadChunks(url, rep, nom_fic):
     return rep, nom_fic
 
 
-##################
 def cycle_day(path):
     """ provides the day in cycle given the path number
     """
@@ -167,7 +157,6 @@ def cycle_day(path):
     return (cycle_day_path)
 
 
-###################
 def next_overpass(date1, path, sat):
     """ provides the next overpass for path after date1
     """
@@ -188,7 +177,6 @@ def next_overpass(date1, path, sat):
     return (date_overpass)
 
 
-#############################"Get metadata files
 def getmetadatafiles(destdir, option):
     print 'Verifying catalog metadata files...'
     home = 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/'
@@ -204,8 +192,6 @@ def getmetadatafiles(destdir, option):
         elif option == 'update':
             urllib.urlretrieve(url, destfile)
 
-
-#############################"Unzip tgz file
 
 def unzipimage(tgzfile, outputdir):
     success = 0
@@ -226,7 +212,6 @@ def unzipimage(tgzfile, outputdir):
     return success
 
 
-#############################"Read image metadata
 def read_cloudcover_in_metadata(image_path):
     output_list = []
     fields = ['CLOUD_COVER']
@@ -243,8 +228,6 @@ def read_cloudcover_in_metadata(image_path):
                 cloud_cover = lineval.replace('\n', '')
     return float(cloud_cover)
 
-
-#############################"Check cloud cover limit
 
 def check_cloud_limit(imagepath, limit):
     removed = 0
