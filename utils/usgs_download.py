@@ -14,7 +14,7 @@ from datetime import datetime
 
 from pkgutil import get_data
 from landsat.search import Search
-from web_tools import landsat_overpass_data
+import web_tools
 
 
 def connect_earthexplorer_proxy(proxy_info, usgs):
@@ -221,11 +221,13 @@ def get_station_list_identifier(product):
 def get_candidate_scenes_list(path_row, satellite, start_date, end_date=None,
                               max_cloud_cover=70, limit_scenes=100):
     if satellite == 'LT5':
-        overpass = next_overpass(start_date, path_row[0], sat=satellite)
+        overpass = web_tools.get_l5_overpass(path_row, start_date)
+        raise NotImplementedError('You must build a list of days for Landsat acquisition ')
         print overpass
 
     else:
         overpass_dct = landsat_overpass_data(path_row, start_date, satellite)
+        raise NotImplementedError('You must build a list of days for Landsat acquisition ')
         print overpass_dct
 
 
