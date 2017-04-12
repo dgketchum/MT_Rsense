@@ -5,11 +5,16 @@ import urllib
 import urllib2
 import time
 import re
+import io
 import sys
+import csv
 import math
 import subprocess
+from datetime import datetime
 
+from pkgutil import get_data
 from landsat.search import Search
+from web_tools import landsat_overpass_data
 
 
 def connect_earthexplorer_proxy(proxy_info, usgs):
@@ -139,7 +144,25 @@ def cycle_day(path):
     cycle_day_path = math.fmod(nb_days_after_day1, 16)
     if path >= 98:  # change date line
         cycle_day_path += 1
+    print cycle_day_path
     return (cycle_day_path)
+
+
+def next_overpass(date1, path, sat):
+    """ provides the next overpass for path after date1
+    """
+    date0_L5 = datetime(1985, 5, 4)
+    date0_L7 = datetime(1999, 1, 11)
+    date0_L8 = datetime(2013, 5, 1)
+    print 'date1: {}, type: {}'.format(date1, type(date1))
+    print 'dateL5: {}, type: {}'.format(date0_L5, type(date0_L5))
+
+    next_day = math.fmod((date1 - date0_L5).days - cycle_day(path) + 1, 16)
+    if next_day != 0:
+        date_overpass = date1 + timedelta(16 - next_day)
+    else:
+        date_overpass = date1
+    return (date_overpass)
 
 
 def sizeof_fmt(num):
@@ -195,29 +218,15 @@ def get_station_list_identifier(product):
     return identifier, stations
 
 
-def get_candidate_scenes_list(path_row, start_date, end_date, satellite='L8',
+def get_candidate_scenes_list(path_row, satellite, start_date, end_date=None,
                               max_cloud_cover=70, limit_scenes=100):
-    path, row = path_row[0], path_row[1]
-
-    if satellite == 'L8':
-        searcher = Search()
-        candidate_scenes = searcher.search(paths_rows='{},{},{},{}'.format(path, row, path, row),
-                                           start_date=start_date,
-                                           end_date=end_date,
-                                           cloud_min=0,
-                                           cloud_max=max_cloud_cover,
-                                           limit=limit_scenes)
-        results = candidate_scenes['results']
-        scene_list = []
-
-        for item in results:
-            print item['sceneID']
-            scene_list.append(item['sceneID'])
-
-        return scene_list
+    if satellite == 'LT5':
+        overpass = next_overpass(start_date, path_row[0], sat=satellite)
+        print overpass
 
     else:
-        pass
+        overpass_dct = landsat_overpass_data(path_row, start_date, satellite)
+        print overpass_dct
 
 
 def down_usgs_by_list(scene_list, output_dir, usgs_creds_txt):
@@ -238,6 +247,14 @@ def down_usgs_by_list(scene_list, output_dir, usgs_creds_txt):
 
 
 if __name__ == '__main__':
-    pass
+    home = os.path.expanduser('~')
+    start = datetime(2007, 5, 1)
+    end = datetime(2007, 5, 30)
+    start_end = start, end
+    satellite = 'LT5'
+    output = os.path.join(home, 'images', satellite)
+    usgs_creds = os.path.join(home, 'images', 'usgs.txt')
+    path_row = 37, 27
+    get_candidate_scenes_list(path_row, satellite, start)
 
 # ===============================================================================

@@ -14,37 +14,45 @@
 # limitations under the License.
 # ===============================================================================
 import os
-import requests
-import collections
 import re
-from datetime import datetime, timedelta
+import requests
 from lxml import html
+from pandas import DataFrame
 from dateutil.rrule import rrule, DAILY
+from datetime import datetime, timedelta
 
 
-def get_L5_overpass(lat_lon, start_date):
+def get_l5_overpass(path_row, date):
+    lat, lon = lat_lon_wrs2pr_convert(path_row, conversion_type='convert_pr_to_ll')
+
     url = 'https://cloudsgate2.larc.nasa.gov/cgi-bin/predict/predict.cgi'
     # submit form > copy POST data
-    payload = dict(c=compute,
-                   sat=LANDSAT + 5,
-                   instrument=0 - 0,
-                   res=9,
-                   month=05,
-                   day=01,
-                   year=2007,
-                   numday=20,
-                   viewangle,
-                   solarangle=all,
-                   gif=track,
-                   ascii=element,
-                   lat=47.45,
-                   lon=-107.951,
-                   sitename=Optional,
-                   choice=track)
+    # use sat='SATELITE X' with a space
+    numdays = 30
+    payload = dict(c='compute', sat='LANDSAT 5', instrument='0-0', res='9', month=str(date.month), day=str(date.day),
+                   numday=str(numdays), viewangle='', solarangle='day', gif='track', ascii='element',
+                   lat=str(lat),
+                   lon=str(lon), sitename='Optional',
+                   choice='track', year=str(date.year))
 
-    r = requests.get(url).content
-    print r
-    return None
+    r = requests.post(url, data=payload)
+    tree = html.fromstring(r.text)
+    head_string = tree.xpath('//table/tr[4]/td[1]/pre/b/font/text()')
+    col = head_string[0].split()[8]
+    ind = []
+    zeniths = []
+    for row in range(5, numdays + 5):
+        string = tree.xpath('//table/tr[{}]/td[1]/pre/font/text()'.format(row))
+        l = string[0].split()
+        dt_str = '{}-{}-{} {}:{}'.format(l[0], l[1], l[2], l[3], l[4])
+        dt = datetime.strptime(dt_str, '%Y-%m-%d %H:%M')
+        ind.append(dt)
+        zenith = float(l[8])
+        zeniths.append(zenith)
+    df = DataFrame(zeniths, index=ind, columns=[col])
+
+    print 'reference dtime overpass: {}'.format(df['zenith'].argmin())
+    return df['zenith'].argmin()
 
 
 def landsat_overpass_data(path_row, start_date, satellite):
@@ -52,8 +60,7 @@ def landsat_overpass_data(path_row, start_date, satellite):
     end = start_date + delta
     if satellite == 'LT5':
 
-        lat_lon = lat_lon_wrs2pr_convert(path_row, converstion_type='convert_pr_to_ll')
-
+        lat_lon = lat_lon_wrs2pr_convert(path_row, conversion_type='convert_pr_to_ll')
 
     else:
         base = 'https://landsat.usgs.gov/landsat/all_in_one_pending_acquisition/'
@@ -84,36 +91,41 @@ def landsat_overpass_data(path_row, start_date, satellite):
         raise NotImplementedError('Did not find overpass data...')
 
 
-def lat_lon_wrs2pr_convert(pr_latlon, converstion_type='convert_ll_to_pr'):
+def lat_lon_wrs2pr_convert(pr_latlon, conversion_type='convert_ll_to_pr'):
     base = 'https://landsat.usgs.gov/landsat/lat_long_converter/tools_latlong.php'
 
-    if converstion_type == 'convert_ll_to_pr':
-        full_url = '{}?rs=&rsargs[]={}&rsargs[]={}&rsargs[]=1&rsrnd=1490995492704'.format(base, converstion_type,
+    if conversion_type == 'convert_ll_to_pr':
+        full_url = '{}?rs=&rsargs[]={}&rsargs[]={}&rsargs[]=1&rsrnd=1490995492704'.format(base, conversion_type,
                                                                                           pr_latlon[0], pr_latlon[1])
         r = requests.get(full_url)
         tree = html.fromstring(r.text)
 
         # remember to view source html to build xpath
         # i.e. inspect element > network > find GET with relevant PARAMS > go to GET URL > view source HTML
+
         p_string = tree.xpath('//table/tr[1]/td[2]/text()')
         path = int(re.search(r'\d+', p_string[0]).group())
+
         r_string = tree.xpath('//table/tr[1]/td[4]/text()')
         row = int(re.search(r'\d+', r_string[0]).group())
         print 'path: {}, row: {}'.format(path, row)
 
         return path, row
 
-    elif converstion_type == 'convert_pr_to_ll':
+    elif conversion_type == 'convert_pr_to_ll':
         full_url = '{}?rs={}&rsargs[]=\n' \
-                   '{}&rsargs[]={}&rsargs[]=1&rsrnd=1490995492704'.format(base, converstion_type,
+                   '{}&rsargs[]={}&rsargs[]=1&rsrnd=1490995492704'.format(base, conversion_type,
                                                                           pr_latlon[0], pr_latlon[1])
 
         r = requests.get(full_url)
         tree = html.fromstring(r.text)
+
         lat_string = tree.xpath('//table/tr[2]/td[2]/text()')
         lat = re.search(r'\d+\.\d+', lat_string[0]).group()
+
         lon_string = tree.xpath('//table/tr[2]/td[4]/text()')
-        lon = re.search(r'\d+\.\d+', lon_string[0]).group()
+        print lon_string
+        lon = re.search(r'[+-]?\d+(?:\.\d+)?', lon_string[0]).group()
         print 'lat: {}, lon: {}'.format(lat, lon)
 
         return lat, lon
@@ -127,7 +139,7 @@ if __name__ == '__main__':
     print 'home: {}'.format(home)
     path_row = (37, 27)
     lat_lon = 47.45, -107.951
-    start = datetime(2007, 05, 10)
-    get_L5_overpass(lat_lon, start)
+    start = datetime(2007, 05, 01)
+    get_l5_overpass(path_row, start)
 
-# ===============================================================================
+# ==================================================================================

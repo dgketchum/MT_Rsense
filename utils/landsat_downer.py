@@ -12,12 +12,13 @@ from datetime import datetime
 from utils import usgs_download
 
 from vector_tools import get_pr_from_field, get_pr_multipath
-from web_tools import lat_lon_to_wrs2_path_row
+from web_tools import lat_lon_wrs2pr_convert
 
 
-def download_landsat(start_end_tuple, satellite='L8', path_row_tuple=None, lat_lon_tuple=None,
+def download_landsat(start_end_tuple, satellite, path_row_tuple=None, lat_lon_tuple=None,
                      shape=None, output_path=None, seek_multipath=False, multipath_points=None,
                      usgs_creds=None):
+
     start_date, end_date = start_end_tuple[0], start_end_tuple[1]
     print 'Date range: {} to {}'.format(start_date, end_date)
 
@@ -38,7 +39,7 @@ def download_landsat(start_end_tuple, satellite='L8', path_row_tuple=None, lat_l
 
     elif lat_lon_tuple:
         # for case of lat and lon
-        image_index = [lat_lon_to_wrs2_path_row(lat_lon_tuple)]
+        image_index = [lat_lon_wrs2pr_convert(lat_lon_tuple)]
         print 'Downloading landsat by lat/lon: {}'.format(lat_lon_tuple)
 
     elif path_row_tuple:
@@ -62,7 +63,7 @@ def download_landsat(start_end_tuple, satellite='L8', path_row_tuple=None, lat_l
         if not os.path.exists(destination_path):
             os.mkdir(destination_path)
 
-        scenes_list = usgs_download.get_candidate_scenes_list((path, row), start, end)
+        scenes_list = usgs_download.get_candidate_scenes_list((path, row), satellite, start, end)
 
         usgs_download.down_usgs_by_list(scenes_list, destination_path, usgs_creds)
 
@@ -72,10 +73,12 @@ if __name__ == '__main__':
     start = datetime(2007, 5, 1).strftime('%Y-%m-%d')
     end = datetime(2007, 5, 30).strftime('%Y-%m-%d')
     start_end = start, end
-    output = os.path.join(home, 'images', 'Landsat_5')
+    satellite = 'LT5'
+    output = os.path.join(home, 'images', satellite)
     usgs_creds = os.path.join(home, 'images', 'usgs.txt')
     path_row = 36, 25
-    download_landsat((start, end), satellite='L7', path_row_tuple=path_row, output_path=output,
-                     usgs_creds=usgs_creds)
+    download_landsat((start, end), satellite=satellite.replace('andsat_', ''),
+                     path_row_tuple=path_row, output_path=output, usgs_creds=usgs_creds)
+
 
 # ===============================================================================
