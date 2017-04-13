@@ -69,6 +69,7 @@ def get_l5_overpass_data(l5_path_row, date):
     col = head_string[0].split()[8]
     ind = []
     zeniths = []
+
     for row in range(5, numdays + 5):
         string = tree.xpath('//table/tr[{}]/td[1]/pre/font/text()'.format(row))
         l = string[0].split()
@@ -80,7 +81,7 @@ def get_l5_overpass_data(l5_path_row, date):
     df = DataFrame(zeniths, index=ind, columns=[col])
 
     print 'reference dtime overpass: {}'.format(df['zenith'].argmin())
-    return df['zenith'].argmin()
+    return df['zenith'].argmin(), None
 
 
 def landsat_overpass_data(lndst_path_row, start_date, satellite):
@@ -92,8 +93,8 @@ def landsat_overpass_data(lndst_path_row, start_date, satellite):
         if start_date > datetime(2013, 06, 01):
             raise ValueError('The date requested is after L5 deactivation')
 
-        reference_time, station = get_l5_overpass_data(lndst_path_row, start_date)
-        return reference_time, station
+        reference_time, ground_station = get_l5_overpass_data(lndst_path_row, start_date)
+        return reference_time, ground_station
 
     else:
         if satellite == 'LE7':
@@ -120,17 +121,19 @@ def landsat_overpass_data(lndst_path_row, start_date, satellite):
                             # dtime is in GMT
                             time_str = '{}-{}'.format(day.year, l[2])
                             ref_time = datetime.strptime(time_str, '%Y-%j-%H:%M:%S')
-                            print 'reference time: {}'.format(ref_time)
+                            ground_station = l[3]
+                            print 'reference time: {}, station: {}'.format(ref_time, ground_station)
 
-                            reference_time, station = ref_time, l[3]
+                            reference_time, ground_station = ref_time, ground_station
 
                             if satellite == 'LC8':
-                                station = 'LGN'
+                                ground_station = 'LGN'
                             if satellite == 'LE7':
-                                if station not in ['EDC', 'SGS', 'AGS', 'ASN', 'SG1', 'CUB', 'COA']:
+                                if ground_station not in ['EDC', 'SGS', 'AGS', 'ASN', 'SG1', 'CUB', 'COA',
+                                                          'LGS']:
                                     raise ValueError('LE7 station incorrect...')
 
-                            return reference_time, station
+                            return reference_time
 
                 except IndexError:
                     pass
