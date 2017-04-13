@@ -10,7 +10,7 @@ import sys
 import csv
 import math
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pkgutil import get_data
 from landsat.search import Search
@@ -215,27 +215,39 @@ def get_station_list_identifier(product):
     else:
         raise NotImplementedError('Must provide valid product string...')
 
-    return identifier, station
+    return identifier, stations
 
 
-def assemble_scene_id_list(ref_time, prow, grnd_stn, end_date, satellite, delta=16):
+def assemble_scene_id_list(ref_time, prow, grnd_stn, end_date, sat, delta=16):
+
     print 'assemble scene list'
 
-    final_list = []
+    scene_id_list = []
+    archive_found = False
 
-    day = ref_time.day
     while ref_time < end_date:
-        for archive in ['00', '01', '02']:
-            try:
-                date_part = datetime.strftime(day, '%Y%j')
-                padded_pr = prow[0].zfill(3), prow[1].zfill(3)
-                scene_str = '{}{}{}{}{}'.format(satellite, padded_pr, date_part, grnd_stn, archive)
-                print scene_str
-                web_tools.verify_landsat_scene_exists(scene_str)
-            except:
-                pass
 
-    return final_list
+        date_part = datetime.strftime(ref_time, '%Y%j')
+        padded_pr = '{}{}'.format(str(prow[0]).zfill(3), str(prow[1]).zfill(3))
+
+        if not archive_found:  # iterate through versions, holding latest
+            for archive in ['00', '01', '02']:
+                scene_str = '{}{}{}{}{}'.format(sat, padded_pr, date_part, grnd_stn, archive)
+                if web_tools.verify_landsat_scene_exists(scene_str):
+                    version = archive
+                    archive_found = True
+                    print 'using version: {}'.format(version)
+
+        else:
+            scene_str = '{}{}{}{}{}'.format(sat, padded_pr, date_part, grnd_stn, version)
+
+            print 'add scene: {}, for {}'.format(scene_str,
+                                                 datetime.strftime(ref_time, '%Y-%m-%d'))
+            scene_id_list.append(scene_str)
+
+            ref_time += timedelta(days=delta)
+
+    return scene_id_list
 
 
 def get_candidate_scenes_list(path_row, satellite, start_date, end_date=None,
@@ -250,15 +262,25 @@ def get_candidate_scenes_list(path_row, satellite, start_date, end_date=None,
     :param limit_scenes: max number scenese, int
     :return: reference overpass = str('YYYYDOY'), station str('XXX') len=3
     """
+    print 'sat: {}'.format(satellite)
     if satellite == 'LT5':
         reference_overpass, station = web_tools.get_l5_overpass_data(path_row, start_date)
+        print 'station: {}, ref time: {}'.format(station, reference_overpass)
         scene_list = assemble_scene_id_list(reference_overpass, path_row,
                                             station, end_date, satellite)
         print scene_list
 
+        TODO: use
+        web_tools.get_l5_overpass_data()
+        to
+        find
+        station
+        name
+
     elif satellite in ['LE7', 'LC8']:
         reference_overpass, station = web_tools.landsat_overpass_data(path_row,
                                                                       start_date, satellite)
+        print 'station: {}, ref time: {}'.format(station, reference_overpass)
 
         scene_list = assemble_scene_id_list(reference_overpass, path_row,
                                             station, end_date, satellite)
@@ -293,6 +315,6 @@ if __name__ == '__main__':
     output = os.path.join(home, 'images', satellite)
     usgs_creds = os.path.join(home, 'images', 'usgs.txt')
     path_row = 37, 27
-    get_candidate_scenes_list(path_row, satellite, start, end)
+    print get_candidate_scenes_list(path_row, satellite, start, end)
 
 # ===============================================================================

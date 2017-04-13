@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 
 
 def verify_landsat_scene_exists(scene_string):
+
     if scene_string.startswith('LT5'):
         url_spec = '12266'
     elif scene_string.startswith('LE7'):
@@ -34,9 +35,16 @@ def verify_landsat_scene_exists(scene_string):
 
     base = 'https://earthexplorer.usgs.gov/fgdc/'
     url = '{}{}/{}/'.format(base, url_spec, scene_string)
-
-    r = requests.get(url).conent
-    print content
+    print url
+    r = requests.get(url)
+    tree = html.fromstring(r.text)
+    string = tree.xpath('//pre/text()')
+    split_str = string[0].split('\n')[5].split(':')
+    title = [x.strip() for x in split_str]
+    if len(title[1]) < 1:
+        return False
+    else:
+        return True
 
 
 def get_l5_overpass_data(l5_path_row, date):
@@ -89,34 +97,45 @@ def landsat_overpass_data(lndst_path_row, start_date, satellite):
 
     else:
         if satellite == 'LE7':
-            satellite = 'L7'
+            sat_abv = 'L7'
         elif satellite == 'LC8':
-            satellite = 'L8'
+            sat_abv = 'L8'
         base = 'https://landsat.usgs.gov/landsat/all_in_one_pending_acquisition/'
         for day in rrule(DAILY, dtstart=start_date, until=end):
 
-            tail = '{}/Pend_Acq/y{}/{}/{}.txt'.format(satellite, day.year,
+            tail = '{}/Pend_Acq/y{}/{}/{}.txt'.format(sat_abv, day.year,
                                                       day.strftime('%b'),
                                                       day.strftime('%b-%d-%Y'))
+
             print 'Searching: {}'.format(day.strftime('%b-%d-%Y'))
             url = '{}{}'.format(base, tail)
             r = requests.get(url)
+
             for line in r.iter_lines():
                 l = line.split()
                 try:
                     if l[0] == str(lndst_path_row[0]):
                         if l[1] == str(lndst_path_row[1]):
+
                             # dtime is in GMT
                             time_str = '{}-{}'.format(day.year, l[2])
                             ref_time = datetime.strptime(time_str, '%Y-%j-%H:%M:%S')
-                            print 'datetime object: {}'.format(ref_time)
+                            print 'reference time: {}'.format(ref_time)
+
                             reference_time, station = ref_time, l[3]
+
+                            if satellite == 'LC8':
+                                station = 'LGN'
+                            if satellite == 'LE7':
+                                if station not in ['EDC', 'SGS', 'AGS', 'ASN', 'SG1', 'CUB', 'COA']:
+                                    raise ValueError('LE7 station incorrect...')
+
                             return reference_time, station
 
                 except IndexError:
                     pass
 
-        raise NotImplementedError('Did not find overpass data, make sure this satellite was operating then...')
+        raise NotImplementedError('Did not find overpass data, check your dates...')
 
 
 def lat_lon_wrs2pr_convert(pr_latlon, conversion_type='convert_ll_to_pr'):
