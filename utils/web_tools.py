@@ -22,8 +22,28 @@ from dateutil.rrule import rrule, DAILY
 from datetime import datetime, timedelta
 
 
-def get_l5_overpass(path_row, date):
-    lat, lon = lat_lon_wrs2pr_convert(path_row, conversion_type='convert_pr_to_ll')
+def verify_landsat_scene_exists(scene_string):
+    if scene_string.startswith('LT5'):
+        url_spec = '12266'
+    elif scene_string.startswith('LE7'):
+        url_spec = '13350'
+    elif scene_string.startswith('LC8'):
+        url_spec = '13400'
+    else:
+        raise NotImplementedError('Must choose a valid satellite to find url_spce')
+
+    base = 'https://earthexplorer.usgs.gov/fgdc/'
+    url = '{}{}/{}/'.format(base, url_spec, scene_string)
+
+    r = requests.get(url).conent
+    print content
+
+
+def get_l5_overpass_data(l5_path_row, date):
+    if date > datetime(2013, 06, 01):
+        raise ValueError('The date requested is after L5 deactivation')
+
+    lat, lon = lat_lon_wrs2pr_convert(l5_path_row, conversion_type='convert_pr_to_ll')
 
     url = 'https://cloudsgate2.larc.nasa.gov/cgi-bin/predict/predict.cgi'
     # submit form > copy POST data
@@ -55,31 +75,39 @@ def get_l5_overpass(path_row, date):
     return df['zenith'].argmin()
 
 
-def landsat_overpass_data(path_row, start_date, satellite):
-    delta = timedelta(days=16)
+def landsat_overpass_data(lndst_path_row, start_date, satellite):
+    delta = timedelta(days=20)
     end = start_date + delta
+
     if satellite == 'LT5':
 
-        lat_lon = lat_lon_wrs2pr_convert(path_row, conversion_type='convert_pr_to_ll')
+        if start_date > datetime(2013, 06, 01):
+            raise ValueError('The date requested is after L5 deactivation')
+
+        reference_time, station = get_l5_overpass_data(lndst_path_row, start_date)
+        return reference_time, station
 
     else:
+        if satellite == 'LE7':
+            satellite = 'L7'
+        elif satellite == 'LC8':
+            satellite = 'L8'
         base = 'https://landsat.usgs.gov/landsat/all_in_one_pending_acquisition/'
         for day in rrule(DAILY, dtstart=start_date, until=end):
 
             tail = '{}/Pend_Acq/y{}/{}/{}.txt'.format(satellite, day.year,
                                                       day.strftime('%b'),
                                                       day.strftime('%b-%d-%Y'))
-
             print 'Searching: {}'.format(day.strftime('%b-%d-%Y'))
             url = '{}{}'.format(base, tail)
             r = requests.get(url)
             for line in r.iter_lines():
                 l = line.split()
                 try:
-                    if l[0] == str(path_row[0]):
-                        if l[1] == str(path_row[1]):
+                    if l[0] == str(lndst_path_row[0]):
+                        if l[1] == str(lndst_path_row[1]):
                             # dtime is in GMT
-                            time_str = '{}-{}'.format(start.year, l[2])
+                            time_str = '{}-{}'.format(day.year, l[2])
                             ref_time = datetime.strptime(time_str, '%Y-%j-%H:%M:%S')
                             print 'datetime object: {}'.format(ref_time)
                             reference_time, station = ref_time, l[3]
@@ -88,7 +116,7 @@ def landsat_overpass_data(path_row, start_date, satellite):
                 except IndexError:
                     pass
 
-        raise NotImplementedError('Did not find overpass data...')
+        raise NotImplementedError('Did not find overpass data, make sure this satellite was operating then...')
 
 
 def lat_lon_wrs2pr_convert(pr_latlon, conversion_type='convert_ll_to_pr'):
@@ -140,7 +168,7 @@ if __name__ == '__main__':
     print 'home: {}'.format(home)
     path_row = (37, 27)
     lat_lon = 47.45, -107.951
-    start = datetime(2007, 05, 01)
-    get_l5_overpass(path_row, start)
+    start = datetime(2014, 05, 01)
+    landsat_overpass_data(path_row, start, 'LC8')
 
 # ==================================================================================

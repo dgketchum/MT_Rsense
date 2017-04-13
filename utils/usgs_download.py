@@ -215,20 +215,57 @@ def get_station_list_identifier(product):
     else:
         raise NotImplementedError('Must provide valid product string...')
 
-    return identifier, stations
+    return identifier, station
+
+
+def assemble_scene_id_list(ref_time, prow, grnd_stn, end_date, satellite, delta=16):
+    print 'assemble scene list'
+
+    final_list = []
+
+    day = ref_time.day
+    while ref_time < end_date:
+        for archive in ['00', '01', '02']:
+            try:
+                date_part = datetime.strftime(day, '%Y%j')
+                padded_pr = prow[0].zfill(3), prow[1].zfill(3)
+                scene_str = '{}{}{}{}{}'.format(satellite, padded_pr, date_part, grnd_stn, archive)
+                print scene_str
+                web_tools.verify_landsat_scene_exists(scene_str)
+            except:
+                pass
+
+    return final_list
 
 
 def get_candidate_scenes_list(path_row, satellite, start_date, end_date=None,
                               max_cloud_cover=70, limit_scenes=100):
+    """
+    
+    :param path_row: path, datetime obj
+    :param satellite: 'LT5', 'LE7', or 'LC8'
+    :param start_date: datetime object start image search
+    :param end_date: datetime object finish image search
+    :param max_cloud_cover: percent cloud cover according to USGS image metadata, float
+    :param limit_scenes: max number scenese, int
+    :return: reference overpass = str('YYYYDOY'), station str('XXX') len=3
+    """
     if satellite == 'LT5':
-        overpass = web_tools.get_l5_overpass(path_row, start_date)
-        raise NotImplementedError('You must build a list of days for Landsat acquisition ')
-        print overpass
+        reference_overpass, station = web_tools.get_l5_overpass_data(path_row, start_date)
+        scene_list = assemble_scene_id_list(reference_overpass, path_row,
+                                            station, end_date, satellite)
+        print scene_list
+
+    elif satellite in ['LE7', 'LC8']:
+        reference_overpass, station = web_tools.landsat_overpass_data(path_row,
+                                                                      start_date, satellite)
+
+        scene_list = assemble_scene_id_list(reference_overpass, path_row,
+                                            station, end_date, satellite)
+        print scene_list
 
     else:
-        overpass_dct = landsat_overpass_data(path_row, start_date, satellite)
-        raise NotImplementedError('You must build a list of days for Landsat acquisition ')
-        print overpass_dct
+        raise NotImplementedError('Must choose a valid satellite')
 
 
 def down_usgs_by_list(scene_list, output_dir, usgs_creds_txt):
@@ -250,13 +287,12 @@ def down_usgs_by_list(scene_list, output_dir, usgs_creds_txt):
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    start = datetime(2007, 5, 1)
-    end = datetime(2007, 5, 30)
-    start_end = start, end
-    satellite = 'LT5'
+    start = datetime(2014, 5, 1)
+    end = datetime(2014, 5, 30)
+    satellite = 'LC8'
     output = os.path.join(home, 'images', satellite)
     usgs_creds = os.path.join(home, 'images', 'usgs.txt')
     path_row = 37, 27
-    get_candidate_scenes_list(path_row, satellite, start)
+    get_candidate_scenes_list(path_row, satellite, start, end)
 
 # ===============================================================================
