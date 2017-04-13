@@ -48,6 +48,7 @@ def verify_landsat_scene_exists(scene_string):
 
 
 def get_l5_overpass_data(l5_path_row, date):
+
     if date > datetime(2013, 06, 01):
         raise ValueError('The date requested is after L5 deactivation')
 
@@ -81,10 +82,11 @@ def get_l5_overpass_data(l5_path_row, date):
     df = DataFrame(zeniths, index=ind, columns=[col])
 
     print 'reference dtime overpass: {}'.format(df['zenith'].argmin())
-    return df['zenith'].argmin(), None
+    return df['zenith'].argmin()
 
 
-def landsat_overpass_data(lndst_path_row, start_date, satellite):
+def landsat_overpass_time(lndst_path_row, start_date, satellite):
+
     delta = timedelta(days=20)
     end = start_date + delta
 
@@ -93,8 +95,8 @@ def landsat_overpass_data(lndst_path_row, start_date, satellite):
         if start_date > datetime(2013, 06, 01):
             raise ValueError('The date requested is after L5 deactivation')
 
-        reference_time, ground_station = get_l5_overpass_data(lndst_path_row, start_date)
-        return reference_time, ground_station
+        reference_time = get_l5_overpass_data(lndst_path_row, start_date)
+        return reference_time
 
     else:
         if satellite == 'LE7':
@@ -108,7 +110,6 @@ def landsat_overpass_data(lndst_path_row, start_date, satellite):
                                                       day.strftime('%b'),
                                                       day.strftime('%b-%d-%Y'))
 
-            print 'Searching: {}'.format(day.strftime('%b-%d-%Y'))
             url = '{}{}'.format(base, tail)
             r = requests.get(url)
 
@@ -121,19 +122,8 @@ def landsat_overpass_data(lndst_path_row, start_date, satellite):
                             # dtime is in GMT
                             time_str = '{}-{}'.format(day.year, l[2])
                             ref_time = datetime.strptime(time_str, '%Y-%j-%H:%M:%S')
-                            ground_station = l[3]
-                            print 'reference time: {}, station: {}'.format(ref_time, ground_station)
 
-                            reference_time, ground_station = ref_time, ground_station
-
-                            if satellite == 'LC8':
-                                ground_station = 'LGN'
-                            if satellite == 'LE7':
-                                if ground_station not in ['EDC', 'SGS', 'AGS', 'ASN', 'SG1', 'CUB', 'COA',
-                                                          'LGS']:
-                                    raise ValueError('LE7 station incorrect...')
-
-                            return reference_time
+                            return ref_time
 
                 except IndexError:
                     pass
@@ -191,6 +181,6 @@ if __name__ == '__main__':
     path_row = (37, 27)
     lat_lon = 47.45, -107.951
     start = datetime(2014, 05, 01)
-    landsat_overpass_data(path_row, start, 'LC8')
+    landsat_overpass_time(path_row, start, 'LC8')
 
 # ==================================================================================

@@ -91,6 +91,7 @@ def download_chunks(url, rep, nom_fic):
                     # sys.exit(-1)
         # if file too small
         total_size = int(req.info().getheader('Content-Length').strip())
+
         if (total_size < 50000):
             print "Error: The file is too small to be a Landsat Image"
             print url
@@ -130,45 +131,14 @@ def download_chunks(url, rep, nom_fic):
     return rep, nom_fic
 
 
-def cycle_day(path):
-    """ provides the day in cycle given the path number
-    """
-    cycle_day_path1 = 5
-    cycle_day_increment = 7
-    nb_days_after_day1 = cycle_day_path1 + cycle_day_increment * (path - 1)
-
-    cycle_day_path = math.fmod(nb_days_after_day1, 16)
-    if path >= 98:  # change date line
-        cycle_day_path += 1
-    print cycle_day_path
-    return (cycle_day_path)
-
-
-def next_overpass(date1, path, sat):
-    """ provides the next overpass for path after date1
-    """
-    date0_L5 = datetime(1985, 5, 4)
-    date0_L7 = datetime(1999, 1, 11)
-    date0_L8 = datetime(2013, 5, 1)
-    print 'date1: {}, type: {}'.format(date1, type(date1))
-    print 'dateL5: {}, type: {}'.format(date0_L5, type(date0_L5))
-
-    next_day = math.fmod((date1 - date0_L5).days - cycle_day(path) + 1, 16)
-    if next_day != 0:
-        date_overpass = date1 + timedelta(16 - next_day)
-    else:
-        date_overpass = date1
-    return (date_overpass)
-
-
 def sizeof_fmt(num):
     for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
         if num < 1024.0:
             return "%3.1f %s" % (num, x)
-        num /= 1024.0
+            # num /= 1024.0
 
 
-def unzipimage(tgzfile, outputdir):
+def unzip_image(tgzfile, outputdir):
     success = 0
     if os.path.exists(outputdir + '/' + tgzfile + '.tgz'):
         print "\nunzipping..."
@@ -214,24 +184,36 @@ def get_station_list_identifier(product):
     return identifier, stations
 
 
-def assemble_scene_id_list(ref_time, prow, grnd_stn, end_date, sat, delta=16):
+def assemble_scene_id_list(ref_time, prow, end_date, sat, delta=16):
 
     scene_id_list = []
     archive_found = False
+
+    possible_l7_stations = ['EDC', 'SGS', 'AGS', 'ASN', 'SG1', 'CUB', 'COA']
+    possible_l8_stations = ['LGN']
+    possible_l5_stations = ['GLC', 'ASA', 'KIR', 'MOR', 'KHC', 'PAC',
+                            'KIS', 'CHM', 'LGS', 'MGR', 'COA', 'MPS', 'CUB']
+
+    if sat == 'LC8':
+        station_list = possible_l8_stations
+    elif sat == 'LE7':
+        station_list = possible_l7_stations
+    elif sat == 'LT5':
+        station_list = possible_l5_stations
+    else:
+        raise ValueError('Must provide valid satellite...')
 
     while ref_time < end_date:
 
         date_part = datetime.strftime(ref_time, '%Y%j')
         padded_pr = '{}{}'.format(str(prow[0]).zfill(3), str(prow[1]).zfill(3))
 
-        if not archive_found and not grnd_stn:  # iterate through versions, unk LT5 station case
-
+        if not archive_found:  # iterate through versions, unk LT5 station case
+            print 'Looking for correct station/version combination.............'
             for archive in ['00', '01', '02']:
 
-                possible_l5_stations = ['GLC', 'ASA', 'KIR', 'MOR', 'KHC', 'PAC',
-                                        'KIS', 'CHM', 'LGS', 'MGR', 'COA', 'MPS', 'CUB']
+                for location in station_list:
 
-                for location in possible_l5_stations:
                     scene_str = '{}{}{}{}{}'.format(sat, padded_pr, date_part, location, archive)
 
                     if web_tools.verify_landsat_scene_exists(scene_str):
@@ -239,17 +221,9 @@ def assemble_scene_id_list(ref_time, prow, grnd_stn, end_date, sat, delta=16):
                         grnd_stn = location
                         archive_found = True
                         print 'using version: {}, location: {}'.format(version, location)
-
-        elif not archive_found and grnd_stn:  # iterate through versions, station known, holding latest
-            print 'LE7 no archive, have station'
-            for archive in ['00', '01', '02']:
-
-                scene_str = '{}{}{}{}{}'.format(sat, padded_pr, date_part, grnd_stn, archive)
-
-                if web_tools.verify_landsat_scene_exists(scene_str):
-                    version = archive
-                    archive_found = True
-                    print 'using version: {}'.format(version)
+                        break
+                if archive_found:
+                    break
 
         elif archive_found:
 
@@ -279,32 +253,20 @@ def get_candidate_scenes_list(path_row, satellite, start_date, end_date=None,
     :param limit_scenes: max number scenese, int
     :return: reference overpass = str('YYYYDOY'), station str('XXX') len=3
     """
-    print 'sat: {}'.format(satellite)
-    if satellite == 'LT5':
 
-        reference_overpass, station = web_tools.get_l5_overpass_data(path_row, start_date)
+    print '\nsat: {}\n'.format(satellite)
 
-        print 'station: {}, ref time: {}'.format(station, reference_overpass)
+    reference_overpass = web_tools.landsat_overpass_time(path_row,
+                                                         start_date, satellite)
+    print 'ref time: {}'.format(reference_overpass)
 
-        scene_list = assemble_scene_id_list(reference_overpass, path_row,
-                                            station, end_date, satellite)
-        print scene_list
-
-    elif satellite in ['LE7', 'LC8']:
-
-        reference_overpass, station = web_tools.landsat_overpass_data(path_row,
-                                                                      start_date, satellite)
-        print 'station: {}, ref time: {}'.format(station, reference_overpass)
-
-        scene_list = assemble_scene_id_list(reference_overpass, path_row,
-                                            station, end_date, satellite)
-        print scene_list
-
-    else:
-        raise NotImplementedError('Must choose a valid satellite')
+    scene_list = assemble_scene_id_list(reference_overpass, path_row,
+                                        end_date, satellite)
+    return scene_list
 
 
 def down_usgs_by_list(scene_list, output_dir, usgs_creds_txt):
+
     usgs_creds = get_credentials(usgs_creds_txt)
     connect_earthexplorer_no_proxy(usgs_creds)
 
@@ -316,7 +278,7 @@ def down_usgs_by_list(scene_list, output_dir, usgs_creds_txt):
 
         tgz_file = '{}.tgz'.format(product)
         download_chunks(url, output_dir, tgz_file)
-        unzipimage(tgz_file, output_dir)
+        unzip_image(tgz_file, output_dir)
 
     return None
 
@@ -325,7 +287,7 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     start = datetime(2007, 5, 1)
     end = datetime(2007, 5, 30)
-    satellite = 'LE7'
+    satellite = 'LT5'
     output = os.path.join(home, 'images', satellite)
     usgs_creds = os.path.join(home, 'images', 'usgs.txt')
     path_row = 37, 27

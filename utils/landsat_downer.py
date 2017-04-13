@@ -29,8 +29,6 @@ def download_landsat(start_end_tuple, satellite, path_row_tuple=None, lat_lon_tu
         image_index = get_pr_from_field(lyr)
         print 'Downloading landsat by shapefile: {}'.format(shape)
 
-    # for case with path,row shapefile and point(s) attempts to get path, row overlapping scenes
-    # thereby increasing images/time
     elif seek_multipath:
         image_index = get_pr_multipath(multipath_points, shape)
         print 'Downloading landsat for multipath'
@@ -56,24 +54,25 @@ def download_landsat(start_end_tuple, satellite, path_row_tuple=None, lat_lon_tu
     for tile in image_index:
         destination_path = os.path.join(output_path, 'd_{}_{}'.format(tile[0], tile[1]))
 
-        # if not os.path.exists(destination_path):
-        #     print 'making dir: {}'.format(destination_path)
-        #     os.mkdir(destination_path)
+        if not os.path.exists(destination_path):
+            print 'making dir: {}'.format(destination_path)
+            os.mkdir(destination_path)
 
         scenes_list = usgs_download.get_candidate_scenes_list(tile, satellite, start, end)
 
         usgs_download.down_usgs_by_list(scenes_list, destination_path, usgs_creds)
 
+    return None
+
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
-    start = datetime(2007, 5, 1).strftime('%Y-%m-%d')
-    end = datetime(2007, 5, 30).strftime('%Y-%m-%d')
-    start_end = start, end
+    start = datetime(2007, 5, 1)
+    end = datetime(2007, 5, 30)
     satellite = 'LT5'
     output = os.path.join(home, 'images', satellite)
     usgs_creds = os.path.join(home, 'images', 'usgs.txt')
-    path_row = 36, 25
+    path_row = 37, 27
     download_landsat((start, end), satellite=satellite.replace('andsat_', ''),
                      path_row_tuple=path_row, output_path=output, usgs_creds=usgs_creds)
 
