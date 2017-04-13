@@ -1,4 +1,4 @@
-# Adapted from Olivier Hagolle and DevelopmentSeed
+# Adapted in part from Olivier Hagolle
 # https://github.com/olivierhagolle/LANDSAT-Download
 import os
 import urllib
