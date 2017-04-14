@@ -10,7 +10,7 @@ notifications:
     on_failure: change
 
 install:
-  - conda create --name remotesensingenv -f conda_reqs.txt
+  - conda create env --name remotesensingenv -f conda_reqs.txt
   - source activate remotesensingenv
   - pip install -r pip_reqs.txt
 
