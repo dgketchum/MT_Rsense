@@ -17,9 +17,8 @@ before_install:
   - conda update --yes --quiet conda
 
 install:
-  - conda env create -f environment.yml
-#  - conda create --yes --quiet -n recharge python
+  - conda env create -f conda_reqs.txt
   - source activate recharge
-#  - conda install --yes --file requirements.txt
+  - pip install pip_reqs.txt
 
 script: python setup.py test
