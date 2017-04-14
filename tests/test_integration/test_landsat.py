@@ -17,7 +17,6 @@ import unittest
 from datetime import datetime
 
 from utils import usgs_download as usgs
-from utils import landsat_downer as ld
 
 
 class TestUSGS(unittest.TestCase):

@@ -57,9 +57,10 @@ def get_l5_overpass_data(l5_path_row, date):
     url = 'https://cloudsgate2.larc.nasa.gov/cgi-bin/predict/predict.cgi'
     # submit form > copy POST data
     # use sat='SATELITE X' with a space
-    numdays = 30
-    payload = dict(c='compute', sat='LANDSAT 5', instrument='0-0', res='9', month=str(date.month), day=str(date.day),
-                   numday=str(numdays), viewangle='', solarangle='day', gif='track', ascii='element',
+    num_passes = 30
+    payload = dict(c='compute', sat='LANDSAT 5', instrument='0-0', res='9', month=str(date.month),
+                   day=str(date.day),
+                   numday=str(num_passes), viewangle='', solarangle='day', gif='track', ascii='element',
                    lat=str(lat),
                    lon=str(lon), sitename='Optional',
                    choice='track', year=str(date.year))
@@ -71,7 +72,7 @@ def get_l5_overpass_data(l5_path_row, date):
     ind = []
     zeniths = []
 
-    for row in range(5, numdays + 5):
+    for row in range(5, num_passes + 5):
         string = tree.xpath('//table/tr[{}]/td[1]/pre/font/text()'.format(row))
         l = string[0].split()
         dt_str = '{}-{}-{} {}:{}'.format(l[0], l[1], l[2], l[3], l[4])

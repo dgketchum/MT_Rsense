@@ -13,13 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===============================================================================
-import os
-import errno
-import shutil
-import unittest
-from tempfile import mkdtemp
-
-import mock
 
 if __name__ == '__main__':
     home = os.path.expanduser('~')
