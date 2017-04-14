@@ -2,6 +2,7 @@
 # $ conda create --name <env> --file <this file>
 # platform: linux-64
 @EXPLICIT
+https://repo.continuum.io/pkgs/free/linux-64/curl-7.52.1-0.tar.bz2
 https://repo.continuum.io/pkgs/free/linux-64/gdal-2.1.0-py27_0.tar.bz2
 https://repo.continuum.io/pkgs/free/linux-64/geos-3.5.0-0.tar.bz2
 https://repo.continuum.io/pkgs/free/linux-64/libgdal-2.1.0-0.tar.bz2
@@ -10,6 +11,7 @@ https://repo.continuum.io/pkgs/free/linux-64/lxml-3.7.3-py27_0.tar.bz2
 https://repo.continuum.io/pkgs/free/linux-64/matplotlib-1.5.1-np111py27_0.tar.bz2
 https://repo.continuum.io/pkgs/free/linux-64/openssl-1.0.2k-1.tar.bz2
 https://repo.continuum.io/pkgs/free/linux-64/pip-9.0.1-py27_1.tar.bz2
+https://repo.continuum.io/pkgs/free/linux-64/pycurl-7.43.0-py27_2.tar.bz2
 https://repo.continuum.io/pkgs/free/linux-64/pyqt-5.6.0-py27_2.tar.bz2
 https://repo.continuum.io/pkgs/free/linux-64/python-2.7.13-0.tar.bz2
 https://repo.continuum.io/pkgs/free/linux-64/rasterio-0.36.0-np112py27_0.tar.bz2
