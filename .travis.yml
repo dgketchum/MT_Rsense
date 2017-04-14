@@ -12,12 +12,12 @@ notifications:
 before_install:
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
   - chmod +x miniconda.sh
-  - ./miniconda.sh -b
-  - export PATH=/home/travis/miniconda2/bin:$PATH
+  - ./miniconda.sh -b -p $HOME/miniconda
+  - export PATH=/home/miniconda/bin:$PATH
   - conda update --yes conda
 
 install:
-  - conda  create -f conda_reqs.yml
+  - conda create -f conda_reqs.yml
 #  - conda create --yes --quiet -n recharge python
   - source activate recharge
 #  - conda install --yes --file requirements.txt
