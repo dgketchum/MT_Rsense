@@ -77,7 +77,8 @@ class WebTools(unittest.TestCase):
         self.assertEqual(self.latlon, expect_latlon)
 
         expect_pr = web_tools.lat_lon_wrs2pr_convert(self.latlon)
-        self.assertEqual(self.path_row, expect_pr)
+        # built to fail
+        self.assertFalse(self.path_row, expect_pr)
 
 
 if __name__ == '__main__':
