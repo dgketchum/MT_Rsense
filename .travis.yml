@@ -9,13 +9,6 @@ notifications:
   email:
     on_failure: change
 
-before_install:
-  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-  - chmod +x miniconda.sh
-  - ./miniconda.sh -b
-  - export PATH=/home/travis/miniconda2/bin:$PATH
-  - conda update --yes --quiet conda
-
 install:
   - conda create recharge -f conda_reqs.txt
   - source activate recharge
