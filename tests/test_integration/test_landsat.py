@@ -17,6 +17,7 @@ import unittest
 from datetime import datetime
 
 from utils import usgs_download as usgs
+from utils import web_tools as wt
 
 
 class USGSLandstatTestCase(unittest.TestCase):
@@ -43,9 +44,10 @@ class USGSLandstatTestCase(unittest.TestCase):
         self.assertEqual(l8_scenes, self.known_l8_scene)
 
     def test_find_scenes_by_latlon(self):
-        l5_scenes = usgs.get_candidate_scenes_list(self.known_latlon, 'LT5', self.start_7, self.end_7)
-        l7_scenes = usgs.get_candidate_scenes_list(self.known_latlon, 'LE7', self.start_7, self.end_7)
-        l8_scenes = usgs.get_candidate_scenes_list(self.known_latlon, 'LC8', self.start_14, self.end_14)
+        ll = wt.convert_lat_lon_wrs2pr(self.known_latlon, conversion_type='convert_ll_to_pr')
+        l5_scenes = usgs.get_candidate_scenes_list(ll, 'LT5', self.start_7, self.end_7)
+        l7_scenes = usgs.get_candidate_scenes_list(ll, 'LE7', self.start_7, self.end_7)
+        l8_scenes = usgs.get_candidate_scenes_list(ll, 'LC8', self.start_14, self.end_14)
         self.assertEqual(l5_scenes, self.known_l5_scene)
         self.assertEqual(l7_scenes, self.known_l7_scene)
         self.assertEqual(l8_scenes, self.known_l8_scene)

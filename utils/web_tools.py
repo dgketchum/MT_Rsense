@@ -23,7 +23,6 @@ from datetime import datetime, timedelta
 
 
 def verify_landsat_scene_exists(scene_string):
-
     if scene_string.startswith('LT5'):
         url_spec = '12266'
     elif scene_string.startswith('LE7'):
@@ -49,11 +48,10 @@ def verify_landsat_scene_exists(scene_string):
 
 
 def get_l5_overpass_data(l5_path_row, date):
-
     if date > datetime(2013, 06, 01):
         raise ValueError('The date requested is after L5 deactivation')
 
-    lat, lon = convert_lat_lon_to_wrs2pr(l5_path_row, conversion_type='convert_pr_to_ll')
+    lat, lon = convert_lat_lon_wrs2pr(l5_path_row, conversion_type='convert_pr_to_ll')
 
     url = 'https://cloudsgate2.larc.nasa.gov/cgi-bin/predict/predict.cgi'
     # submit form > copy POST data
@@ -88,7 +86,6 @@ def get_l5_overpass_data(l5_path_row, date):
 
 
 def landsat_overpass_time(lndst_path_row, start_date, satellite):
-
     delta = timedelta(days=20)
     end = start_date + delta
 
@@ -121,7 +118,6 @@ def landsat_overpass_time(lndst_path_row, start_date, satellite):
                 try:
                     if l[0] == str(lndst_path_row[0]):
                         if l[1] == str(lndst_path_row[1]):
-
                             # dtime is in GMT
                             time_str = '{}-{}'.format(day.year, l[2])
                             ref_time = datetime.strptime(time_str, '%Y-%j-%H:%M:%S')
@@ -134,23 +130,21 @@ def landsat_overpass_time(lndst_path_row, start_date, satellite):
         raise NotImplementedError('Did not find overpass data, check your dates...')
 
 
-def convert_lat_lon_to_wrs2pr(pr_latlon, conversion_type='convert_ll_to_pr'):
-
+def convert_lat_lon_wrs2pr(pr_latlon, conversion_type='convert_ll_to_pr'):
     base = 'https://landsat.usgs.gov/landsat/lat_long_converter/tools_latlong.php'
     unk_number = 1490995492704
 
     if conversion_type == 'convert_ll_to_pr':
 
-        full_url = '{}?rs=&rsargs[]={}&rsargs[]={}&rsargs[]=1&rsrnd={}'.format(base, conversion_type,
-                                                                               pr_latlon[0], pr_latlon[1],
-                                                                               unk_number)
+        full_url = '{}?rs={}&rsargs[]={}&rsargs[]={}&rsargs[]=1&rsrnd={}'.format(base, conversion_type,
+                                                                                 pr_latlon[0], pr_latlon[1],
+                                                                                 unk_number)
         r = requests.get(full_url)
         tree = html.fromstring(r.text)
 
         # remember to view source html to build xpath
         # i.e. inspect element > network > find GET with relevant PARAMS
         # > go to GET URL > view source HTML
-
         p_string = tree.xpath('//table/tr[1]/td[2]/text()')
         path = int(re.search(r'\d+', p_string[0]).group())
 
@@ -171,10 +165,10 @@ def convert_lat_lon_to_wrs2pr(pr_latlon, conversion_type='convert_ll_to_pr'):
         tree = html.fromstring(r.text)
 
         lat_string = tree.xpath('//table/tr[2]/td[2]/text()')
-        lat = re.search(r'[+-]?\d+(?:\.\d+)?', lat_string[0]).group()
+        lat = float(re.search(r'[+-]?\d+(?:\.\d+)?', lat_string[0]).group())
 
         lon_string = tree.xpath('//table/tr[2]/td[4]/text()')
-        lon = re.search(r'[+-]?\d+(?:\.\d+)?', lon_string[0]).group()
+        lon = float(re.search(r'[+-]?\d+(?:\.\d+)?', lon_string[0]).group())
         print 'lat: {}, lon: {}'.format(lat, lon)
 
         return lat, lon
@@ -189,6 +183,7 @@ if __name__ == '__main__':
     path_row = (37, 27)
     lat_lon = 47.45, -107.951
     start = datetime(2014, 05, 01)
-    landsat_overpass_time(path_row, start, 'LC8')
+    print convert_lat_lon_wrs2pr(lat_lon)
+    # print convert_lat_lon_wrs2pr(path_row, conversion_type='convert_pr_to_ll')
 
 # ==================================================================================

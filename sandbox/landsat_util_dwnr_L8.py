@@ -18,7 +18,7 @@ from utils import olivier
 from utils import usgs_download
 
 from utils.vector_tools import get_pr_from_field, get_pr_multipath
-from utils.web_tools import convert_lat_lon_to_wrs2pr
+from utils.web_tools import convert_lat_lon_wrs2pr
 
 requests.packages.urllib3.disable_warnings()
 
@@ -47,7 +47,7 @@ def download_landsat(start_end_tuple, satellite='L8', path_row_tuple=None, lat_l
 
     elif lat_lon_tuple:
         # for case of lat and lon
-        image_index = [convert_lat_lon_to_wrs2pr(lat, lon)]
+        image_index = [convert_lat_lon_wrs2pr(lat, lon)]
         print 'Downloading landsat by lat/lon: {}, {}'.format(lat, lon)
 
     elif path_row_tuple:
