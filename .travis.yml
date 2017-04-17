@@ -33,6 +33,5 @@ install:
   - conda create --yes --quiet -n landsatenv ${PKGS} ${OPTIONAL}
   - source activate landsatenv
   - conda install --yes --file conda_reqs.yml
-  - pip install -r pip_reqs.yml
 
 script: python setup.py test
