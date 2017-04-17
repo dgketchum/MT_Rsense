@@ -26,6 +26,6 @@ setup(name='MT_Rsense',
       packages=['utils',
                 # test packages
                 'tests.test_integration', 'tests.test_unit'],
-      test_suite='tests.test_suite', requires=['numpy'])
+      test_suite='tests.test_suite')
 
 # ============= EOF =============================================
