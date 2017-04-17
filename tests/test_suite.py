@@ -18,6 +18,7 @@ import unittest
 
 
 def suite():
+    print 'Testing.......................................'
     from tests.test_integration.test_landsat import USGSLandstatTestCase
     from tests.test_unit.test_vector import VectorTestCase
     from tests.test_unit.test_web_tools import WebToolsTestCase

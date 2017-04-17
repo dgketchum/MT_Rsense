@@ -22,6 +22,7 @@ os.environ['TRAVIS_CI'] = 'True'
 
 setup(name='MT_Rsense',
       version='0.1',
+      setup_requires=['nose>=1.0'],
       py_modules=['utils'],
       packages=['utils',
                 # test packages
