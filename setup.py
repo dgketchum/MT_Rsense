@@ -25,8 +25,7 @@ setup(name='MT_Rsense',
       setup_requires=['nose>=1.0'],
       py_modules=['utils'],
       packages=['utils',
-                # test packages
-                'tests.test_integration', 'tests.test_unit'],
-      test_suite='tests.test_suite')
+                'tests'],
+      test_suite='tests.test_suite.suite')
 
 # ============= EOF =============================================
