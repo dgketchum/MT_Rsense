@@ -208,7 +208,7 @@ def assemble_scene_id_list(ref_time, prow, end_date, sat, delta=16):
         date_part = datetime.strftime(ref_time, '%Y%j')
         padded_pr = '{}{}'.format(str(prow[0]).zfill(3), str(prow[1]).zfill(3))
 
-        if not archive_found:  # iterate through versions, unk LT5 station case
+        if not archive_found:
             print 'Looking for correct station/version combination.............'
             for archive in ['00', '01', '02']:
 
@@ -286,7 +286,7 @@ if __name__ == '__main__':
     home = os.path.expanduser('~')
     start = datetime(2007, 5, 1)
     end = datetime(2007, 5, 30)
-    satellite = 'LT5'
+    satellite = 'LE7'
     output = os.path.join(home, 'images', satellite)
     usgs_creds = os.path.join(home, 'images', 'usgs.txt')
     pathrow = 37, 27
