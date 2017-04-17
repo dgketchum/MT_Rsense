@@ -34,4 +34,4 @@ install:
   - source activate landsatenv
   - conda install --yes --file conda_reqs.yml
 
-script: python setup.py test
+script: python setup.py tests
