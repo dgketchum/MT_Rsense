@@ -17,11 +17,11 @@ env:
 
 
 before_install:
-  - wget http://repo.continuum.io/miniconda2/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
   - export PATH=/home/travis/miniconda/bin:$PATH
-
+  - conda update --yes --quiet conda
   - "export DISPLAY=:99.0"
   - "sh -e /etc/init.d/xvfb start"
   # Build package list to avoid empty package=versions; only needed for versioned pacakges
