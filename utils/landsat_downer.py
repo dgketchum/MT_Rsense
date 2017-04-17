@@ -12,7 +12,7 @@ from datetime import datetime
 from utils import usgs_download
 
 from vector_tools import get_pr_from_field, get_pr_multipath
-from web_tools import lat_lon_wrs2pr_convert
+from web_tools import convert_lat_lon_to_wrs2pr
 
 
 def download_landsat(start_end_tuple, satellite, path_row_tuple=None, lat_lon_tuple=None,
@@ -37,7 +37,7 @@ def download_landsat(start_end_tuple, satellite, path_row_tuple=None, lat_lon_tu
 
     elif lat_lon_tuple:
         # for case of lat and lon
-        image_index = [lat_lon_wrs2pr_convert(lat_lon_tuple)]
+        image_index = [convert_lat_lon_to_wrs2pr(lat_lon_tuple)]
         print 'Downloading landsat by lat/lon: {}'.format(lat_lon_tuple)
 
     elif path_row_tuple:

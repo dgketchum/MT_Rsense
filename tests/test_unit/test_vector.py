@@ -22,7 +22,7 @@ import ogr
 from utils import vector_tools
 
 
-class TestVector(unittest.TestCase):
+class VectorTestCase(unittest.TestCase):
     def setUp(self):
         self.temp_foler = mkdtemp()
         self.out_shp_str = os.path.join(self.temp_foler, 'out_shape_str.shp')

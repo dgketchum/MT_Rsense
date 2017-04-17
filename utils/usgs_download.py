@@ -241,12 +241,11 @@ def assemble_scene_id_list(ref_time, prow, end_date, sat, delta=16):
     return scene_id_list
 
 
-def get_candidate_scenes_list(path_row, satellite, start_date, end_date=None,
-                              max_cloud_cover=70, limit_scenes=100):
+def get_candidate_scenes_list(path_row, sat_name, start_date, end_date=None):
     """
     
     :param path_row: path, datetime obj
-    :param satellite: 'LT5', 'LE7', or 'LC8'
+    :param sat_name: 'LT5', 'LE7', or 'LC8'
     :param start_date: datetime object start image search
     :param end_date: datetime object finish image search
     :param max_cloud_cover: percent cloud cover according to USGS image metadata, float
@@ -254,14 +253,14 @@ def get_candidate_scenes_list(path_row, satellite, start_date, end_date=None,
     :return: reference overpass = str('YYYYDOY'), station str('XXX') len=3
     """
 
-    print '\nsat: {}\n'.format(satellite)
+    print '\nsat: {}\n'.format(sat_name)
 
     reference_overpass = web_tools.landsat_overpass_time(path_row,
-                                                         start_date, satellite)
+                                                         start_date, sat_name)
     print 'ref time: {}'.format(reference_overpass)
 
     scene_list = assemble_scene_id_list(reference_overpass, path_row,
-                                        end_date, satellite)
+                                        end_date, sat_name)
     return scene_list
 
 
@@ -290,7 +289,7 @@ if __name__ == '__main__':
     satellite = 'LT5'
     output = os.path.join(home, 'images', satellite)
     usgs_creds = os.path.join(home, 'images', 'usgs.txt')
-    path_row = 37, 27
-    print get_candidate_scenes_list(path_row, satellite, start, end)
+    pathrow = 37, 27
+    print get_candidate_scenes_list(pathrow, satellite, start, end)
 
 # ===============================================================================

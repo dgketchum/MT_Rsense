@@ -14,18 +14,28 @@
 # limitations under the License.
 # ===============================================================================
 
-import os
+import unittest
 
-from setuptools import setup
 
-os.environ['TRAVIS_CI'] = 'True'
+def suite():
+    from tests.test_integration.test_landsat import USGSLandstatTestCase
+    from tests.test_unit.test_vector import VectorTestCase
+    from tests.test_unit.test_web_tools import WebToolsTestCase
 
-setup(name='MT_Rsense',
-      version='0.1',
-      py_modules=['utils'],
-      packages=['utils',
-                # test packages
-                'tests.test_integration', 'tests.test_unit'],
-      test_suite='tests.test_suite', requires=['numpy'])
+    loader = unittest.TestLoader()
+    test_suite = unittest.TestSuite()
 
-# ============= EOF =============================================
+    tests = (USGSLandstatTestCase,
+             VectorTestCase,
+             WebToolsTestCase)
+
+    for t in tests:
+        test_suite.addTest(loader.loadTestsFromTestCase(t))
+
+    return test_suite
+
+
+if __name__ == '__main__':
+    unittest.TextTestRunner(verbosity=2).run(suite())
+
+# ===============================================================================

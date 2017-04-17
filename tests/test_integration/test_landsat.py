@@ -19,7 +19,7 @@ from datetime import datetime
 from utils import usgs_download as usgs
 
 
-class TestUSGS(unittest.TestCase):
+class USGSLandstatTestCase(unittest.TestCase):
     def setUp(self):
         self.start_7, self.end_7 = datetime(2007, 05, 01), datetime(2007, 05, 31)
         self.start_14, self.end_14 = datetime(2014, 05, 01), datetime(2014, 05, 31)

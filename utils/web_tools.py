@@ -31,14 +31,15 @@ def verify_landsat_scene_exists(scene_string):
     elif scene_string.startswith('LC8'):
         url_spec = '13400'
     else:
-        raise NotImplementedError('Must choose a valid satellite to find url_spce')
+        raise NotImplementedError('Must choose a valid satellite to find url_spec')
 
     base = 'https://earthexplorer.usgs.gov/fgdc/'
     url = '{}{}/{}/'.format(base, url_spec, scene_string)
-    print url
+
     r = requests.get(url)
     tree = html.fromstring(r.text)
     string = tree.xpath('//pre/text()')
+
     split_str = string[0].split('\n')[5].split(':')
     title = [x.strip() for x in split_str]
     if len(title[1]) < 1:
@@ -52,7 +53,7 @@ def get_l5_overpass_data(l5_path_row, date):
     if date > datetime(2013, 06, 01):
         raise ValueError('The date requested is after L5 deactivation')
 
-    lat, lon = lat_lon_wrs2pr_convert(l5_path_row, conversion_type='convert_pr_to_ll')
+    lat, lon = convert_lat_lon_to_wrs2pr(l5_path_row, conversion_type='convert_pr_to_ll')
 
     url = 'https://cloudsgate2.larc.nasa.gov/cgi-bin/predict/predict.cgi'
     # submit form > copy POST data
@@ -104,6 +105,7 @@ def landsat_overpass_time(lndst_path_row, start_date, satellite):
             sat_abv = 'L7'
         elif satellite == 'LC8':
             sat_abv = 'L8'
+
         base = 'https://landsat.usgs.gov/landsat/all_in_one_pending_acquisition/'
         for day in rrule(DAILY, dtstart=start_date, until=end):
 
@@ -132,10 +134,13 @@ def landsat_overpass_time(lndst_path_row, start_date, satellite):
         raise NotImplementedError('Did not find overpass data, check your dates...')
 
 
-def lat_lon_wrs2pr_convert(pr_latlon, conversion_type='convert_ll_to_pr'):
+def convert_lat_lon_to_wrs2pr(pr_latlon, conversion_type='convert_ll_to_pr'):
+
     base = 'https://landsat.usgs.gov/landsat/lat_long_converter/tools_latlong.php'
     unk_number = 1490995492704
+
     if conversion_type == 'convert_ll_to_pr':
+
         full_url = '{}?rs=&rsargs[]={}&rsargs[]={}&rsargs[]=1&rsrnd={}'.format(base, conversion_type,
                                                                                pr_latlon[0], pr_latlon[1],
                                                                                unk_number)
@@ -151,11 +156,13 @@ def lat_lon_wrs2pr_convert(pr_latlon, conversion_type='convert_ll_to_pr'):
 
         r_string = tree.xpath('//table/tr[1]/td[4]/text()')
         row = int(re.search(r'\d+', r_string[0]).group())
+
         print 'path: {}, row: {}'.format(path, row)
 
         return path, row
 
     elif conversion_type == 'convert_pr_to_ll':
+
         full_url = '{}?rs={}&rsargs[]=\n' \
                    '{}&rsargs[]={}&rsargs[]=1&rsrnd={}'.format(base, conversion_type,
                                                                pr_latlon[0], pr_latlon[1], unk_number)

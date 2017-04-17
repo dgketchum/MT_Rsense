@@ -20,7 +20,7 @@ from datetime import datetime
 from utils import web_tools
 
 
-class WebTools(unittest.TestCase):
+class WebToolsTestCase(unittest.TestCase):
     def setUp(self):
 
         self.known_scene_l5 = 'LT50370272007121PAC01'
@@ -73,10 +73,10 @@ class WebTools(unittest.TestCase):
                              (expect.year, expect.month, expect.day))
 
     def test_wrs2_latlon_convert(self):
-        expect_latlon = web_tools.lat_lon_wrs2pr_convert(self.path_row, conversion_type='convert_pr_to_ll')
+        expect_latlon = web_tools.convert_lat_lon_to_wrs2pr(self.path_row, conversion_type='convert_pr_to_ll')
         self.assertEqual(self.latlon, expect_latlon)
 
-        expect_pr = web_tools.lat_lon_wrs2pr_convert(self.latlon)
+        expect_pr = web_tools.convert_lat_lon_to_wrs2pr(self.latlon)
         self.assertTrue(self.path_row, expect_pr)
 
 
