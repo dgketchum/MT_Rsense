@@ -14,7 +14,7 @@ before_install:
   - chmod +x miniconda.sh
   - ./miniconda.sh -b -p $HOME/miniconda
   - export PATH="/home/miniconda/bin:$PATH"
-  - conda update anaconda
+  - conda update --yes --quite conda
 
 install:
   - conda create -f conda_reqs.yml
