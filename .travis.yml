@@ -35,4 +35,4 @@ install:
   - conda install --yes --file requirements_tests.txt
   - pip install uncertainties
 
-script: python setup.py tes
+script: python setup.py test
