@@ -18,6 +18,7 @@ import os
 import unittest
 from tempfile import mkdtemp
 import ogr
+import shutil
 
 from utils import vector_tools
 
@@ -53,7 +54,7 @@ class VectorTestCase(unittest.TestCase):
 
     def tearDown(self):
         os.remove(self.test_shapefile)
-        pass
+        shutil.rmtree(self.temp_foler)
 
     def test_point(self):
         # test with AmeriFlux US-MJ-1

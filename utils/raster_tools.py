@@ -25,6 +25,48 @@ from datetime import datetime
 import os
 
 
+def raster_to_array(input_raster_path, raster=None, band=1):
+    """
+    Convert .tif raster into a numpy numerical array.
+
+    :param input_raster_path: Path to raster.
+    :param raster: Raster name with *.tif
+    :param band: Band of raster sought.
+    :return: Numpy array.
+    """
+    try:
+        raster_open = gdal.Open(os.path.join(input_raster_path, raster))
+    except TypeError:
+        raster_open = gdal.Open(input_raster_path)
+    except AttributeError:
+        raster_open = gdal.Open(input_raster_path)
+    ras = array(raster_open.GetRasterBand(band).ReadAsArray(), dtype=float)
+    return ras
+
+
+def get_raster_geo_attributes(root):
+    """
+    Creates a dict of geographic attributes from a .tif raster.
+
+    :param root: Path to a folder with pre-processed standardized rasters.
+    :return: dict of geographic attributes.
+    """
+
+    file_name = next((fn for fn in os.listdir(root) if fn.endswith('.tif')), None)
+    dataset = gdal.Open(os.path.join(root, file_name))
+
+    band = dataset.GetRasterBand(1)
+
+    raster_geo_dict = {'cols': dataset.RasterXSize, 'rows': dataset.RasterYSize,
+                       'bands': dataset.RasterCount,
+                       'data_type': band.DataType,
+                       'projection': dataset.GetProjection(),
+                       'geotransform': dataset.GetGeoTransform(),
+                       'resolution': dataset.GetGeoTransform()[1]}
+
+    return raster_geo_dict
+
+
 def get_polygon_from_raster(raster):
     tile_id = os.path.basename(raster)
     # print 'tile number: {}'.format(tile_id)
@@ -85,41 +127,6 @@ def find_poly_ras_intersect(shape, raster_dir, extension='.tif'):
             raster_list.append(tile)
 
     return raster_list
-
-
-def raster_to_array(input_raster_path, raster=None, band=1):
-    """
-    Convert .tif raster into a numpy numerical array.
-
-    :param input_raster_path: Path to raster.
-    :param raster: Raster name with *.tif
-    :param band: Band of raster sought.
-    :return: Numpy array.
-    """
-    try:
-        raster_open = gdal.Open(os.path.join(input_raster_path, raster))
-    except TypeError:
-        raster_open = gdal.Open(input_raster_path)
-    ras = array(raster_open.GetRasterBand(band).ReadAsArray(), dtype=float)
-    return ras
-
-
-def get_raster_geo_attributes(root):
-    """
-    Creates a dict of geographic attributes from a .tif raster.
-
-    :param root: Path to a folder with pre-processed standardized rasters.
-    :return: dict of geographic attributes.
-    """
-
-    file_name = next((fn for fn in os.listdir(root) if fn.endswith('.tif')), None)
-    dataset = gdal.Open(os.path.join(root, file_name))
-
-    band = dataset.GetRasterBand(1)
-    raster_geo_dict = {'cols': dataset.RasterXSize, 'rows': dataset.RasterYSize, 'bands': dataset.RasterCount,
-                       'data_type': band.DataType, 'projection': dataset.GetProjection(),
-                       'geotransform': dataset.GetGeoTransform(), 'resolution': dataset.GetGeoTransform()[1]}
-    return raster_geo_dict
 
 
 def apply_mask(mask_path, arr):

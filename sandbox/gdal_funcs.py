@@ -24,6 +24,7 @@ from subprocess import call
 
 
 def merge_rasters(in_folder, out_location, out_proj):
+
     tifs = [os.path.join(in_folder, x) for x in os.listdir(in_folder) if x.endswith('.tif')]
 
     print 'tif files: \n {}'.format(tifs)
@@ -142,8 +143,8 @@ def gdal_dem(in_folder, out_folder, terrain_type='slope'):
         print 'out name: {}'.format(out_name)
         out_file = os.path.join(out_folder, out_name)
         print 'out file: {}'.format(out_file)
-        slope = 'gdaldem {} {} {}'.format(function.index(terrain_type), tif, out_file)
-        call(slope, shell=True)
+        dem_function = 'gdaldem {} {} {}'.format(function.index(terrain_type), tif, out_file)
+        call(dem_function, shell=True)
         return None
 
 
