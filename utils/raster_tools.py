@@ -52,7 +52,13 @@ def get_raster_geo_attributes(root):
     :return: dict of geographic attributes.
     """
 
-    file_name = next((fn for fn in os.listdir(root) if fn.endswith('.tif')), None)
+    if os.path.isdir(root):
+        file_name = next((fn for fn in os.listdir(root) if fn.endswith('.tif')), None)
+    elif os.path.isfile(root):
+        file_name = root
+    else:
+        raise NotImplementedError('Must pass a dir with .tif files or a .tif file.')
+
     dataset = gdal.Open(os.path.join(root, file_name))
 
     band = dataset.GetRasterBand(1)
