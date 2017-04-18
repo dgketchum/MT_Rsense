@@ -21,7 +21,6 @@ The purpose of this module is to provide some simple tools needed for raster pro
 from osgeo import gdal, ogr
 from numpy import array, asarray
 from numpy.ma import masked_where, nomask
-from datetime import datetime
 import os
 
 
