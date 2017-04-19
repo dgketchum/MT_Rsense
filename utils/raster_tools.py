@@ -115,6 +115,8 @@ def find_poly_ras_intersect(shape, raster_dir, extension='.tif'):
     print 'starting shape: {}'.format(shape)
 
     # get vector geometry
+    if not os.path.isfile(shape):
+        raise NotImplementedError('Shape must be a file.')
     polygon = ogr.Open(shape)
     layer = polygon.GetLayer()
     feature = layer.GetFeature(0)
@@ -128,6 +130,9 @@ def find_poly_ras_intersect(shape, raster_dir, extension='.tif'):
     for tile in tiles:
         raster_geo = get_polygon_from_raster(tile)
         if raster_geo.Intersect(vector_geo):
+            print 'tile: {} intersects {}'.format(os.path.basename(tile), os.path.basename(shape))
+            raster_list.append(tile)
+        elif raster_geo.Within(vector_geo):
             print 'tile: {} intersects {}'.format(os.path.basename(tile), os.path.basename(shape))
             raster_list.append(tile)
 
@@ -174,6 +179,10 @@ def array_to_raster(save_array, out_path, geo):
 
 
 if __name__ == '__main__':
-    pass
+    home = os.path.expanduser('~')
+    print 'home: {}'.format(home)
+    terrain = os.path.join(home, 'images', 'terrain', 'ned_tiles', 'dem')
+    shape = os.path.join(home, 'images', 'vector_data', 'wrs2_descending', 'path_rows_Z12_tiles.shp')
+    find_poly_ras_intersect(shape, terrain)
 
 # =================================== EOF =========================
