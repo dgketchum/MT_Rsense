@@ -14,6 +14,7 @@
 # limitations under the License.
 # ===============================================================================
 from osgeo import ogr, osr
+from spatial_reference_tools import shp_spatial_reference
 
 
 def lat_lon_to_ogr_point(lon, lat):
@@ -25,29 +26,6 @@ def lat_lon_to_ogr_point(lon, lat):
     point = ogr.Geometry(ogr.wkbPoint)
     point.AddPoint(lon, lat)
     return point
-
-
-def shp_spatial_reference(shapefile, definition_type='proj4'):
-    """Get spatial reference from an ESRI .shp shapefile
-
-    :param shapefile: ESRI type .shp
-    :param definition_type: osr.SpatialReference type
-    :return: spatial reference in specified format
-    """
-    ds = ogr.Open(shapefile)
-    layer = ds.GetLayer()
-    layer_srs = layer.GetSpatialRef()
-    if definition_type == 'proj4':
-        comp = layer_srs.ExportToProj4()
-    elif definition_type == 'USGS':
-        comp = layer_srs.ExportToUSGS()
-    elif definition_type == 'XML':
-        comp = layer_srs.ExportToXML()
-    elif definition_type == 'PWkt':
-        comp = layer_srs.ExportToPrettyWkt()
-    else:
-        raise NotImplementedError('Need to choose one of given projection def formats.')
-    return comp
 
 
 def points_to_shapefile(field_attr_dict, output_file, dst_srs_epsg=4326):

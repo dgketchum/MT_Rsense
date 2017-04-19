@@ -103,6 +103,8 @@ class RasterTestCase(unittest.TestCase):
         self.assertIsInstance(poly, ogr.Geometry)
 
     def test_find_pol_ras_intersect(self):
+        ds = ogr.Open(self.wgs_tile_on)
+        print ds
         raster_list = rt.find_poly_ras_intersect(self.wgs_tile_on, self.raster_dir)
         self.assertEqual(raster_list, [self.wgs_tif])
 
