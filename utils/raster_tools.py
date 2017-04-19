@@ -116,12 +116,12 @@ def find_poly_ras_intersect(shape, raster_dir, extension='.tif'):
 
     # get vector geometry
     if not os.path.isfile(shape):
-        raise NotImplementedError('Shape must be a file.')
+        raise NotImplementedError('Shapefile not found')
     polygon = ogr.Open(shape)
     layer = polygon.GetLayer()
     feature = layer.GetFeature(0)
     vector_geo = feature.GetGeometryRef()
-    print 'vector geometry: {}'.format(vector_geo)
+    # print 'vector geometry: {}'.format(vector_geo)
 
     tiles = [os.path.join(raster_dir, x) for x in
              os.listdir(os.path.join(raster_dir)) if x.endswith(extension)]
@@ -130,9 +130,6 @@ def find_poly_ras_intersect(shape, raster_dir, extension='.tif'):
     for tile in tiles:
         raster_geo = get_polygon_from_raster(tile)
         if raster_geo.Intersect(vector_geo):
-            print 'tile: {} intersects {}'.format(os.path.basename(tile), os.path.basename(shape))
-            raster_list.append(tile)
-        elif raster_geo.Within(vector_geo):
             print 'tile: {} intersects {}'.format(os.path.basename(tile), os.path.basename(shape))
             raster_list.append(tile)
 
@@ -181,8 +178,8 @@ def array_to_raster(save_array, out_path, geo):
 if __name__ == '__main__':
     home = os.path.expanduser('~')
     print 'home: {}'.format(home)
-    terrain = os.path.join(home, 'images', 'terrain', 'ned_tiles', 'dem')
-    shape = os.path.join(home, 'images', 'vector_data', 'wrs2_descending', 'path_rows_Z12_tiles.shp')
+    terrain = os.path.join(home, 'images', 'test_data')
+    shape = os.path.join(home, 'images', 'vector_data', 'wrs2_descending', 'wrs2_036029_Z12.shp')
     find_poly_ras_intersect(shape, terrain)
 
 # =================================== EOF =========================
