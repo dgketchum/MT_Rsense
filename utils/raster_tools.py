@@ -102,11 +102,12 @@ def find_poly_ras_intersect(shape, raster_dir, extension='.tif'):
 
     raster_list = []
     for tile in tiles:
-        print srt.check_same_reference_system(shape, tile)
-        raster_geo = get_polygon_from_raster(tile)
-        if raster_geo.Intersect(vector_geo):
-            print 'tile: {} intersects {}'.format(os.path.basename(tile), os.path.basename(shape))
-            raster_list.append(tile)
+        print tile, srt.tif_proj4_spatial_reference(tile)
+        if srt.check_same_reference_system(shape, tile):
+            raster_geo = get_polygon_from_raster(tile)
+            if raster_geo.Intersect(vector_geo):
+                print 'tile: {} intersects {}'.format(os.path.basename(tile), os.path.basename(shape))
+                raster_list.append(tile)
 
     return raster_list
 
@@ -153,8 +154,9 @@ def array_to_raster(save_array, out_path, geo):
 if __name__ == '__main__':
     pass
     home = os.path.expanduser('~')
-    terrain = os.path.join(home, 'images', 'test_data')
-    shape = os.path.join(home, 'images', 'test_data', 'wrs2_036029_WGS.shp')
+    terrain = os.path.join(home, 'images', 'terrain', 'ned_tiles', 'dem')
+    shape = os.path.join(home, 'images', 'vector_data', 'wrs2_descending',
+                         'wrs2_036029_Z12.shp')
     find_poly_ras_intersect(shape, terrain)
 
 # =================================== EOF =========================

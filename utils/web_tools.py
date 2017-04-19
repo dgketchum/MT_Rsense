@@ -37,6 +37,9 @@ def verify_landsat_scene_exists(scene_string):
 
     r = requests.get(url)
     tree = html.fromstring(r.text)
+    if r.status_code == 503:
+        print 'website down'
+        raise NotImplementedError('USGS application unavailable.')
     string = tree.xpath('//pre/text()')
 
     split_str = string[0].split('\n')[5].split(':')
