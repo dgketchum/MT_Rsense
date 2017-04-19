@@ -9,13 +9,11 @@ notifications:
   email:
     on_failure: change
 
-
 env:
   # Default values for common packages, override as needed
   global:
     - PYTHON=2.7
-    - GDAL_DATA=/home/miniconda2/envs/share/gdal
-
+    - GDAL_DATA=/usr/share/gdal/1.10/
 
 before_install:
   - wget http://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh
