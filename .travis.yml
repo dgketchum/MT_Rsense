@@ -14,6 +14,7 @@ env:
   # Default values for common packages, override as needed
   global:
     - PYTHON=2.7
+    - GDAL_DATA=/home/miniconda2/envs/share/gdal
 
 
 before_install:
