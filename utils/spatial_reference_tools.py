@@ -75,14 +75,14 @@ def get_raster_geo_attributes(root):
 
 def check_same_reference_system(first_geo, second_geo):
     if first_geo.endswith('.tif'):
-        pass
+        first_srs = tif_proj4_spatial_reference(first_geo)
     elif first_geo.endswith('.shp'):
         first_srs = shp_proj4_spatial_reference(first_geo)
     else:
         raise NotImplementedError('Must provide either shapefile or tif raster.')
 
     if second_geo.endswith('.tif'):
-        pass
+        second_srs = tif_proj4_spatial_reference(second_geo)
     elif second_geo.endswith('.shp'):
         second_srs = shp_proj4_spatial_reference(second_geo)
     else:

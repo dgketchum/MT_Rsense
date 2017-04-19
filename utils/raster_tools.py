@@ -24,6 +24,8 @@ from numpy import array, asarray
 from numpy.ma import masked_where, nomask
 from osgeo import gdal, ogr
 
+import spatial_reference_tools as srt
+
 
 def raster_to_array(input_raster_path, raster=None, band=1):
     """
@@ -100,6 +102,7 @@ def find_poly_ras_intersect(shape, raster_dir, extension='.tif'):
 
     raster_list = []
     for tile in tiles:
+        print srt.check_same_reference_system(shape, tile)
         raster_geo = get_polygon_from_raster(tile)
         if raster_geo.Intersect(vector_geo):
             print 'tile: {} intersects {}'.format(os.path.basename(tile), os.path.basename(shape))
@@ -149,10 +152,9 @@ def array_to_raster(save_array, out_path, geo):
 
 if __name__ == '__main__':
     pass
-    # home = os.path.expanduser('~')
-    # print 'home: {}'.format(home)
-    # terrain = os.path.join(home, 'images', 'test_data')
-    # shape = os.path.join(home, 'images', 'test_data', 'wrs2_036029_WGS.shp')
-    # find_poly_ras_intersect(shape, terrain)
+    home = os.path.expanduser('~')
+    terrain = os.path.join(home, 'images', 'test_data')
+    shape = os.path.join(home, 'images', 'test_data', 'wrs2_036029_WGS.shp')
+    find_poly_ras_intersect(shape, terrain)
 
 # =================================== EOF =========================

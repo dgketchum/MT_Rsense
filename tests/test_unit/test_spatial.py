@@ -14,8 +14,7 @@
 # limitations under the License.
 # ===============================================================================
 
-import os
-import ogr
+
 import unittest
 import pkg_resources
 
@@ -43,10 +42,14 @@ class MyTestCase(unittest.TestCase):
         srs_usmj = srt.shp_proj4_spatial_reference(self.wgs_tile_off)
         self.assertEqual(srs_036029, srs_usmj)
 
+    def test_tif_srs(self):
         wgs_tif_srs = srt.tif_proj4_spatial_reference(self.wgs_file)
         mtspcs_tif_srs = srt.tif_proj4_spatial_reference(self.mtspcs_file)
+        self.assertNotEqual(wgs_tif_srs, mtspcs_tif_srs)
 
-
+    def test_srs_equality(self):
+        self.assertTrue(srt.check_same_reference_system(self.wgs_tile_on,
+                                                        self.wgs_tile_off))
 
 
 if __name__ == '__main__':
