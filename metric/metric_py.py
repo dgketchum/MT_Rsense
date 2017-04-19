@@ -5,6 +5,7 @@ from datetime import datetime
 
 from numpy import where
 
+import utils.spatial_reference_tools
 from utils import raster_tools as ras
 from metric import function_bank as fnbank, landsat
 from metric.extract_wx_data import extract_wx_data
@@ -45,7 +46,8 @@ class MetricModel:
         self.L_green_fac = config["L_green_fac"]
 
         # projection information, check projection of all inputs
-        self.raster_geo = ras.get_raster_geo_attributes(os.path.join(self.work_dir, config["dem_path"]))
+        self.raster_geo = utils.spatial_reference_tools.get_raster_geo_attributes(
+            os.path.join(self.work_dir, config["dem_path"]))
 
         # Landsat stuff woooo
         self.metadata_path = os.path.join(self.work_dir, config["landsat_meta"])

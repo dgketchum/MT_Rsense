@@ -14,10 +14,11 @@
 # limitations under the License.
 # ===============================================================================
 import os
-import osr, ogr, gdal
+import ogr
+from osgeo import gdal, osr
 
 
-def shp_spatial_reference(shapefile):
+def shp_proj4_spatial_reference(shapefile):
     """Get spatial reference from an ESRI .shp shapefile
 
     :param shapefile: ESRI type .shp
@@ -28,32 +29,62 @@ def shp_spatial_reference(shapefile):
     layer = ds.GetLayer()
     layer_srs = layer.GetSpatialRef()
     comp = layer_srs.ExportToProj4()
-    print comp
     return comp
 
 
-def tif_spatial_reference(raster):
-    ds = gdal.Open(raster)
-    projection = ds.GetProjection()
-    srs = osr.SpatialReference(wkt=projection)
-    if srs.IsProjected():
-        return srs.GetAttrValue('projcs')
+def tif_proj4_spatial_reference(raster):
+    if not os.path.isfile(raster):
+        raise NotImplementedError('Raster file not found.')
+    dataset = gdal.Open(raster)
+    wkt = dataset.GetProjection()
+    srs = osr.SpatialReference()
+    srs.ImportFromWkt(wkt)
+    proj4 = srs.ExportToProj4()
+    return proj4
+
+
+def get_raster_geo_attributes(root):
+    """
+    Creates a dict of geographic attributes from a .tif raster.
+
+    :param root: Path to a folder with pre-processed standardized rasters.
+    :return: dict of geographic attributes.
+    """
+
+    if os.path.isdir(root):
+        file_name = next((fn for fn in os.listdir(root) if fn.endswith('.tif')), None)
+    elif os.path.isfile(root):
+        file_name = root
     else:
-        return srs.GetAttrValue('geocs')
+        raise NotImplementedError('Must pass a dir with .tif files or a .tif file.')
+
+    dataset = gdal.Open(os.path.join(root, file_name))
+
+    band = dataset.GetRasterBand(1)
+
+    raster_geo_dict = {'cols': dataset.RasterXSize, 'rows': dataset.RasterYSize,
+                       'bands': dataset.RasterCount,
+                       'data_type': band.DataType,
+                       'projection': dataset.GetProjection(),
+                       'srs': tif_proj4_spatial_reference(file_name),
+                       'geotransform': dataset.GetGeoTransform(),
+                       'resolution': dataset.GetGeoTransform()[1]}
+
+    return raster_geo_dict
 
 
 def check_same_reference_system(first_geo, second_geo):
     if first_geo.endswith('.tif'):
         pass
     elif first_geo.endswith('.shp'):
-        first_srs = shp_spatial_reference(first_geo)
+        first_srs = shp_proj4_spatial_reference(first_geo)
     else:
         raise NotImplementedError('Must provide either shapefile or tif raster.')
 
     if second_geo.endswith('.tif'):
         pass
     elif second_geo.endswith('.shp'):
-        second_srs = shp_spatial_reference(second_geo)
+        second_srs = shp_proj4_spatial_reference(second_geo)
     else:
         raise NotImplementedError('Must provide either shapefile or tif raster.')
 
@@ -64,6 +95,6 @@ def check_same_reference_system(first_geo, second_geo):
 
 
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
+    pass
 
 # ===============================================================================

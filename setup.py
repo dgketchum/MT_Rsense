@@ -26,6 +26,6 @@ setup(name='MT_Rsense',
       py_modules=['utils'],
       packages=['utils',
                 'tests'],
-      test_suite='tests.test_suite.suite', install_requires=['numpy', 'gdal'])
+      test_suite='tests.test_suite.suite', install_requires=['numpy', 'gdal', 'osr'])
 
 # ============= EOF =============================================

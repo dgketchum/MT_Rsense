@@ -14,7 +14,7 @@
 # limitations under the License.
 # ===============================================================================
 from osgeo import ogr, osr
-from spatial_reference_tools import shp_spatial_reference
+from spatial_reference_tools import shp_proj4_spatial_reference
 
 
 def lat_lon_to_ogr_point(lon, lat):
@@ -229,7 +229,7 @@ def get_pr_multipath(points, poly_shapefile):
 
     poly_features = shp_to_ogr_features(poly_shapefile)
     poly_geo_refs = [pl.GetGeometryRef() for pl in poly_features]
-    poly_srs = shp_spatial_reference(poly_shapefile)
+    poly_srs = shp_proj4_spatial_reference(poly_shapefile)
 
     if isinstance(points, tuple):
         pt_geo_refs = [lat_lon_to_ogr_point(points[0], points[1])]
@@ -240,7 +240,7 @@ def get_pr_multipath(points, poly_shapefile):
     elif isinstance(points, str):
         pt_features = shp_to_ogr_features(points)
         pt_geo_refs = [pt.GetGeometryRef() for pt in pt_features]
-        point_srs = shp_spatial_reference(points)
+        point_srs = shp_proj4_spatial_reference(points)
         print 'Poly and Point SRS same: {}'.format(poly_srs == point_srs)
     else:
         raise NotImplementedError('Function takes first arg type tuple, list, or string')

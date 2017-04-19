@@ -18,10 +18,11 @@ The purpose of this module is to provide some simple tools needed for raster pro
 
 
 """
-from osgeo import gdal, ogr
+import os
+
 from numpy import array, asarray
 from numpy.ma import masked_where, nomask
-import os
+from osgeo import gdal, ogr
 
 
 def raster_to_array(input_raster_path, raster=None, band=1):
@@ -41,35 +42,6 @@ def raster_to_array(input_raster_path, raster=None, band=1):
         raster_open = gdal.Open(input_raster_path)
     ras = array(raster_open.GetRasterBand(band).ReadAsArray(), dtype=float)
     return ras
-
-
-def get_raster_geo_attributes(root):
-    """
-    Creates a dict of geographic attributes from a .tif raster.
-
-    :param root: Path to a folder with pre-processed standardized rasters.
-    :return: dict of geographic attributes.
-    """
-
-    if os.path.isdir(root):
-        file_name = next((fn for fn in os.listdir(root) if fn.endswith('.tif')), None)
-    elif os.path.isfile(root):
-        file_name = root
-    else:
-        raise NotImplementedError('Must pass a dir with .tif files or a .tif file.')
-
-    dataset = gdal.Open(os.path.join(root, file_name))
-
-    band = dataset.GetRasterBand(1)
-
-    raster_geo_dict = {'cols': dataset.RasterXSize, 'rows': dataset.RasterYSize,
-                       'bands': dataset.RasterCount,
-                       'data_type': band.DataType,
-                       'projection': dataset.GetProjection(),
-                       'geotransform': dataset.GetGeoTransform(),
-                       'resolution': dataset.GetGeoTransform()[1]}
-
-    return raster_geo_dict
 
 
 def get_polygon_from_raster(raster):
@@ -176,10 +148,11 @@ def array_to_raster(save_array, out_path, geo):
 
 
 if __name__ == '__main__':
-    home = os.path.expanduser('~')
-    print 'home: {}'.format(home)
-    terrain = os.path.join(home, 'images', 'test_data')
-    shape = os.path.join(home, 'images', 'vector_data', 'wrs2_descending', 'wrs2_036029_Z12.shp')
-    find_poly_ras_intersect(shape, terrain)
+    pass
+    # home = os.path.expanduser('~')
+    # print 'home: {}'.format(home)
+    # terrain = os.path.join(home, 'images', 'test_data')
+    # shape = os.path.join(home, 'images', 'test_data', 'wrs2_036029_WGS.shp')
+    # find_poly_ras_intersect(shape, terrain)
 
 # =================================== EOF =========================

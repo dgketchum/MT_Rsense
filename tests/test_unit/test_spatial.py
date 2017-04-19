@@ -14,6 +14,8 @@
 # limitations under the License.
 # ===============================================================================
 
+import os
+import ogr
 import unittest
 import pkg_resources
 
@@ -23,7 +25,11 @@ from utils import spatial_reference_tools as srt
 class MyTestCase(unittest.TestCase):
     def setUp(self):
         self.mtspcs_tif = 'LT05_L1GS_036029_20060523_test_MTSPCS.tif'
+        self.mtspcs_file = pkg_resources.resource_filename('data', self.mtspcs_tif)
+
         self.wgs_tif = 'LT05_L1GS_036029_20060523_test_WGS84.tif'
+        self.wgs_file = pkg_resources.resource_filename('data', self.wgs_tif)
+
         self.wgs_tile_on = pkg_resources.resource_filename('data',
                                                            'wrs2_036029_WGS.shp')
         self.wgs_tile_off = pkg_resources.resource_filename('data',
@@ -33,8 +39,14 @@ class MyTestCase(unittest.TestCase):
         pass
 
     def test_shp_srs(self):
-        print self.wgs_tile_on
-        srs = srt.shp_spatial_reference(self.wgs_tile_on)
+        srs_036029 = srt.shp_proj4_spatial_reference(self.wgs_tile_on)
+        srs_usmj = srt.shp_proj4_spatial_reference(self.wgs_tile_off)
+        self.assertEqual(srs_036029, srs_usmj)
+
+        wgs_tif_srs = srt.tif_proj4_spatial_reference(self.wgs_file)
+        mtspcs_tif_srs = srt.tif_proj4_spatial_reference(self.mtspcs_file)
+
+
 
 
 if __name__ == '__main__':

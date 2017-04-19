@@ -16,6 +16,7 @@
 
 import os
 import ogr
+import osr
 import gdal
 import shutil
 import unittest
@@ -23,6 +24,7 @@ import numpy as np
 import pkg_resources
 from tempfile import mkdtemp
 
+import utils.spatial_reference_tools
 from utils import raster_tools as rt
 
 
@@ -33,9 +35,15 @@ class RasterTestCase(unittest.TestCase):
         self.mtspcs_file = pkg_resources.resource_filename('data', self.mtspcs_tif)
         self.mtspcs_dataset = gdal.Open(self.mtspcs_file)
         self.mtspcs_dtype = self.mtspcs_dataset.GetRasterBand(1).DataType
+
+        wkt = self.mtspcs_dataset.GetProjection()
+        srs = osr.SpatialReference()
+        srs.ImportFromWkt(wkt)
+
         self.mtspcs_geo_known = {'cols': self.mtspcs_dataset.RasterXSize, 'rows': self.mtspcs_dataset.RasterYSize,
                                  'bands': self.mtspcs_dataset.RasterCount,
                                  'data_type': self.mtspcs_dtype,
+                                 'srs': srs.ExportToProj4(),
                                  'projection': self.mtspcs_dataset.GetProjection(),
                                  'geotransform': self.mtspcs_dataset.GetGeoTransform(),
                                  'resolution': self.mtspcs_dataset.GetGeoTransform()[1]}
@@ -46,9 +54,15 @@ class RasterTestCase(unittest.TestCase):
         self.wgs_dataset = gdal.Open(self.wgs_file)
         self.wgs_arr = np.array(self.wgs_dataset.GetRasterBand(1).ReadAsArray(), dtype=float)
         self.wgs_dtype = self.mtspcs_dataset.GetRasterBand(1).DataType
+
+        wkt = self.wgs_dataset.GetProjection()
+        srs = osr.SpatialReference()
+        srs.ImportFromWkt(wkt)
+
         self.wgs_geo_known = {'cols': self.wgs_dataset.RasterXSize, 'rows': self.wgs_dataset.RasterYSize,
                               'bands': self.wgs_dataset.RasterCount,
                               'data_type': self.wgs_dtype,
+                              'srs': srs.ExportToProj4(),
                               'projection': self.wgs_dataset.GetProjection(),
                               'geotransform': self.wgs_dataset.GetGeoTransform(),
                               'resolution': self.mtspcs_dataset.GetGeoTransform()[1]}
@@ -77,21 +91,21 @@ class RasterTestCase(unittest.TestCase):
         self.assertEqual(arr.shape, self.mtspcs_arr.shape)
 
     def test_raster_geo(self):
-        mtspcs_geo_expected = rt.get_raster_geo_attributes(self.mtspcs_file)
+        mtspcs_geo_expected = utils.spatial_reference_tools.get_raster_geo_attributes(self.mtspcs_file)
         self.assertIsInstance(mtspcs_geo_expected, dict)
 
         for key, val in mtspcs_geo_expected.iteritems():
             self.assertEqual(self.mtspcs_geo_known[key], val)
             if key in ['cols', 'rows', 'bands', 'data_type', 'resolution']:
                 self.assertEqual(self.wgs_geo_known[key], val)
-            elif key in ['projection', 'geotransform']:
+            elif key in ['projection', 'geotransform', 'srs']:
                 self.assertNotEqual(self.wgs_geo_known[key], val)
             else:
                 raise NotImplementedError('You have a key in {} that is unaccounted for.'.format(mtspcs_geo_expected))
 
-        wgs_geo_expected = rt.get_raster_geo_attributes(self.wgs_file)
+        wgs_geo_expected = utils.spatial_reference_tools.get_raster_geo_attributes(self.wgs_file)
         for key, val in wgs_geo_expected.iteritems():
-            if key in ['projection', 'geotransform']:
+            if key in ['projection', 'geotransform', 'srs']:
                 self.assertEqual(self.wgs_geo_known[key], val)
             elif key in ['cols', 'rows', 'bands', 'data_type', 'resolution']:
                 pass
@@ -103,8 +117,6 @@ class RasterTestCase(unittest.TestCase):
         self.assertIsInstance(poly, ogr.Geometry)
 
     def test_find_pol_ras_intersect(self):
-        ds = ogr.Open(self.wgs_tile_on)
-        print ds
         raster_list = rt.find_poly_ras_intersect(self.wgs_tile_on, self.raster_dir)
         self.assertEqual(raster_list, [self.wgs_tif])
 
