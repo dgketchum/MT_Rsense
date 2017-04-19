@@ -14,8 +14,7 @@
 # limitations under the License.
 # ===============================================================================
 import os
-import ogr
-from osgeo import gdal, osr
+from osgeo import gdal, osr, ogr
 
 
 def shp_proj4_spatial_reference(shapefile):

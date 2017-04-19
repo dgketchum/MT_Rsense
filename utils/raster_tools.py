@@ -153,10 +153,10 @@ def array_to_raster(save_array, out_path, geo):
 
 if __name__ == '__main__':
     pass
-    home = os.path.expanduser('~')
-    terrain = os.path.join(home, 'images', 'terrain', 'ned_tiles', 'dem')
-    shape = os.path.join(home, 'images', 'vector_data', 'wrs2_descending',
-                         'wrs2_036029_Z12.shp')
-    find_poly_ras_intersect(shape, terrain)
+    # home = os.path.expanduser('~')
+    # terrain = os.path.join(home, 'images', 'terrain', 'ned_tiles', 'dem')
+    # shape = os.path.join(home, 'images', 'vector_data', 'wrs2_descending',
+    #                      'wrs2_036029_Z12.shp')
+    # find_poly_ras_intersect(shape, terrain)
 
 # =================================== EOF =========================
