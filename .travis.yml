@@ -22,7 +22,7 @@ before_install:
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
   - export PATH=/home/travis/miniconda2/bin:$PATH
-  - export GDAL_DATA=/home/miniconda2/envs/share/gdal
+  - export GDAL_DATA=/home/miniconda2/envs/share/gdal:$GDAL_DATA
   - conda update --yes --quiet conda
   - "export DISPLAY=:99.0"
   - "sh -e /etc/init.d/xvfb start"
