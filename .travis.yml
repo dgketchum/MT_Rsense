@@ -33,5 +33,6 @@ install:
   - conda create --yes --quiet -n landsatenv ${PKGS} ${OPTIONAL}
   - source activate landsatenv
   - conda install --yes --file requirements.yml
+  - pip install gdal
 
 script: python setup.py test
