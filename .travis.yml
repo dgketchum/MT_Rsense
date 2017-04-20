@@ -1,4 +1,5 @@
-sudo: false
+dist: trusty
+sudo: required
 
 language: python
 
@@ -13,7 +14,6 @@ env:
   # Default values for common packages, override as needed
   global:
     - PYTHON=2.7
-    - GDAL_DATA=/usr/share/gdal/1.10/
 
 before_install:
   - wget http://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh
@@ -36,5 +36,5 @@ install:
   - pip install gdal
 
 script:
-  - export GDAL_DATA=/home/miniconda2/envs/share/gdal:$GDAL_DATA
+  - export GDAL_DATA=/home/miniconda2/envs/share/gdal
   - python setup.py test
