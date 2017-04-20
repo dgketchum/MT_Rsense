@@ -13,7 +13,7 @@ env:
   # Default values for common packages, override as needed
   global:
     - PYTHON=2.7
-    - GDAL_DATA=/usr/share/gdal/1.10/
+    #- GDAL_DATA=/usr/share/gdal/1.10/
 
 before_install:
   - wget http://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh
