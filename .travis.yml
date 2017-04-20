@@ -39,5 +39,5 @@ install:
   - pip install gdal
 
 script:
-  - export GDAL_DATA=/home/miniconda2/envs/share/gdal
+  - export GDAL_DATA=/home/travis/miniconda2/envs/landsatenv/share/gdal
   - python setup.py test
