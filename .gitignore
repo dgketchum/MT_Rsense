@@ -90,3 +90,5 @@ ENV/
 .ropeproject
 /data/auth.json
 /data/openet_quotas.json
+/data/openet_auth.json
+/data/edl_auth.json

@@ -40,10 +40,10 @@ def get_stac_hls(figs):
     lp_cloud = 'https://cmr.earthdata.nasa.gov/stac/LPCLOUD'
     lp_links = r.get(lp_cloud).json()['links']
     lp_search = [l['href'] for l in lp_links if l['rel'] == 'search'][0]
-    date_time = "2013-07-01T00:00:00Z/2021-03-31T23:59:59Z"  # Define start time period / end time period
+    date_time = "2013-07-01T00:00:00Z/2021-9-30T23:59:59Z"  # Define start time period / end time period
     params = {'limit': 100, 'bbox': bbox,
               'datetime': date_time,
-              'collections': ['HLSS30.v1.5', 'HLSL30.v1.5']}
+              'collections': ['HLSS30.v1.5', 'HLSS30.v1.5']}
 
     resp = r.post(lp_search, json=params, headers=header).json()
     for f in resp['features']:

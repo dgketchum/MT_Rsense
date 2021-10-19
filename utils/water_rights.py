@@ -1,26 +1,13 @@
 import os
-import numpy as np
-import pandas as pd
-from shapely import geometry
-from geopandas import read_file, GeoDataFrame, GeoSeries
-from pandas import Series, DataFrame
+
 from fuzzywuzzy import process, fuzz
-
-pou_cols = ['OBJECTID', 'WRKEY', 'WRID', 'VERID', 'WRNUMBER', 'ALLOWNERS', 'WRTYPE', 'HISTRGTTYP', 'WRSTATUS',
-            'LATECLAIM', 'PRIDATE', 'ENFRPRIDAT', 'POUID', 'PURPNUMBER', 'PURPOSE', 'IRRTYPE', 'MAXACRES', 'FLWRTGPM',
-            'FLWRTCFS', 'VOL', 'ACREAGE', 'COUNTY', 'TR', 'SECNO', 'QSECTION', 'GOVTLOT', 'LLDSID', 'TRSSID',
-            'ABSTRACT', 'LAYER_DATE', 'SHAPE_Leng', 'SHAPE_Area', 'geometry']
-
-NON_UNIQUE = ['WRKEY', 'WRID', 'VERID', 'WRNUMBER', 'ALLOWNERS', 'WRTYPE', 'HISTRGTTYP', 'WRSTATUS', 'LATECLAIM',
-              'PRIDATE', 'ENFRPRIDAT', 'PURPNUMBER', 'PURPOSE', 'IRRTYPE', 'MAXACRES', 'FLWRTGPM', 'FLWRTCFS', 'VOL',
-              'COUNTY', 'GOVTLOT', 'ABSTRACT', 'LAYER_DATE']
+from geopandas import read_file, GeoDataFrame
+from pandas import Series
 
 DROP_UNIQUE = ['OBJECTID', 'POUID', 'ACREAGE', 'TR', 'SECNO', 'QSECTION', 'LLDSID', 'TRSSID', 'SHAPE_Leng',
                'SHAPE_Area', 'geometry']
 
 DROP_RESMP = ['HISTRGTTYP', 'LATECLAIM', 'IRRTYPE', 'GOVTLOT']
-
-CONV_DTYPE= ['MAXACRES', 'FLWRTGPM', 'FLWRTCFS', 'VOL']
 
 
 def ap_fuzz(x, y):
