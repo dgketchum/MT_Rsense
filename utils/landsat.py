@@ -5,6 +5,7 @@ import rasterio
 import requests
 import xarray as xr
 import rioxarray
+from scipy.interpolate import RegularGridInterpolator as rgi
 
 import dask
 from dask.array import map_blocks
@@ -25,16 +26,40 @@ def read_raster(t, d):
     return da
 
 
+def interpolate(a):
+    def interp(a):
+        def pad(data):
+            good = np.nonzero(data)[0]
+            x = np.arange(data.shape[0])
+            fp = data[good]
+            _interp = np.interp(x, good, fp).astype(np.uint8)
+            return _interp
+
+        a = np.apply_along_axis(pad, 0, a)
+        return a
+
+    return xr.apply_ufunc(interp, a)
+
+
 def get_landsat_etf_time_series(tif_dir, out_tif):
     l = [os.path.join(tif_dir, x) for x in os.listdir(tif_dir) if x.endswith('.tif')]
     d = [x.split('.')[0][-8:] for x in l]
-    names = [os.path.basename(x.split('.')[0]) for x in l]
     dstr = ['{}-{}-{}'.format(x[:4], x[4:6], x[-2:]) for x in d]
     srt = sorted([(x, y) for x, y in zip(l, dstr)], key=lambda x: x[1])
+    names = [os.path.basename(x[0].split('.')[0]) for x in srt]
     ds = xr.Dataset()
+    da = None
+    first = True
     for name, (tif, date) in zip(names, srt):
-        da = read_raster(tif, date)
-        ds[name] = da
+        if first:
+            da = read_raster(tif, date)
+            first = False
+        else:
+            d = read_raster(tif, date)
+            da = xr.concat([da, d], dim='time')
+
+    da = xr.apply_ufunc(interpolate, da, dask='parallelized').compute()
+    ds = da.to_dataset(name='ETF_{}'.format(date[:4]))
     ds.rio.to_raster(out_tif)
 
 
