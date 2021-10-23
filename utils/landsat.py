@@ -29,7 +29,7 @@ def read_raster(t, d):
 
 
 def get_landsat_etf_time_series(tif_dir, out_tif, chunk='auto', year=2017):
-    cluster = LocalCluster(n_workers=CORES, threads_per_worker=2, memory_limit='{}GB'.format(MEM - 5), processes=False)
+    cluster = LocalCluster(memory_limit='{}GB'.format(MEM - 5), processes=False)
     client = Client(cluster)
     l = [os.path.join(tif_dir, x) for x in os.listdir(tif_dir) if x.endswith('.tif') and '_{}'.format(year) in x]
     d = [x.split('.')[0][-8:] for x in l]
@@ -92,8 +92,8 @@ def get_landsat_etf_time_series(tif_dir, out_tif, chunk='auto', year=2017):
     doy = get_doy_index(da)
 
     with ProgressBar():
-        da.compute(scheduler='processes')
-        doy.compute(scheduler='processes')
+        da.compute(scheduler='threads')
+        doy.compute(scheduler='threads')
 
     doy.rio.to_raster(out_tif.replace('.tif', '_doy.tif'))
     da.rio.to_raster(out_tif)
