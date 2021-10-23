@@ -5,7 +5,8 @@ import numpy as np
 # from fuzzywuzzy import process, fuzz
 from geopandas import read_file, GeoDataFrame, array
 from shapely.ops import unary_union
-from pandas import Series, to_datetime
+from shapely.geometry import Polygon
+from pandas import Series, to_datetime, Timestamp
 
 DROP_UNIQUE = ['OBJECTID', 'POUID', 'ACREAGE', 'TR', 'SECNO', 'QSECTION', 'LLDSID', 'TRSSID', 'SHAPE_Leng',
                'SHAPE_Area', 'geometry']
@@ -63,87 +64,42 @@ def join_pou_pod_sections(pod_src, pou_src, pou_out):
 
 
 def get_flat_priority(pou_src, out_file):
-    flat = GeoDataFrame(columns=['DT', 'geo'])
+
+    flat = GeoDataFrame(columns=['id', 'DT', 'geo'])
     pou = read_file(pou_src)
     pou = pou[(pou['PURPOSE'] == 'IRRIGATION') & (pou['WRSTATUS'] == 'ACTIVE')]
     pou['ENFRPRIDAT'] = [to_datetime(x) for x in pou['ENFRPRIDAT']]
-    pou = pou.rename(columns={'geometry': 'geo', 'ENFRPRIDAT': 'DT'})
-    sections = pou.groupby(['TR', 'SECNO'], as_index=False).agg({'DT': np.min})
-    # pou = pou[pou['TR'] == '8N8W']
+    pou = pou.rename(columns={'geometry': 'geo', 'ENFRPRIDAT': 'dt'})
+    pou = pou.sort_values(by='dt')
+    pou = pou[['dt', 'geo']]
+    pou = pou.reset_index(drop=True)
+    good_rows = [i for i, x in enumerate(pou['dt']) if isinstance(x, Timestamp)]
+    pou = pou.loc[good_rows]
 
-    sec_not_oldest = False
-    for i, (tr, sec, dt) in tqdm(sections.iterrows(), total=sections.shape[0]):
-        if tr == '12N18W' and sec == '1':
-            d = pou[(pou['TR'] == tr) & (pou['SECNO'] == sec)]
-
-            min_idx = d['DT'].idxmin()
-            min_date = d.loc[min_idx]['DT']
-
-            full_secs = d[d['QSECTION'].isnull()]
-
-            if not full_secs.empty:
-                if full_secs['DT'].min() == min_date:
-                    geo = d.loc[d[d['DT'] == min_date]['SHAPE_Area'].idxmax()]['geo']
-                    flat = flat.append({'DT': min_date, 'geo': geo}, ignore_index=True)
-                    continue
-                else:
-                    sec_not_oldest = True
-
-            if full_secs.empty or sec_not_oldest:
-                dg = d.groupby(['QSECTION'], as_index=False).agg({'DT': np.min})
-                geos = []
-                for q in dg['QSECTION']:
-                    geos.append(d.loc[d[d['QSECTION'] == q].index[0]]['geo'])
-                dg['geo'] = geos
-                dg['len'] = [len(x) for x in dg['QSECTION']]
-
-                dg.sort_values(by='DT', inplace=True)
-                first, base_d, base_g, old_union, covered = True, None, None, [], []
-                old_g = None
-
-                for i, (q, dt, g, l) in dg.iterrows():
-                    if first:
-                        base_g = g
-                        base_d = dt
-                        first = False
-                        old_union.append(base_g)
-                        old_g = base_g
-                        covered = base_g
-                        continue
-
-                    if dt == base_d:
-                        old_g = unary_union([g, old_g])
-                        covered = copy(old_g)
-                    else:
-                        if g.intersects(old_g):
-                            g = old_g.difference(g)
-                            if g.is_empty:
-                                continue
-                            else:
-                                g = covered.difference(g)
-                                if g.is_empty:
-                                    continue
-                                covered = unary_union([g, covered])
-                                if g.intersects(covered):
-                                    continue
-                                flat = flat.append({'DT': dt, 'geo': g}, ignore_index=True)
-                        else:
-                            g = covered.difference(g)
-                            if g.is_empty:
-                                continue
-                            covered = unary_union([g, covered])
-                            if g.intersects(covered):
-                                continue
-                            flat = flat.append({'DT': dt, 'geo': g}, ignore_index=True)
-                if old_g:
-                    flat = flat.append({'DT': base_d, 'geo': old_g}, ignore_index=True)
-                else:
-                    flat = flat.append({'DT': base_d, 'geo': base_g}, ignore_index=True)
-
-            sec_not_oldest = False
+    first, covered = True, None
+    ct = 0
+    for i, (dt, g) in tqdm(pou.iterrows(), total=pou.shape[0]):
+        if first:
+            flat.loc[ct] = [ct, dt, g]
+            ct += 1
+            first = False
         else:
-            continue
+            inter = [i for i, x in enumerate(flat['geo']) if g.intersects(x)]
+            if not any(inter):
+                flat.loc[ct] = [ct, dt, g]
+                ct += 1
+            else:
+                for ix in inter:
+                    try:
+                        g = flat.loc[ix]['geo'].difference(g)
+                    except KeyError:
+                        pass
+                if g.area > 0:
+                    flat.loc[ct] = [ct, dt, g]
+                    ct += 1
 
+    good_rows = [i for i, x in enumerate(flat['geo']) if isinstance(x, Polygon)]
+    flat = flat.loc[good_rows]
     geo = flat['geo']
     flat['DT'] = [str(x)[:10] for x in flat['DT']]
     flat['dt_int'] = [int(''.join(x.split('-'))) for x in flat['DT']]
