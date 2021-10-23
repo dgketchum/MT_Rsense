@@ -1,11 +1,12 @@
 import os
 from copy import copy
 from tqdm import tqdm
+from time import sleep
 import numpy as np
 # from fuzzywuzzy import process, fuzz
 from geopandas import read_file, GeoDataFrame, array
 from shapely.ops import unary_union
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, MultiPolygon
 from pandas import Series, to_datetime, Timestamp
 
 DROP_UNIQUE = ['OBJECTID', 'POUID', 'ACREAGE', 'TR', 'SECNO', 'QSECTION', 'LLDSID', 'TRSSID', 'SHAPE_Leng',
@@ -54,51 +55,42 @@ def join_unary_pou_pod(pod_src, pou_src, pou_out):
     gdf.to_file(pou_out)
 
 
-def join_pou_pod_sections(pod_src, pou_src, pou_out):
-    pod = read_file(pod_src)
-    pod = pod[pod['SRCTYPE'] == 'SURFACE']
-    pou = read_file(pou_src)
-    pou = pou[(pou['PURPOSE'] == 'IRRIGATION') & (pou['WRSTATUS'] == 'ACTIVE')]
-    pou = pou.astype({'OBJECTID': int})
-    pou = pou.astype({c: str for c in pou.columns})
-
-
 def get_flat_priority(pou_src, out_file):
-
-    flat = GeoDataFrame(columns=['id', 'DT', 'geo'])
+    flat = GeoDataFrame(columns=['id', 'DT', 'geo', 'obj'])
     pou = read_file(pou_src)
     pou = pou[(pou['PURPOSE'] == 'IRRIGATION') & (pou['WRSTATUS'] == 'ACTIVE')]
     pou['ENFRPRIDAT'] = [to_datetime(x) for x in pou['ENFRPRIDAT']]
     pou = pou.rename(columns={'geometry': 'geo', 'ENFRPRIDAT': 'dt'})
     pou = pou.sort_values(by='dt')
-    pou = pou[['dt', 'geo']]
+    pou = pou[['dt', 'geo', 'OBJECTID']]
     pou = pou.reset_index(drop=True)
     good_rows = [i for i, x in enumerate(pou['dt']) if isinstance(x, Timestamp)]
     pou = pou.loc[good_rows]
+    pou = pou.astype({'OBJECTID': int})
 
     first, covered = True, None
     ct = 0
-    for i, (dt, g) in tqdm(pou.iterrows(), total=pou.shape[0]):
+    for i, (dt, g, obj) in tqdm(pou.iterrows(), total=pou.shape[0]):
         if first:
-            flat.loc[ct] = [ct, dt, g]
+            flat.loc[ct] = [ct, dt, g, obj]
             ct += 1
             first = False
         else:
+            equal = [i for i, x in enumerate(flat['geo']) if g.almost_equals(x)]
+            if any(equal):
+                continue
             inter = [i for i, x in enumerate(flat['geo']) if g.intersects(x)]
             if not any(inter):
-                flat.loc[ct] = [ct, dt, g]
+                flat.loc[ct] = [ct, dt, g, obj]
                 ct += 1
             else:
                 for ix in inter:
-                    try:
-                        g = flat.loc[ix]['geo'].difference(g)
-                    except KeyError:
-                        pass
+                    g = g.difference(flat.loc[ix]['geo'])
                 if g.area > 0:
-                    flat.loc[ct] = [ct, dt, g]
+                    flat.loc[ct] = [ct, dt, g, obj]
                     ct += 1
 
-    good_rows = [i for i, x in enumerate(flat['geo']) if isinstance(x, Polygon)]
+    good_rows = [i for i, x in enumerate(flat['geo']) if isinstance(x, Polygon) or isinstance(x, MultiPolygon)]
     flat = flat.loc[good_rows]
     geo = flat['geo']
     flat['DT'] = [str(x)[:10] for x in flat['DT']]
@@ -110,10 +102,7 @@ def get_flat_priority(pou_src, out_file):
 
 if __name__ == '__main__':
     root = '/media/research/IrrigationGIS/Montana/water_rights/mt_wr'
-    # pod_ = os.path.join(root, 'cfr_div.shp')
-    pou_ = os.path.join(root, 'cfr_pou.shp')
-    # out = os.path.join(root, 'cfr_pou_surfIrr_nonUnion.shp')
-    # join_pou_pod_sections(pod_, pou_, out)
+    pou_ = os.path.join(root, 'cfr_surf_irr.shp')
     out = os.path.join(root, 'cfr_pou_flat_dates.shp')
     get_flat_priority(pou_, out)
 # ========================= EOF ====================================================================
