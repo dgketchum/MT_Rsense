@@ -1,8 +1,8 @@
 import os
 from datetime import datetime as dt
-
+import json
 import numpy as np
-from pandas import DataFrame
+from pandas import DataFrame, to_datetime
 from matplotlib import pyplot as plt
 from matplotlib.ticker import StrMethodFormatter
 
@@ -94,6 +94,20 @@ def plot_hydrograph_years(csv, inst_q_dir, fig_dir, min_flow=400):
     ax.annotate('{} cfs'.format(min_flow), xy=(100, min_flow + 10), xycoords='data', color='r')
     plt.savefig(os.path.join(fig_dir, 'stacked_{}'.format(name.split(':')[1])))
 
+    jsn = os.path.join(fig_dir, '{}_lf.json'.format(os.path.basename(csv).replace('.csv', '')))
+    d = {}
+    for y, dm, lf, minflow in periods:
+        dstr = '{}-{}'.format(y, dm)
+        dt = to_datetime(dstr)
+        doy = dt.dayofyear
+        d[str(y)] = {'date': dstr,
+                     'doy': doy,
+                     'min_flow': minflow,
+                     'low_flow_days': lf}
+    with open(jsn, 'w') as f:
+        json.dump(d, f)
+
+    print([x[0] for x in periods])
     print(unverified, len(periods))
 
 
