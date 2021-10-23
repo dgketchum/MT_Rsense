@@ -51,7 +51,6 @@ def get_landsat_etf_time_series(tif_dir, out_tif, chunk='auto', year=2017):
 
     def resample_time_sereies(arr):
         arr = arr.chunk(chunks={'time': -1, 'x': chunk, 'y': chunk})
-        print(arr.chunks)
         count = count_nonzero(arr, axis=0)
         arr = arr.astype(float)
         arr = arr.where(arr > 0)
@@ -66,10 +65,6 @@ def get_landsat_etf_time_series(tif_dir, out_tif, chunk='auto', year=2017):
 
         arr = arr.interpolate_na(dim='time', method='linear')
         arr = arr.interpolate_na(dim='time', method='nearest', fill_value='extrapolate')
-
-        count = broadcast_to(count, arr.shape)
-        arr_m = ma.masked_where(count == 0, arr)
-        arr = arr.where(arr_m, arr)
         arr = arr.assign_attrs({'long_name': dt_strings})
 
         return arr
@@ -86,17 +81,14 @@ def get_landsat_etf_time_series(tif_dir, out_tif, chunk='auto', year=2017):
         return doy_idx
 
     da = read_rasters(names, srt)
-    # da = da[:, 2455:2747, 5161:5363]
+    da = da[:, 2455:2747, 5161:5363]
 
     da = resample_time_sereies(da)
     doy = get_doy_index(da)
 
     with ProgressBar():
-        da.compute(scheduler='threads')
-        doy.compute(scheduler='threads')
-
-    doy.rio.to_raster(out_tif.replace('.tif', '_doy.tif'))
-    da.rio.to_raster(out_tif)
+        # doy.rio.to_raster(out_tif.replace('.tif', '_doy.tif'))
+        da.rio.to_raster(out_tif)
 
 
 if __name__ == '__main__':
@@ -107,7 +99,7 @@ if __name__ == '__main__':
         root = '/home/dgketchum/data/IrrigationGIS/Montana/water_rights/landsat/etf'
 
     tif = os.path.join(root, 'masked')
-    tif_o = os.path.join(root, 'merged', 'etf_{}_small_mask_.tif'.format(yr_))
+    tif_o = os.path.join(root, 'merged', 'etf_{}_test_mask_.tif'.format(yr_))
     t = time.process_time()
     get_landsat_etf_time_series(tif, tif_o, chunk='auto', year=yr_)
     elapsed_time = time.process_time() - t
