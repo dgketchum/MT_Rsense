@@ -5,14 +5,10 @@ from tqdm import tqdm
 
 import numpy as np
 from pandas import date_range
-
-from dask import config
 from pandas import to_datetime
 import rasterio
 from rasterio.merge import merge
 from rasterio.windows import Window
-
-config.set({'array.slicing.split_large_chunks': True})
 
 
 def get_landsat_etf_time_series(tif_dir, out_tif, chunk=1000, year=2017, meta_data=None):
