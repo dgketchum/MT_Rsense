@@ -6,6 +6,11 @@ from tqdm import tqdm
 import numpy as np
 from pandas import date_range
 from pandas import to_datetime
+import fiona
+from shapely.geometry import shape
+from xarray import concat
+from rioxarray import merge as rxmerge
+import rioxarray
 import rasterio
 from rasterio.merge import merge
 from rasterio.windows import Window
@@ -78,8 +83,12 @@ def get_landsat_etf_time_series(tif_dir, out_tif, chunk=1000, year=2017, meta_da
     merge_rasters(tiffs, doy_tiffs, out_tif, year)
 
 
-def get_list_info(tif_dir, year):
-    l = [os.path.join(tif_dir, x) for x in os.listdir(tif_dir) if x.endswith('.tif') and '_{}'.format(year) in x]
+def get_list_info(tif_dir, year, list_=False):
+    """ Pass list in place of tif_dir optionally """
+    if list_:
+        l = tif_dir
+    else:
+        l = [os.path.join(tif_dir, x) for x in os.listdir(tif_dir) if x.endswith('.tif') and '_{}'.format(year) in x]
     srt = sorted([x for x in l], key=lambda x: int(x.split('.')[0][-4:]))
     d = [x.split('.')[0][-8:] for x in srt]
     d_numeric = [int(x) for x in d]
@@ -203,7 +212,6 @@ def interp(a):
 
 
 def add_raster_overview(t_dir, years, overwrite=False):
-
     l = [os.path.join(t_dir, '{}.tif'.format(y)) for y in years]
     for tiff in l:
         btiff = tiff.replace('.tif', '_bt.tif')
@@ -217,17 +225,54 @@ def add_raster_overview(t_dir, years, overwrite=False):
         check_call(cmd)
 
 
+def merge_clip_landsat(etf, clipped_dir, shapefile, wrs2, year=2015):
+    # TODO: finish applying this to get adjacent paths integrated
+    """ Assumes all in WGS 84 /UTM 12 N"""
+    with fiona.open(wrs2, 'r') as src:
+        wrs = [(f['properties']['PR'], shape(f['geometry'])) for f in src]
+        wrs = [('{}{}'.format(0, x[0]), x[1]) for x in wrs]
+    with fiona.open(shapefile, 'r') as src:
+        basins = [(f['properties']['SITE_NO'], shape(f['geometry'])) for f in src]
+        basin_crs = src.crs_wkt
+    for basin in basins:
+        pr = [x[0] for x in wrs if x[1].intersects(basin[1])]
+        images = [os.path.join(etf, x) for x in os.listdir(etf) if x[5:11] in pr]
+        images = [i for i in images if int(i.split('.')[0][-8:-4]) == year]
+        images = [images[9], images[43]]
+        l, d_numeric, dstr, idx = get_list_info(images, year, list_=True)
+        first = True
+        for num, i in enumerate(images):
+            if first:
+                base = rioxarray.open_rasterio(i)
+                base = base.rio.clip([basin[1]], basin_crs)
+                base = base.drop_vars('band')
+                base['time'] = to_datetime(dstr[num])
+                first = False
+            else:
+                add = rioxarray.open_rasterio(i)
+                add = add.rio.clip([basin[1]], basin_crs)
+                add = add.drop_vars('band')
+                add['time'] = to_datetime(dstr[num])
+                add = add.rio.reproject_match(add)
+                base = concat([base, add], dim='time')
+
+        out_dir = os.path.join(clipped_dir, basin[0])
+        if not os.path.exists(out_dir):
+            os.mkdir(out_dir)
+        for dt, idt in zip(dstr, d_numeric):
+            out_file = os.path.join(out_dir, '{}_{}.tif'.format(basin[0], idt))
+            base.sel(time=dt).rio.to_raster(out_file)
+            print('write {}'.format(os.path.basename(out_file)))
+
+
 if __name__ == '__main__':
     root = '/media/research/IrrigationGIS/Montana/water_rights'
     if not os.path.exists(root):
         root = '/home/dgketchum/data/IrrigationGIS/Montana/water_rights'
-
-    meta = os.path.join(root, 'hydrographs', '12334550_lf.json')
+    basins_ = os.path.join(root, 'gage_basins', 'merged_basins.shp')
+    wrs_ = os.path.join(root, 'landsat', 'wrs2', 'mt_wrs2.shp')
     root = os.path.join(root, 'landsat', 'etf')
-
     tif = os.path.join(root, 'masked')
-    tif_o = os.path.join(root, 'merged')
-    lf_years = [1991, 1992, 1994, 2000, 2001, 2003, 2004, 2006, 2007, 2013, 2015, 2016, 2017]
-    get_landsat_etf_time_series(tif, tif_o, year=2015, meta_data=meta)
-    add_raster_overview(tif_o, lf_years)
+    tif_o = os.path.join(root, 'clipped')
+    merge_clip_landsat(tif, tif_o, basins_, wrs_)
 # ========================= EOF ====================================================================
