@@ -1,5 +1,5 @@
 import os
-import time
+from subprocess import check_call
 import json
 from tqdm import tqdm
 
@@ -10,9 +10,21 @@ import rasterio
 from rasterio.merge import merge
 from rasterio.windows import Window
 
+conda = '/home/dgketchum/miniconda3/envs/metric/bin/'
+if not os.path.isdir(conda):
+    conda = '/home/dgketchum/miniconda/envs/metric/bin/'
+OVR = os.path.join(conda, 'gdaladdo')
+TRANSLATE = os.path.join(conda, 'gdal_translate')
+PROJ = '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs'
+
 
 def get_landsat_etf_time_series(tif_dir, out_tif, chunk=1000, year=2017, meta_data=None):
     file_list, int_dates, str_dates, index_ = get_list_info(tif_dir, year)
+
+    file_name = os.path.join(out_tif, '{}.tif'.format(year))
+    if os.path.exists(file_name):
+        print('{} exists already'.format(file_name))
+        return None
 
     with open(meta_data, 'r') as f:
         d = json.load(f)
@@ -123,7 +135,6 @@ def write_metadata_file(hydro, dstr, idx, year, out_tif):
     meta_out = os.path.join(out_tif, '{}_metadata.txt'.format(year))
     lines = ['{} {}'.format(k, v) for k, v in hydro.items()]
     [print(x) for x in lines]
-    # TODO: why is this disappearing?
     with open(meta_out, 'w') as f:
         f.write('\n'.join(lines))
     return None
@@ -149,12 +160,12 @@ def resample_time_sereies(a, dstr, d_numeric):
     a = np.where(count_stack > 1, a, 0)
     dt_range = date_range(dstr[0], dstr[-1])
     d_ints = [int('{}{}{}'.format(d.year, str(d.month).rjust(2, '0'), str(d.day).rjust(2, '0'))) for d in dt_range]
-    resamp = np.zeros((len(d_ints), a.shape[1], a.shape[2]), dtype=float)
+    resamp = np.zeros((len(d_ints), a.shape[1], a.shape[2]))
     for i, x in enumerate(d_ints):
         if x in d_numeric:
             unsamp_idx = d_numeric.index(x)
             resamp[i, :, :] = a[unsamp_idx, :, :]
-    resamp = interp(resamp)
+    resamp = interp(resamp).astype(np.uint8)
     return resamp, dt_range
 
 
@@ -162,7 +173,7 @@ def get_doy_index(d, idx):
     broadcast = np.broadcast_to(np.array(idx), np.ones_like(d).T.shape).T
     seq = broadcast * np.ones_like(d)
     doy_idx = np.where(d > 50, seq, 0)
-    doy_idx = doy_idx.max(axis=0)
+    doy_idx = doy_idx.max(axis=0).astype(np.uint16)
     return doy_idx
 
 
@@ -191,6 +202,21 @@ def interp(a):
     return a
 
 
+def add_raster_overview(t_dir, years, overwrite=False):
+
+    l = [os.path.join(t_dir, '{}.tif'.format(y)) for y in years]
+    for tiff in l:
+        btiff = tiff.replace('.tif', '_bt.tif')
+        if os.path.exists(btiff) and not overwrite:
+            continue
+        cmd = [TRANSLATE, '-a_srs', PROJ, '-co', 'TILED=YES', '-co', 'BIGTIFF=YES', tiff, btiff]
+        print('writing', btiff)
+        check_call(cmd)
+        print('writing overviews')
+        cmd = [OVR, '-r', 'average', btiff]
+        check_call(cmd)
+
+
 if __name__ == '__main__':
     root = '/media/research/IrrigationGIS/Montana/water_rights'
     if not os.path.exists(root):
@@ -201,14 +227,7 @@ if __name__ == '__main__':
 
     tif = os.path.join(root, 'masked')
     tif_o = os.path.join(root, 'merged')
-    t = time.process_time()
     lf_years = [1991, 1992, 1994, 2000, 2001, 2003, 2004, 2006, 2007, 2013, 2015, 2016, 2017]
-    for yr_ in lf_years:
-        # try:
-        t = time.process_time()
-        get_landsat_etf_time_series(tif, tif_o, chunk=1000, year=yr_, meta_data=meta)
-        elapsed_time = time.process_time() - t
-        print(elapsed_time)
-        # except Exception as e:
-        #     print(yr_, e)
+    get_landsat_etf_time_series(tif, tif_o, year=2015, meta_data=meta)
+    add_raster_overview(tif_o, lf_years)
 # ========================= EOF ====================================================================
