@@ -6,11 +6,6 @@ from tqdm import tqdm
 import numpy as np
 from pandas import date_range
 from pandas import to_datetime
-import fiona
-from shapely.geometry import shape
-from xarray import concat
-from rioxarray import merge as rxmerge
-import rioxarray
 import rasterio
 from rasterio.merge import merge
 from rasterio.windows import Window
@@ -22,18 +17,25 @@ OVR = os.path.join(conda, 'gdaladdo')
 TRANSLATE = os.path.join(conda, 'gdal_translate')
 PROJ = '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs'
 
+BASINS = {'12334550': '040028',
+          '12340000': '040027',
+          '06052500': '039028',
+          '06195600': '039028',
+          '06076690': '039028'}
 
-def get_landsat_etf_time_series(tif_dir, out_tif, chunk=1000, year=2017, meta_data=None):
-    file_list, int_dates, str_dates, index_ = get_list_info(tif_dir, year)
+
+def get_landsat_etf_time_series(tif_dir, out_tif, chunk=1000, year=2017, meta_data=None, pr='039028'):
+    file_list, int_dates, str_dates, index_ = get_list_info(tif_dir, year, pr=pr, list_=False)
 
     file_name = os.path.join(out_tif, '{}.tif'.format(year))
     if os.path.exists(file_name):
         print('{} exists already'.format(file_name))
         return None
 
-    with open(meta_data, 'r') as f:
-        d = json.load(f)
-    hydro = d[str(year)]
+    if meta_data:
+        with open(meta_data, 'r') as f:
+            meta_d = json.load(f)
+            hydro = meta_d[str(year)]
 
     with rasterio.open(file_list[0], 'r') as src:
         meta = src.meta
@@ -50,7 +52,7 @@ def get_landsat_etf_time_series(tif_dir, out_tif, chunk=1000, year=2017, meta_da
         da, dt = resample_time_sereies(da, str_dates, int_dates)
         doy = get_doy_index(da, index_)
 
-        if first:
+        if first and meta_data:
             write_metadata_file(hydro, str_dates, index_, year, out_tif)
             first = False
 
@@ -83,12 +85,13 @@ def get_landsat_etf_time_series(tif_dir, out_tif, chunk=1000, year=2017, meta_da
     merge_rasters(tiffs, doy_tiffs, out_tif, year)
 
 
-def get_list_info(tif_dir, year, list_=False):
+def get_list_info(tif_dir, year, list_=False, pr='039028'):
     """ Pass list in place of tif_dir optionally """
     if list_:
         l = tif_dir
     else:
-        l = [os.path.join(tif_dir, x) for x in os.listdir(tif_dir) if x.endswith('.tif') and '_{}'.format(year) in x]
+        l = [os.path.join(tif_dir, x) for x in os.listdir(tif_dir) if
+             x.endswith('.tif') and '_{}'.format(year) in x and pr in x]
     srt = sorted([x for x in l], key=lambda x: int(x.split('.')[0][-4:]))
     d = [x.split('.')[0][-8:] for x in srt]
     d_numeric = [int(x) for x in d]
@@ -183,7 +186,7 @@ def get_doy_index(d, idx):
     seq = broadcast * np.ones_like(d)
     doy_idx = np.where(d > 50, seq, 0)
     doy_idx = doy_idx.max(axis=0).astype(np.uint16)
-    return doy_idx
+    return doy_idxcd
 
 
 def read_raster(t, c, return_win=False):
@@ -225,46 +228,6 @@ def add_raster_overview(t_dir, years, overwrite=False):
         check_call(cmd)
 
 
-def merge_clip_landsat(etf, clipped_dir, shapefile, wrs2, year=2015):
-    # TODO: finish applying this to get adjacent paths integrated
-    """ Assumes all in WGS 84 /UTM 12 N"""
-    with fiona.open(wrs2, 'r') as src:
-        wrs = [(f['properties']['PR'], shape(f['geometry'])) for f in src]
-        wrs = [('{}{}'.format(0, x[0]), x[1]) for x in wrs]
-    with fiona.open(shapefile, 'r') as src:
-        basins = [(f['properties']['SITE_NO'], shape(f['geometry'])) for f in src]
-        basin_crs = src.crs_wkt
-    for basin in basins:
-        pr = [x[0] for x in wrs if x[1].intersects(basin[1])]
-        images = [os.path.join(etf, x) for x in os.listdir(etf) if x[5:11] in pr]
-        images = [i for i in images if int(i.split('.')[0][-8:-4]) == year]
-        images = [images[9], images[43]]
-        l, d_numeric, dstr, idx = get_list_info(images, year, list_=True)
-        first = True
-        for num, i in enumerate(images):
-            if first:
-                base = rioxarray.open_rasterio(i)
-                base = base.rio.clip([basin[1]], basin_crs)
-                base = base.drop_vars('band')
-                base['time'] = to_datetime(dstr[num])
-                first = False
-            else:
-                add = rioxarray.open_rasterio(i)
-                add = add.rio.clip([basin[1]], basin_crs)
-                add = add.drop_vars('band')
-                add['time'] = to_datetime(dstr[num])
-                add = add.rio.reproject_match(add)
-                base = concat([base, add], dim='time')
-
-        out_dir = os.path.join(clipped_dir, basin[0])
-        if not os.path.exists(out_dir):
-            os.mkdir(out_dir)
-        for dt, idt in zip(dstr, d_numeric):
-            out_file = os.path.join(out_dir, '{}_{}.tif'.format(basin[0], idt))
-            base.sel(time=dt).rio.to_raster(out_file)
-            print('write {}'.format(os.path.basename(out_file)))
-
-
 if __name__ == '__main__':
     root = '/media/research/IrrigationGIS/Montana/water_rights'
     if not os.path.exists(root):
@@ -273,6 +236,8 @@ if __name__ == '__main__':
     wrs_ = os.path.join(root, 'landsat', 'wrs2', 'mt_wrs2.shp')
     root = os.path.join(root, 'landsat', 'etf')
     tif = os.path.join(root, 'masked')
-    tif_o = os.path.join(root, 'clipped')
-    merge_clip_landsat(tif, tif_o, basins_, wrs_)
+    for p_r in ['039028', '040027']:
+        tif_o = os.path.join(root, 'merged', p_r)
+        get_landsat_etf_time_series(tif, tif_o, year=2015, pr=p_r, meta_data=None)
+        add_raster_overview(tif_o, [2015])
 # ========================= EOF ====================================================================

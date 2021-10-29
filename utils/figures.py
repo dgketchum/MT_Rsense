@@ -6,11 +6,12 @@ from pandas import DataFrame, to_datetime
 from matplotlib import pyplot as plt
 from matplotlib.ticker import StrMethodFormatter
 
-from hydrograph import hydrograph
+from hydrograph import read_hydrograph
 
 
-def plot_hydrograph_years(csv, inst_q_dir, fig_dir, min_flow=400):
-    df = hydrograph(csv)
+def plot_hydrograph_years(csv, inst_q_dir, fig_dir, min_flow=400, long_name='Gage'):
+    print('\n{}'.format(os.path.basename(csv)))
+    df = read_hydrograph(csv)
     name = df.columns[0]
     df['date'] = df.index
     df['year'] = df.date.dt.year
@@ -43,7 +44,7 @@ def plot_hydrograph_years(csv, inst_q_dir, fig_dir, min_flow=400):
         missing = False
         inst_csv = os.path.join(inst_q_dir, '{}_{}.csv'.format(os.path.basename(csv).split('.')[0], k))
         try:
-            iv = hydrograph(inst_csv)
+            iv = read_hydrograph(inst_csv)
 
             full_days = []
 
@@ -80,8 +81,8 @@ def plot_hydrograph_years(csv, inst_q_dir, fig_dir, min_flow=400):
     ydf['hline'] = [min_flow for _ in ydf.index]
     colors = ['k' if _ != 'hline' else 'r' for _ in ydf.columns]
     ax = ydf.plot(logy=True, legend=False, alpha=0.2, color=colors, ylabel='discharge [cfs]',
-                  title='Clark Fork at Turah: {}\n'
-                        '1985 - 2020'.format(name.split(':')[1]), figsize=(30, 10))
+                  title='{}: {}\n'
+                        '1985 - 2020'.format(long_name, name.split(':')[1]), figsize=(30, 10))
     ax.yaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
     head = ['Call Date, Days < IFR, Min']
     ann = head + [('{}-{},   {},  {:.0f} cfs'.format(p[1], p[0], p[2], p[3])) for p in periods]
@@ -93,6 +94,7 @@ def plot_hydrograph_years(csv, inst_q_dir, fig_dir, min_flow=400):
 
     ax.annotate('{} cfs'.format(min_flow), xy=(100, min_flow + 10), xycoords='data', color='r')
     plt.savefig(os.path.join(fig_dir, 'stacked_{}'.format(name.split(':')[1])))
+    plt.close()
 
     jsn = os.path.join(fig_dir, '{}_lf.json'.format(os.path.basename(csv).replace('.csv', '')))
     d = {}
@@ -107,13 +109,27 @@ def plot_hydrograph_years(csv, inst_q_dir, fig_dir, min_flow=400):
     with open(jsn, 'w') as f:
         json.dump(d, f)
 
-    print([x[0] for x in periods])
-    print(unverified, len(periods))
+    [print(x[0]) for x in periods]
+
+    print('{} lf years, {} gage years, {} unverified\n'.format(len(periods), len(ldf.columns),
+                                                               len(unverified)))
 
 
 if __name__ == '__main__':
+
+    d = {'12334550': (500, 'Clark Fork at Turah Bridge nr Bonner MT'),  # I can't quite believe some of these numbers
+         '06052500': (947, 'Gallatin River at Logan MT'),
+         '06076690': (150, 'Smith River near Ft Logan MT'),
+         '06195600': (945, 'Shields River nr Livingston MT'),
+         '12340000': (700, 'Blackfoot River near Bonner MT')}
+
     root = '/media/research/IrrigationGIS/Montana/water_rights/hydrographs'
-    insta = '/media/research/IrrigationGIS/Montana/water_rights/hydrographs/insta_q'
-    h = os.path.join(root, '12334550.csv')
-    plot_hydrograph_years(h, insta, root, min_flow=500)
+    for k, v in d.items():
+        try:
+            gage = os.path.join(root, k)
+            insta = os.path.join(gage, 'insta_q')
+            h = os.path.join(gage, '{}.csv'.format(k))
+            plot_hydrograph_years(h, insta, gage, min_flow=v[0], long_name=v[1])
+        except Exception as e:
+            print(k, e)
 # ========================= EOF ====================================================================

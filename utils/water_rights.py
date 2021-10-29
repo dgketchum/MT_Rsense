@@ -75,9 +75,11 @@ def get_flat_priority(pou_src, out_file):
 
 if __name__ == '__main__':
     root = '/media/research/IrrigationGIS/Montana/water_rights'
-    shapes = os.path.join(root, 'gage_basins')
-    pou_d = os.path.join(root, 'pou')
-    gdb_ = os.path.join(root, 'wr_gdb', 'wrpou.shp')
-    clip_pou_to_basin(gdb_, basin_shp_dir=shapes, pou_dir=pou_d)
-
+    pou_c = os.path.join(root, 'pou_clip')
+    pou_f = os.path.join(root, 'pou_flat')
+    _clip = [os.path.join(pou_c, x) for x in os.listdir(pou_c) if x.endswith('.shp')]
+    for c in _clip:
+        f = os.path.join(pou_f, os.path.basename(c))
+        print('processing {}'.format(f))
+        get_flat_priority(c, f)
 # ========================= EOF ====================================================================
