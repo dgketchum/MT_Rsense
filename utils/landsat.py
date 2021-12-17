@@ -186,7 +186,7 @@ def get_doy_index(d, idx):
     seq = broadcast * np.ones_like(d)
     doy_idx = np.where(d > 50, seq, 0)
     doy_idx = doy_idx.max(axis=0).astype(np.uint16)
-    return doy_idxcd
+    return doy_idx
 
 
 def read_raster(t, c, return_win=False):
