@@ -9,12 +9,7 @@ import ee
 from matplotlib import pyplot as plt
 from scipy.stats import linregress
 
-try:
-    ee.Initialize()
-    print('Authorized')
-except Exception as e:
-    print('You are not authorized: {}'.format(e))
-    exit(1)
+from ee_api import is_authorized
 
 sys.path.insert(0, os.path.abspath('..'))
 sys.setrecursionlimit(5000)
@@ -32,8 +27,6 @@ CORB_CLIP = 'users/dgketchum/boundaries/CO_RB'
 
 FLUX_SHP = '/media/research/IrrigationGIS/ameriflux/select_flux_sites/select_flux_sites_impacts_ECcorrrected.shp'
 FLUX_DIR = '/media/research/IrrigationGIS/ameriflux/ec_data/monthly'
-
-ET_ASSET = ee.ImageCollection('users/dgketchum/ssebop/cmbrb')
 
 
 def extract_terraclimate_monthly(tables, years, description):
@@ -69,8 +62,7 @@ def extract_terraclimate_monthly(tables, years, description):
             print(out_desc)
 
 
-def extract_gridded_data(tables, years=None, description=None,
-                         min_years=0, basins=True, mask_irr=True, volume=False):
+def extract_gridded_data(tables, years=None, description=None, min_years=0, mask_irr=True, volume=False):
     """
     Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
     Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
@@ -97,7 +89,7 @@ def extract_gridded_data(tables, years=None, description=None,
     # sum = remap.sum().mask(irr_mask)
 
     for yr in years:
-        for month in range(5, 10):
+        for month in range(5, 11):
             s = '{}-{}-01'.format(yr, str(month).rjust(2, '0'))
             end_day = monthrange(yr, month)[1]
             e = '{}-{}-{}'.format(yr, str(month).rjust(2, '0'), end_day)
@@ -142,26 +134,26 @@ def extract_gridded_data(tables, years=None, description=None,
 
             cc = et.subtract(swb_aet)
 
+            area = ee.Image.pixelArea()
+
             if volume:
-                area = ee.Image.pixelArea()
                 irr = irr_mask.multiply(area).rename('irr')
                 et = et.multiply(area).rename('et')
                 cc = cc.multiply(area).rename('cc')
                 ppt = ppt.multiply(area).rename('ppt')
                 etr = etr.multiply(area).rename('etr')
-                swb_aet = swb_aet.multiply(area).rename('swb_aet')
+                swb_aet = swb_aet.multiply(area).rename('aet')
 
-            if basins:
-                selector = ['STAID']
             else:
-                selector = ['FID']
+                irr = irr_mask.multiply(area).rename('irr')
+                et = et.rename('et')
+                cc = cc.rename('cc')
+                ppt = ppt.rename('ppt')
+                etr = etr.rename('etr')
+                swb_aet = swb_aet.rename('aet')
 
-            if yr > 1990 and month in [x for x in range(4, 11)]:
-                bands = irr.addBands([et, cc, ppt, etr, swb_aet])
-                select_ = selector + ['irr', 'et', 'cc', 'ppt', 'etr', 'swb_aet']
-            else:
-                bands = irr.addBands([ppt, etr, swb_aet])
-                select_ = selector + ['ppt', 'etr', 'swb_aet', 'irr']
+            bands = irr.addBands([et, cc, ppt, etr, swb_aet])
+            select_ = ['FID', 'irr', 'et', 'cc', 'ppt', 'etr', 'aet']
 
             if volume:
                 data = bands.reduceRegions(collection=fc,
@@ -269,9 +261,11 @@ def extract_flux_stations(shp):
 
 
 if __name__ == '__main__':
+    is_authorized()
+
     extract_gridded_data(FIELDS, years=[i for i in range(1991, 2021)],
-                         description='SMB_2FEB2022', min_years=0, volume=False,
-                         basins=False, mask_irr=False)
+                         description='SMB_2FEB2022', min_years=0,
+                         mask_irr=False, volume=False)
 
     # extract_flux_stations(FLUX_SHP)
 # ========================= EOF ================================================================================

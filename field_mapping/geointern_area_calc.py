@@ -1,8 +1,7 @@
 import os
 from subprocess import check_call
 import fiona
-from shapely.geometry import Polygon, shape
-import numpy as np
+from shapely.geometry import shape
 
 home = os.path.expanduser('~')
 conda = os.path.join(home, 'miniconda3', 'envs')
@@ -62,6 +61,5 @@ if __name__ == '__main__':
         root = '/home/dgketchum/data/IrrigationGIS/Montana/geointernship/progress'
     aea_ = os.path.join(root, 'aea')
     _wgs = os.path.join(root, 'wgs')
-    # to_equal_area(_wgs, aea_)
     calc_areas(aea_)
 # ========================= EOF ====================================================================
