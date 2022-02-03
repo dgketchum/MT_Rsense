@@ -260,12 +260,50 @@ def extract_flux_stations(shp):
     plt.savefig(scatter)
 
 
+def get_landcover_info(basin, glob='none'):
+    roi = ee.FeatureCollection('users/dgketchum/boundaries/{}'.format(basin))
+
+    dem = ee.Terrain.products(ee.Image('USGS/NED')).select('elevation')
+    nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').rename('nlcd')
+    clay = ee.Image('projects/openet/soil/ssurgo_Clay_WTA_0to152cm_composite').select(['b1']).rename('clay')
+    sand = ee.Image('projects/openet/soil/ssurgo_Sand_WTA_0to152cm_composite').select(['b1']).rename('sand')
+    loam = ee.Image(100).subtract(clay).subtract(sand).rename('loam')
+    ksat = ee.Image('projects/openet/soil/ssurgo_Ksat_WTA_0to152cm_composite').select(['b1']).rename('ksat')
+    awc = ee.Image('projects/openet/soil/ssurgo_AWC_WTA_0to152cm_composite').select(['b1']).rename('awc')
+
+    landfire_cov = ee.Image('LANDFIRE/Vegetation/EVC/v1_4_0/CONUS')
+    landfire_type = ee.Image('LANDFIRE/Vegetation/EVT/v1_4_0/CONUS')
+
+    # pt = ee.FeatureCollection([ee.Feature(ee.Geometry.Point([-110.64, 45.45])).set('FID', 1)])
+    # data = soil.sampleRegions(collection=pt,
+    #                           scale=30)
+    # pprint(data.getInfo())
+
+    for prop, var in zip(
+            ['clay', 'sand', 'loam', 'ksat', 'awc', 'nlcd', 'elevation', 'landfire_cover', 'landfire_type'],
+            [clay, sand, loam, ksat, awc, nlcd, dem, landfire_cov, landfire_type]):
+        desc = '{}_{}_{}'.format(prop, basin, glob)
+        task = ee.batch.Export.image.toCloudStorage(
+            var,
+            fileNamePrefix=desc,
+            region=roi.first().geometry(),
+            description=desc,
+            fileFormat='GeoTIFF',
+            bucket='wudr',
+            scale=30,
+            maxPixels=1e13,
+            crs="EPSG:5071")
+
+        task.start()
+        print(desc)
+
+
 if __name__ == '__main__':
     is_authorized()
 
-    extract_gridded_data(FIELDS, years=[i for i in range(1991, 2021)],
-                         description='SMB_2FEB2022', min_years=0,
-                         mask_irr=False, volume=False)
+    # extract_gridded_data(FIELDS, years=[i for i in range(1991, 2021)],
+    #                      description='SMB_2FEB2022', min_years=0,
+    #                      mask_irr=False, volume=False)
 
-    # extract_flux_stations(FLUX_SHP)
+    get_landcover_info('upper_yellowstone', glob='27JAN2022')
 # ========================= EOF ================================================================================
