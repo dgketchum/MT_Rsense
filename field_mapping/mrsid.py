@@ -18,7 +18,7 @@ DECODE = os.path.join(_bin, 'mrsiddecode')
 
 conda = '/home/dgketchum/miniconda3/envs/opnt/bin/'
 if not os.path.exists(conda):
-    conda = '/home/dgketchum/miniconda3/envs/metric/bin/'
+    conda = '/home/dgketchum/miniconda/envs/metric/bin/'
 
 TRANSLATE = os.path.join(conda, 'gdal_translate')
 OVR = os.path.join(conda, 'gdaladdo')
@@ -96,6 +96,6 @@ def segment_and_convert(ortho_dir):
 
 
 if __name__ == '__main__':
-    ortho = '/media/research/IrrigationGIS/Montana/naip/mt_n'
+    ortho = os.path.join(root, 'Montana/naip/mt_n')
     segment_and_convert(ortho)
 # ========================= EOF ====================================================================
