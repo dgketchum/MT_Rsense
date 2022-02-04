@@ -52,7 +52,7 @@ def calc_areas(_dir):
         else:
             intern += area
         print('{:.3f} {}'.format(area, os.path.basename(s)))
-    print('{:.3f} intern\n{:.3f} dp\n{:.3f} flu'.format(intern, dp, flu))
+    print('\n\n\n\n{:.3f} intern\n{:.3f} dp\n{:.3f} flu'.format(intern, dp, flu))
 
 
 if __name__ == '__main__':
@@ -61,5 +61,6 @@ if __name__ == '__main__':
         root = '/home/dgketchum/data/IrrigationGIS/Montana/geointernship/progress'
     aea_ = os.path.join(root, 'aea')
     _wgs = os.path.join(root, 'wgs')
+    # to_equal_area(_wgs, aea_)
     calc_areas(aea_)
 # ========================= EOF ====================================================================
