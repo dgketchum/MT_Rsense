@@ -47,7 +47,10 @@ def nc_point_extract(points, nc, out_dir):
 
 
 if __name__ == '__main__':
-    d = '/home/dgketchum/Downloads/uyws'
+    d = '/media/research/IrrigationGIS/Montana/upper_yellowston/gsflow_prep'
+    if not os.path.exists(d):
+        d = '/home/dgketchum/data/IrrigationGIS/Montana/upper_yellowston/gsflow_prep'
+
     basin = os.path.join(d, 'uyws_basin.shp')
     target_points = os.path.join(d, 'uyws_fake_stations.shp')
     var = 'pr'
