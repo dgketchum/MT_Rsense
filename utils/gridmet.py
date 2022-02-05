@@ -1,6 +1,5 @@
 import os
 
-import numpy as np
 import xarray
 import fiona
 from pandas import date_range, to_datetime, Series
@@ -36,7 +35,7 @@ def nc_point_extract(points, nc, out_dir):
     ds = xarray.open_dataset(nc)
     with fiona.open(points, 'r') as src:
         for f in src:
-            name = f['properties']['id']
+            name = int(f['properties']['id'])
             coords = f['geometry']['coordinates']
             in_proj = Proj(src.crs['init'])
             geo_coords = in_proj(coords[0], coords[1], inverse=True)
