@@ -8,7 +8,7 @@ from pandas import DataFrame, to_datetime, read_csv, date_range, concat
 import requests
 
 
-def generate_precip_records(climate_dir, co_fip='46125'):
+def generate_precip_records(climate_dir, co_fip='30001'):
     try:
         with open('/home/dgketchum/ncdc_noaa_token.json', 'r') as j:
             API_KEY = json.load(j)['auth']
@@ -134,5 +134,5 @@ if __name__ == '__main__':
     if not os.path.exists(gis):
         gis = '/home/dgketchum/data/IrrigationGIS'
     _co_climate = os.path.join(gis, 'training_data', 'humid', 'county_precip_normals')
-    generate_precip_records('31025', _co_climate)
+    generate_precip_records('30001', _co_climate)
 # ========================= EOF ====================================================================
