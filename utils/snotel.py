@@ -1,109 +1,89 @@
 import os
+from copy import deepcopy
+from datetime import datetime as dt
+
 import numpy as np
-from pandas import read_csv
-from geopandas import GeoDataFrame
-from shapely.geometry import Point
+from pandas import read_csv, DataFrame, date_range
 import requests
 from io import StringIO
 
-ABV = {
-    "Alabama": "AL",
-    "Alaska": "AK",
-    "Arizona": "AZ",
-    "Arkansas": "AR",
-    "California": "CA",
-    "Colorado": "CO",
-    "Connecticut": "CT",
-    "Delaware": "DE",
-    "Florida": "FL",
-    "Georgia": "GA",
-    "Hawaii": "HI",
-    "Idaho": "ID",
-    "Illinois": "IL",
-    "Indiana": "IN",
-    "Iowa": "IA",
-    "Kansas": "KS",
-    "Kentucky": "KY",
-    "Louisiana": "LA",
-    "Maine": "ME",
-    "Maryland": "MD",
-    "Massachusetts": "MA",
-    "Michigan": "MI",
-    "Minnesota": "MN",
-    "Mississippi": "MS",
-    "Missouri": "MO",
-    "Montana": "MT",
-    "Nebraska": "NE",
-    "Nevada": "NV",
-    "New Hampshire": "NH",
-    "New Jersey": "NJ",
-    "New Mexico": "NM",
-    "New York": "NY",
-    "North Carolina": "NC",
-    "North Dakota": "ND",
-    "Ohio": "OH",
-    "Oklahoma": "OK",
-    "Oregon": "OR",
-    "Pennsylvania": "PA",
-    "Rhode Island": "RI",
-    "South Carolina": "SC",
-    "South Dakota": "SD",
-    "Tennessee": "TN",
-    "Texas": "TX",
-    "Utah": "UT",
-    "Vermont": "VT",
-    "Virginia": "VA",
-    "Washington": "WA",
-    "West Virginia": "WV",
-    "Wisconsin": "WI",
-    "Wyoming": "WY",
-    "District of Columbia": "DC",
-    "American Samoa": "AS",
-    "Guam": "GU",
-    "Northern Mariana Islands": "MP",
-    "Puerto Rico": "PR",
-    "United States Minor Outlying Islands": "UM",
-    "U.S. Virgin Islands": "VI",
-}
+from state_county_names_codes import state_name_abbreviation
+
+URL_STRINGS = ['WTEQ::value', 'TMIN::value', 'TMAX::value', 'TAVG::value', 'PREC::value']
+URL_LEAD = 'https://wcc.sc.egov.usda.gov/reportGenerator/view_csv/customGroupByMonthReport'
 
 
-def snotel_average_max_swe(csv):
+def snotel_meteorology(csv, out_dir):
+
     df = read_csv(csv)
     df = df[df['Network'] == 'SNOTEL']
     df['ID'] = df['ID'].apply(lambda x: x.strip())
-    df['mean_swe'] = [None for x in range(df.shape[0])]
-    ct = 0
-    for i, r in df.iterrows():
-        try:
-            st = ABV[r['State']].lower()
-            url = 'https://wcc.sc.egov.usda.gov/reportGenerator/view_csv/customGroupByMonthReport/' \
-                  'daily/{}:{}:SNTL%7Cid=%22%22%7Cname/POR_BEGIN,POR_END/WTEQ::value'.format(r['ID'], st)
+
+    abbrev = {v: k for k, v in state_name_abbreviation().items()}
+    station_dct, start_dates = {}, []
+    vars_ = ['swe', 'tmin', 'tmax', 'tavg', 'prec']
+    header, data_start = None, None
+
+    for _id, row in df.iterrows():
+        print(_id, row['Name'], abbrev[row['State']])
+        for url_str, var in zip(URL_STRINGS, vars_):
+            st = abbrev[row['State']].lower()
+            url = '{}/daily/{}:{}:SNTL%7Cid=%22%22%7Cname/POR_BEGIN,POR_END/{}'.format(URL_LEAD, row['ID'],
+                                                                                       st, url_str)
             resp = requests.get(url).text.splitlines()
             if len(resp) < 60:
                 continue
-            lines = '\n'.join([resp[58]] + resp[60:])
-            sttrr = StringIO(lines)
-            sdf = read_csv(sttrr)
-            sdf = sdf.rename(columns={'Water Year': 'wy', 'Day': 'd'})
-            s, e = sdf['wy'].loc[0], 2021
-            mean_ = np.nanmean([sdf[(sdf['wy'] == y) & (sdf['d'] == 30)]['Apr'].values[0] for y in range(s, e)])
-            df.loc[i, 'mean_swe'] = mean_
-            print('{:.2f}'.format(mean_), r['Name'])
-            ct += 1
-        except Exception as e:
-            print(r['Name'], r['ID'], e)
-            pass
+            for i, l in enumerate(resp):
+                if l.startswith('Water Year'):
+                    header = i
+                    data_start = i + 2
 
-    print('{} of {} sites'.format(ct, df.shape[0]))
-    _file = csv.replace('_list', '_1APR_swe')
-    # df.to_csv(_file)
-    geometry = [Point(x, y) for x, y in zip(df['Longitude'], df['Latitude'])]
-    gdf = GeoDataFrame(df, geometry=geometry)
-    _file = _file.replace('.csv', '.shp')
-    gdf.to_file(_file)
+            lines = '\n'.join([resp[header]] + resp[data_start:])
+            sttrr = StringIO(lines)
+            wy_sta_df = read_csv(sttrr)
+            wy_sta_df = wy_sta_df.rename(columns={'Water Year': 'wy', 'Day': 'd'})
+            station_dct[var] = deepcopy(wy_sta_df)
+
+            if wy_sta_df['wy'].loc[0] >= 1990:
+                raise ValueError('short record')
+
+        date_index = date_range('1990-01-01', '2021-12-31')
+        empty = np.ones((len(date_index), len(vars_))) * np.nan
+        sta_df = DataFrame(data=empty, columns=vars_, index=date_index)
+
+        months = [(m, dt.strftime(dt(1991, m, 1), '%b')) for m in range(1, 13)]
+        for var, c in station_dct.items():
+            print(var)
+            for m, mon_ in months:
+                mdf = deepcopy(c[['wy', 'd', mon_]])
+                if m >= 10:
+                    mdf.loc[:, 'wy'] = mdf['wy'] - 1
+                for _, m_row in mdf.iterrows():
+                    if m_row['wy'] == 1990 and m < 10 or m_row['wy'] < 1990:
+                        continue
+                    loc_ = '{}-{}-{}'.format(int(m_row['wy']), m, int(m_row['d']))
+                    val = m_row[mon_]
+
+                    # convert to mm, deg C
+                    if var in ['swe', 'prec']:
+                        val *= 25.4
+                    if var in ['tmin', 'tmax', 'tavg']:
+                        val = (val - 32) * 5 / 9
+                    sta_df.loc[loc_, var] = val
+
+        prec = list(sta_df.loc[:, 'prec'].values)
+        sta_df['prec'] = [np.nan] + [prec[i] - prec[i - 1] for i in range(1, len(prec))]
+        file_ = os.path.join(out_dir, '{}_{}_{}.csv'.format(_id,
+                                                            row['Name'].replace(' ', '_'),
+                                                            abbrev[row['State']]))
+        sta_df.to_csv(file_, float_format='%.3f')
 
 
 if __name__ == '__main__':
-    c = '/home/user/Downloads/snotel_list.csv'
-    snotel_average_max_swe(c)
+    d = '/media/research/IrrigationGIS/climate/snotel'
+    if not os.path.exists(d):
+        d = '/home/dgketchum/data/IrrigationGIS/climate/snotel'
+    sno_list = os.path.join(d, 'snotel_list.csv')
+    rec_dir = os.path.join(d, 'snotel_records')
+    snotel_meteorology(sno_list, rec_dir)
 # ========================= EOF ====================================================================
