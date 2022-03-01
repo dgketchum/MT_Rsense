@@ -1,6 +1,7 @@
 import os
 import sys
 from calendar import monthrange
+from pprint import pprint
 
 import fiona
 import numpy as np
@@ -80,7 +81,7 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
     umrb_clip = ee.FeatureCollection(UMRB_CLIP)
     corb_clip = ee.FeatureCollection(CORB_CLIP)
 
-    # fc = ee.FeatureCollection(ee.FeatureCollection(tables).filter(ee.Filter.eq('STAID', '12484500')))
+    fc = ee.FeatureCollection(ee.FeatureCollection(tables).filter(ee.Filter.eq('FID', 164)))
 
     irr_coll = ee.ImageCollection(RF_ASSET)
     coll = irr_coll.filterDate('1991-01-01', '2020-12-31').select('classification')
@@ -90,6 +91,8 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
 
     for yr in years:
         for month in range(5, 11):
+            if not yr == 2018 or not month == 8:
+                continue
             s = '{}-{}-01'.format(yr, str(month).rjust(2, '0'))
             end_day = monthrange(yr, month)[1]
             e = '{}-{}-{}'.format(yr, str(month).rjust(2, '0'), end_day)
@@ -164,8 +167,10 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
                                            reducer=ee.Reducer.mean(),
                                            scale=30)
 
-            # fields = data.first().propertyNames().remove('.geo')
-            # p = data.first().getInfo()['properties']
+            # poly = ee.Geometry.Rectangle([-109.45560755, 48.5731717, -109.45069, 48.5757698])
+            # feat = ee.FeatureCollection([ee.Feature(poly, {'system:index': 'abc123'})])
+            # poly_data = bands.reduceRegions(collection=feat, reducer=ee.Reducer.mean(), scale=30)
+            test = data.getInfo()
 
             out_desc = '{}_{}_{}'.format(description, yr, month)
             task = ee.batch.Export.table.toCloudStorage(
@@ -301,9 +306,9 @@ def get_landcover_info(basin, glob='none'):
 if __name__ == '__main__':
     is_authorized()
 
-    # extract_gridded_data(FIELDS, years=[i for i in range(1991, 2021)],
-    #                      description='SMB_2FEB2022', min_years=0,
-    #                      mask_irr=False, volume=False)
+    extract_gridded_data(FIELDS, years=[i for i in range(1991, 2021)],
+                         description='SMB_11FEB2022', min_years=0,
+                         mask_irr=False, volume=False)
 
-    get_landcover_info('upper_yellowstone', glob='27JAN2022')
+    # get_landcover_info('upper_yellowstone', glob='11FEB2022')
 # ========================= EOF ================================================================================

@@ -28,6 +28,7 @@ def gridmet_subset_stack(extent_shp, start, end, variable, filename):
 
         ds = gridmet.subset_nc(return_array=True)
         sets.append(ds)
+
     xarray.concat(sets, dim='time').to_netcdf(filename)
 
 

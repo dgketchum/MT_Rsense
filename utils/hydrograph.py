@@ -6,22 +6,27 @@ import hydrofunctions as hf
 from pandas import date_range, DatetimeIndex, DataFrame
 
 
-def get_station_daily_data(param, start, end, sid, out_dir, freq='dv'):
+def get_station_daily_data(param, start, end, sid, freq='dv', out_dir=None):
+    try:
+        nwis = hf.NWIS(sid, freq, start_date=start, end_date=end)
+        df = nwis.df(param)
 
-        try:
-            nwis = hf.NWIS(sid, freq, start_date=start, end_date=end)
-            df = nwis.df(param)
-            if freq == 'iv':
-                out_file = os.path.join(out_dir, '{}_{}.csv'.format(sid, start[:4]))
-            else:
-                out_file = os.path.join(out_dir, '{}.csv'.format(sid))
+        if freq == 'iv':
+            out_file = os.path.join(out_dir, '{}_{}.csv'.format(sid, start[:4]))
             df.to_csv(out_file)
-            print(out_file)
-        except ValueError as e:
-            print(e)
-        except hf.exceptions.HydroNoDataError:
-            print('no data for {} to {}'.format(start, end))
-            pass
+
+        elif out_dir:
+            out_file = os.path.join(out_dir, '{}.csv'.format(sid))
+            df.to_csv(out_file)
+
+        else:
+            return df
+
+    except ValueError as e:
+        print(e)
+    except hf.exceptions.HydroNoDataError:
+        print('no data for {} to {}'.format(start, end))
+        pass
 
 
 def get_station_daterange_data(year_start, daily_q_dir, aggregate_q_dir, start_month=None, end_month=None,
@@ -93,6 +98,6 @@ if __name__ == '__main__':
         dst = os.path.join(d, 'insta_q')
         sid = os.path.basename(d)
         for year in [x for x in range(1991, 2021)]:
-            get_station_daily_data('discharge', '{}-01-01'.format(year), '{}-12-31'.format(year),
-                                   sid, dst, freq='iv')
+            get_station_daily_data('discharge', '{}-01-01'.format(year), '{}-12-31'.format(year), sid, freq='iv',
+                                   out_dir=dst)
 # ========================= EOF ====================================================================
