@@ -30,6 +30,31 @@ def fiona_merge(out_shp, file_list):
     return None
 
 
+def merge_huc(pdir, outshp):
+    shps = [[os.path.join(pdir, sd, 'Shape', x) for x in os.listdir(os.path.join(pdir, sd, 'Shape'))
+             if x.endswith('WBDHU12.shp')] for sd in os.listdir(pdir)]
+    shps = [item for sublist in shps for item in sublist]
+    features, huc_codes, huc_names = [], [], []
+    first = True
+    for shp in shps:
+        with fiona.open(shp, 'r') as src:
+            if first:
+                meta = src.meta
+                first = False
+
+            for f in src:
+                code = f['properties']['HUC12']
+                name_ = f['properties']['Name']
+
+                if code not in huc_codes:
+                    features.append(f)
+                    huc_codes.append(code)
+
+    with fiona.open(outshp, 'w', **meta) as dst:
+        for f in features:
+            dst.write(f)
+
+
 if __name__ == '__main__':
     d = '/media/research/IrrigationGIS/training_data/irrigated/CO/cdss/irr_polys'
     fl = [os.path.join(d, x) for x in os.listdir(d) if '.shp' in x]
