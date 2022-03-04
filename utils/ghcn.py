@@ -71,10 +71,6 @@ def write_ghcn_station_shapefile(stations_file, out_shp, csv_dir):
             ct += 1
 
 
-
-
-
-
 if __name__ == '__main__':
     d = '/media/research/IrrigationGIS'
     if not os.path.exists(d):
