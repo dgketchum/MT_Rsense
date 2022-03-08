@@ -1,5 +1,5 @@
 import os
-from subprocess import check_call
+from subprocess import check_call, CalledProcessError
 import fiona
 from shapely.geometry import shape
 
@@ -24,8 +24,11 @@ def to_equal_area(in_dir, out_dir):
     for s in in_shp:
         out_shp = os.path.join(out_dir, os.path.basename(s))
         cmd = [OGR, '-f', 'ESRI Shapefile', '-s_srs', WGS, '-t_srs', AEA, out_shp, s]
-        check_call(cmd)
-        print(out_shp)
+        try:
+            check_call(cmd)
+            print(out_shp)
+        except CalledProcessError:
+            print('error', out_shp)
 
 
 def calc_areas(_dir):

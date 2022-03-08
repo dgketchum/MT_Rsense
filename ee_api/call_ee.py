@@ -268,16 +268,24 @@ def extract_flux_stations(shp):
 def get_landcover_info(basin, glob='none'):
     roi = ee.FeatureCollection('users/dgketchum/boundaries/{}'.format(basin))
 
-    dem = ee.Terrain.products(ee.Image('USGS/NED')).select('elevation')
-    nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').rename('nlcd')
+    dem = ee.Terrain.products(ee.Image('USGS/NED')).select('elevation').multiply(100).toUint16()
+
     clay = ee.Image('projects/openet/soil/ssurgo_Clay_WTA_0to152cm_composite').select(['b1']).rename('clay')
     sand = ee.Image('projects/openet/soil/ssurgo_Sand_WTA_0to152cm_composite').select(['b1']).rename('sand')
     loam = ee.Image(100).subtract(clay).subtract(sand).rename('loam')
     ksat = ee.Image('projects/openet/soil/ssurgo_Ksat_WTA_0to152cm_composite').select(['b1']).rename('ksat')
     awc = ee.Image('projects/openet/soil/ssurgo_AWC_WTA_0to152cm_composite').select(['b1']).rename('awc')
 
-    landfire_cov = ee.Image('LANDFIRE/Vegetation/EVC/v1_4_0/CONUS')
-    landfire_type = ee.Image('LANDFIRE/Vegetation/EVT/v1_4_0/CONUS')
+    clay = clay.multiply(100).toUint16()
+    sand = sand.multiply(100).toUint16()
+    loam = loam.multiply(100).toUint16()
+
+    ksat = ksat.multiply(100).toUint16()
+    awc = awc.multiply(100).toUint16()
+
+    nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').rename('nlcd').toUint8()
+    landfire_cov = ee.Image('LANDFIRE/Vegetation/EVC/v1_4_0/CONUS').toUint8()
+    landfire_type = ee.Image('LANDFIRE/Vegetation/EVT/v1_4_0/CONUS').toUint8()
 
     # pt = ee.FeatureCollection([ee.Feature(ee.Geometry.Point([-110.64, 45.45])).set('FID', 1)])
     # data = soil.sampleRegions(collection=pt,
@@ -306,9 +314,9 @@ def get_landcover_info(basin, glob='none'):
 if __name__ == '__main__':
     is_authorized()
 
-    extract_gridded_data(FIELDS, years=[i for i in range(1991, 2021)],
-                         description='SMB_11FEB2022', min_years=0,
-                         mask_irr=False, volume=False)
+    # extract_gridded_data(FIELDS, years=[i for i in range(1991, 2021)],
+    #                      description='SMB_11FEB2022', min_years=0,
+    #                      mask_irr=False, volume=False)
 
-    # get_landcover_info('upper_yellowstone', glob='11FEB2022')
+    get_landcover_info('huc6_MT_intersect_dissolve', glob='7MAR2022')
 # ========================= EOF ================================================================================

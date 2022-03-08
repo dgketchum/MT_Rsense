@@ -16,7 +16,7 @@ from datafile import write_basin_datafile
 
 
 def get_gage_stations(basin_shp, gages_shp, out_json):
-    """gather GHCN and USGS station/gages, write to .json"""
+    """Select USGS gages within the bounds of basin_shp write to .json"""
 
     _crs = [fiona.open(shp).meta['crs'] for shp in [basin_shp, gages_shp]]
     assert all(x == _crs[0] for x in _crs)
@@ -50,7 +50,7 @@ def get_gage_stations(basin_shp, gages_shp, out_json):
 
 
 def get_ghcn_stations(basin_shp, ghcn_shp, snotel_shp, out_json, buffer=10):
-    """gather GHCN and USGS station/gages, write to .json"""
+    """Select GHCN stations within the bounds of basin_shp write to .json"""
 
     _crs = [fiona.open(shp).meta['crs'] for shp in [basin_shp, ghcn_shp]]
     assert all(x == _crs[0] for x in _crs)
@@ -97,7 +97,12 @@ def get_ghcn_stations(basin_shp, ghcn_shp, snotel_shp, out_json, buffer=10):
 
 
 def precip_zone_geometry(basin_shp, huc_shp, station_meta, hru, zones_out, out_stations, n_stations=12):
-    """use all snotel stations, then gather n most 'spread out' met stations"""
+    """Select 'spread out' meteorology stations (in 3 dimensions, using K means clustering),
+    by selecting long-period stations near the center of each cluster,
+    collect and assign the nearest HUC 12 basins to each station,
+    and find PRMS model domain HRU ID.
+    Finally, build the attribute table and write both selected stations (json, shp) and precipitation zones (shp).
+    """
 
     with open(station_meta, 'r') as js:
         stations = json.load(js)
@@ -174,14 +179,34 @@ def precip_zone_geometry(basin_shp, huc_shp, station_meta, hru, zones_out, out_s
                       'geometry': 'Polygon'}
 
     with fiona.open(zones_out, 'w', **meta) as dst:
+        print('write {}'.format(zones_out))
         for k, v in ppt_zones.items():
             dst.write(v)
 
     with open(out_stations, 'w') as dst:
+        print('write {}'.format(out_stations))
         dst.write(json.dumps(met))
+
+    station_shp_file = out_stations.replace('.json', '.shp')
+    meta['schema']['geometry'] = 'Point'
+
+    with fiona.open(station_shp_file, 'w', **meta) as dst:
+        print('write {}'.format(station_shp_file))
+        for k, v in ppt_zones.items():
+            sta = [vv for kk, vv in met.items() if vv['zone'] == k][0]
+            pt = mapping(Point(sta[pj][1], sta[pj][0]))
+            f = {'type': 'Feature',
+                 'geometry': pt,
+                 'properties': OrderedDict([('FID', k),
+                                            ('PPT_ZONE', k),
+                                            ('PPT_HRU_ID', v['properties']['PPT_HRU_ID']),
+                                            ('STAID', v['properties']['STAID'])])}
+            dst.write(f)
 
 
 def attribute_precip_zones(ppt_zones_shp, csv, out_shp):
+    """Write collected met data (created during datafile prep) mean precipitation data to precipitation zones
+    shapefile."""
     mdf = read_csv(csv, sep=' ', infer_datetime_format=True, index_col=0, parse_dates=True)
 
     with fiona.open(ppt_zones_shp, 'r') as src:
@@ -241,15 +266,15 @@ if __name__ == '__main__':
     ppt_zones_geo = os.path.join(uy, 'met', 'ppt_zone_geometries.shp')
     selected_stations_json = os.path.join(uy, 'selected_stations.json')
     hru_shp_ = os.path.join(d, 'software', 'gsflow-arcpy-master', 'uyws_multibasin', 'hru_params', 'hru_params.shp')
-    # precip_zone_geometry(basin_, huc_, sta_json, hru_shp_, ppt_zones_geo, selected_stations_json)
+    precip_zone_geometry(basin_, huc_, sta_json, hru_shp_, ppt_zones_geo, selected_stations_json)
 
     _ghcn_data = os.path.join(clim, 'ghcn', 'ghcn_daily_summaries_4FEB2022')
     _snotel_data = os.path.join(clim, 'snotel', 'snotel_records')
     datafile = os.path.join(uy, 'uy.data')
     csv_ = os.path.join(uy, 'uy.csv')
-    # write_basin_datafile(selected_stations_json, gage_json_, _ghcn_data, datafile, csv_)
+    write_basin_datafile(selected_stations_json, gage_json_, _ghcn_data, datafile, csv_)
 
     ppt_zones_ = os.path.join(uy, 'met', 'ppt_zones.shp')
-    # attribute_precip_zones(ppt_zones_geo, csv_, out_shp=ppt_zones_)
+    attribute_precip_zones(ppt_zones_geo, csv_, out_shp=ppt_zones_)
 
 # ========================= EOF ====================================================================
