@@ -1,6 +1,7 @@
 import os
 import json
 from datetime import datetime
+from collections import OrderedDict
 
 import numpy as np
 from pandas import read_csv, date_range, to_datetime, isna, DataFrame
@@ -35,8 +36,8 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
 
         try:
             df = df[['TMAX', 'TMIN', 'PRCP']]
-            df['tmax'] = (df['TMAX'] / 10. * 9 / 5) + 32
-            df['tmin'] = (df['TMIN'] / 10. * 9 / 5) + 32
+            df['tmax'] = df['TMAX'] / 10.
+            df['tmin'] = df['TMIN'] / 10.
             df['prcp'] = df['PRCP'] / 10.
             df = df[['tmax', 'tmin', 'prcp']]
 
@@ -68,7 +69,9 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
 
         v['data'] = df
 
-    input_dct = {**stations, **gages}
+    # sort by zone for met stations
+    input_dct = OrderedDict(sorted(stations.items(), key=lambda item: item[1]['zone']))
+    [input_dct.update({k: v}) for k, v in gages.items()]
     dt_now = datetime.now().strftime('%Y-%m-%d %H:%M')
 
     with open(data_file, 'w') as f:
@@ -91,7 +94,9 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
 
         counts = {'tmax': 0, 'tmin': 0, 'prcp': 0, 'flow': 0}
         for var, unit in zip(['tmax', 'tmin', 'prcp', 'flow'], ['C', 'C', 'mm', 'cfs']):
+
             for k, v in input_dct.items():
+
                 d = v['data']
                 if var in d.columns:
                     line_ = ' '.join(['#', k.rjust(11, '0'),
@@ -104,6 +109,7 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
                     f.write(line_)
                     df['{}_{}'.format(k, var)] = d[var]
                     counts[var] += 1
+
         f.write(''.join(['/' for _ in range(95)]) + '\n')
         for k, v in counts.items():
             f.write('{} {}\n'.format(k, v))

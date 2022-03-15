@@ -10,6 +10,7 @@ from shapely.geometry import shape, Point, mapping
 from shapely.ops import cascaded_union
 from pandas import read_csv, DataFrame, date_range
 from rtree import index
+from scipy.stats.stats import linregress
 
 from utils.elevation import elevation_from_coordinate
 from datafile import write_basin_datafile
@@ -134,7 +135,7 @@ def precip_zone_geometry(basin_shp, huc_shp, station_meta, hru, zones_out, out_s
         pick_stations.append(_id)
 
     met = {k: v for k, v in met.items() if k in pick_stations}
-    [met[k].update({'zone': i}) for i, k in enumerate(met.keys())]
+    [met[k].update({'zone': i}) for i, k in enumerate(met.keys(), start=1)]
 
     with fiona.open(basin_shp, 'r') as basn:
         basin_geo = shape([f['geometry'] for f in basn][0])
@@ -159,12 +160,15 @@ def precip_zone_geometry(basin_shp, huc_shp, station_meta, hru, zones_out, out_s
 
     ppt_zones = {}
     for k, v in met.items():
-        buf_pt = Point(v[pj][1], v[pj][0]).buffer(1).bounds
+        pt = Point(v[pj][1], v[pj][0])
+        buf_pt = pt.buffer(1).bounds
         hru = [x for x in idx.intersection(buf_pt)][0]
 
         zone = v['zone']
         huc_geo = [shape(h[0]['geometry']) for h in huc_intersect if h[0]['properties']['zone'] == zone]
         ppt_zone_geo = cascaded_union(huc_geo)
+        if not pt.intersects(ppt_zone_geo):
+            hru = 0
         ppt_zones[v['zone']] = {'type': 'Feature',
                                 'geometry': mapping(ppt_zone_geo),
                                 'properties': OrderedDict([('FID', zone),
@@ -202,6 +206,30 @@ def precip_zone_geometry(basin_shp, huc_shp, station_meta, hru, zones_out, out_s
                                             ('PPT_HRU_ID', v['properties']['PPT_HRU_ID']),
                                             ('STAID', v['properties']['STAID'])])}
             dst.write(f)
+
+
+def calculate_monthly_lapse_rates(csv, station_meta):
+    mdf = read_csv(csv, sep=' ', infer_datetime_format=True, index_col=0, parse_dates=True)
+    mdf = mdf.groupby(mdf.index.month).mean()
+    with open(station_meta, 'r') as js:
+        stations = json.load(js)
+
+    tmin_lapse, tmax_lapse = [], []
+    for temp in ['tmin', 'tmax']:
+        for month in range(1, 13):
+            temps, elevations = [], []
+            cols = [c for c in mdf.columns if temp in c]
+            d = mdf[cols]
+            [temps.append(d['{}_{}'.format(s, temp)].loc[month]) for s in stations.keys()]
+            [elevations.append(v['elev']) for k, v in stations.items()]
+            regression = linregress(elevations, temps)
+            if temp == 'tmin':
+                tmin_lapse.append('{:.3f}'.format(regression.slope * 1000.))
+            else:
+                tmax_lapse.append('{:.3f}'.format(regression.slope * 1000.))
+
+    print('tmax_lapse = {}'.format(', '.join(tmax_lapse)))
+    print('tmin_lapse = {}'.format(', '.join(tmin_lapse)))
 
 
 def attribute_precip_zones(ppt_zones_shp, csv, out_shp):
@@ -265,8 +293,9 @@ if __name__ == '__main__':
     huc_ = os.path.join(d, 'boundaries', 'hydrography', 'HUC_Boundaries', 'merge_huc12_aea.shp')
     ppt_zones_geo = os.path.join(uy, 'met', 'ppt_zone_geometries.shp')
     selected_stations_json = os.path.join(uy, 'selected_stations.json')
-    hru_shp_ = os.path.join(d, 'software', 'gsflow-arcpy-master', 'uyws_multibasin', 'hru_params', 'hru_params.shp')
-    precip_zone_geometry(basin_, huc_, sta_json, hru_shp_, ppt_zones_geo, selected_stations_json)
+    hru_shp_ = os.path.join(d, 'software', 'gsflow-arcpy-master',
+                            'uyws_multibasin', 'hru_params', 'hru_params.shp')
+    # precip_zone_geometry(basin_, huc_, sta_json, hru_shp_, ppt_zones_geo, selected_stations_json)
 
     _ghcn_data = os.path.join(clim, 'ghcn', 'ghcn_daily_summaries_4FEB2022')
     _snotel_data = os.path.join(clim, 'snotel', 'snotel_records')
@@ -276,5 +305,7 @@ if __name__ == '__main__':
 
     ppt_zones_ = os.path.join(uy, 'met', 'ppt_zones.shp')
     attribute_precip_zones(ppt_zones_geo, csv_, out_shp=ppt_zones_)
+
+    calculate_monthly_lapse_rates(csv_, selected_stations_json)
 
 # ========================= EOF ====================================================================

@@ -12,7 +12,8 @@ def clip_raster(basin, raw_data_dir, clipped_dir):
     with fiona.open(basin, 'r') as basn:
         geo = [f['geometry'] for f in basn]
 
-    scaled, not_scaled = ['sand', 'clay', 'loam', 'elevation', 'awc', 'ksat'], ['landfire-cover', 'landfire-type']
+    scaled = ['sand', 'clay', 'loam', 'elevation', 'awc', 'ksat']
+    not_scaled = ['landfire-cover', 'landfire-type', 'nlcd']
     layers = scaled + not_scaled
 
     _files = [os.path.join(raw_data_dir, x) for x in os.listdir(raw_data_dir) if x.endswith('.tif')]

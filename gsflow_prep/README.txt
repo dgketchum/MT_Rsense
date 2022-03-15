@@ -38,16 +38,32 @@ Environments:
     - conda install numpy scikit-learn shapely fiona
     - pip install rasterio rtree
 
-Most scripts will need paths edited at the end of each .py file. They can then be run from the conda command line
-from a terminal with an active conda env (for MT_Rsense code), or calling the ArcGIS python executable from the
-command line (for the gsflow-arcpy code; e.g., c:\python27\ArcGIS10.7\python.exe my_script.py).
+Most scripts will need paths edited in each .py file. They can then be run from the conda command line
+from a terminal with an active conda environment (for MT_Rsense code), or by calling the ArcGIS python executable
+from the command line (for the gsflow-arcpy code; e.g., c:\python27\ArcGIS10.7\python.exe my_script.py). Further,
+comment and uncomment function calls as needed in batch_sequence.py, so as to run only the needed functions.
 
 Follow the steps listed below to reproduce my work on the Upper Yellowstone basin study. As steps are completed,
 the resulting data's path should be edited in the project .ini file:
 
 1. Produce a basin delineation using StreamStats, https://streamstats.usgs.gov/ss/
     - Delineate a basin by choosing and outlet just above the confluence of the Yellowstone and Shields rivers.
-    - Export the basin to shapefile, project to EPSG 5071 (as with all data used in this project)
+    - Export the basin to shapefile, project to EPSG 5071 (as with all data used in this project).
 
 2. Clip raster data to the basin shapfile, using MT_Rsense/gsflow_prep/raster_prep.py and the statewide rasters
-in our database.
+    in our database. Move rasters to directories specified in the project .ini.
+
+3. To prepare climate and streamflow input data, run batch_sequence.py through impervious_parameters().
+    Then run climate and stream gage data processing functions in gsflow_prep.py. This will build shapefiles
+    with a selection of stream gages and climate stations, build the precipitation zones for the model domain,
+    write the record of streamflow and climate data to a PRMS datafile, and calculate monthly min/max temperature
+    lapse rates.
+
+4. Run prism_800m_parameters() and ppt_ratio_parameters(). Open the hru_params.shp in a GIS and confirm the PPT_ZONE
+    field has been set correctly. NOTE: I had to double the block size parameter (to 400000) in
+    gsflow-arcpy/scripts/support_functions.py zone_by_centroid_func(), line #1181 when I found the basin area PPT_ZONE
+    attributes were incomplete (zeros within the domain).
+
+5. Run batch_sequence.py through flow_parameters(). Observe initial stream network, and change DEM_ADJ according
+    to instructions in the tutorial. Re-run flow_parameters().  Run crt_fill_parameters(), examine. Re-run
+    these two steps if necessary. See the gsflow-arcpy readme at github.com/dgketchum/gsflow-arcpy/README.txt.
