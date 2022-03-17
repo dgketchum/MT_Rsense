@@ -38,8 +38,8 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
             df = df[['TMAX', 'TMIN', 'PRCP']]
             df['tmax'] = df['TMAX'] / 10.
             df['tmin'] = df['TMIN'] / 10.
-            df['prcp'] = df['PRCP'] / 10.
-            df = df[['tmax', 'tmin', 'prcp']]
+            df['precip'] = df['PRCP'] / 10.
+            df = df[['tmax', 'tmin', 'precip']]
 
             if df.empty or df.shape[0] < 1000:
                 print(k, 'insuf records in date range')
@@ -50,7 +50,7 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
             invalid_stations += 1
             continue
 
-        df[isna(df)] = -999
+        df[isna(df)] = -901.0
 
         print(k, df.shape[0])
         stations[k]['data'] = df
@@ -65,7 +65,7 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
 
         df = df.tz_convert(None)
         df = df.reindex(dt_index)
-        df[isna(df)] = -999
+        df[isna(df)] = -901.0
 
         v['data'] = df
 
@@ -77,14 +77,18 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
     with open(data_file, 'w') as f:
 
         df = DataFrame(index=dt_index)
-        df['Year'], df['Month'] = [i.year for i in df.index], [i.month for i in df.index]
-        df['day'], df['hr'], df['min'] = [i.day for i in df.index], [0 for _ in df.index], [0 for _ in df.index]
 
-        [f.write('{}\n'.format(item)) for item in ['PRMS Datafile',
-                                                   dt_now,
+        time_div = ['Year', 'Month', 'day', 'hr', 'min', 'sec']
+        df['Year'] = [i.year for i in df.index]
+        df['Month'] = [i.month for i in df.index]
+        df['day'] = [i.day for i in df.index]
+        for t_ in time_div[3:]:
+            df[t_] = [0 for _ in df.index]
+
+        [f.write('{}\n'.format(item)) for item in ['PRMS Datafile: {}\n'.format(dt_now),
                                                    ''.join(['/' for _ in range(95)]),
                                                    '    '.join(
-                                                       ['# ID  ',
+                                                       ['// ID  ',
                                                         '    Site Name{}'.format(' '.join([' ' for _ in range(14)])),
                                                         'Type',
                                                         'Lat',
@@ -92,14 +96,16 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
                                                         'Elev (m)',
                                                         'Units'])]]
 
-        counts = {'tmax': 0, 'tmin': 0, 'prcp': 0, 'flow': 0}
-        for var, unit in zip(['tmax', 'tmin', 'prcp', 'flow'], ['C', 'C', 'mm', 'cfs']):
+        counts = {'tmax': 0, 'tmin': 0, 'precip': 0, 'runoff': 0}
+        for var, unit in zip(['tmax', 'tmin', 'precip', 'runoff'], ['C', 'C', 'mm', 'cfs']):
 
             for k, v in input_dct.items():
-
-                d = v['data']
+                try:
+                    d = v['data']
+                except KeyError:
+                    continue
                 if var in d.columns:
-                    line_ = ' '.join(['#', k.rjust(11, '0'),
+                    line_ = ' '.join(['// ', k.rjust(11, '0'),
                                       v['name'].ljust(40, ' ')[:40],
                                       var,
                                       '{:.3f}'.format(v['lat']),
@@ -114,12 +120,12 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
         for k, v in counts.items():
             f.write('{} {}\n'.format(k, v))
         f.write(''.join(['#' for _ in range(95)]) + '\n')
-        df.to_csv(f, sep=' ', header=False, index=False, float_format='%.2f')
+        df.to_csv(f, sep=' ', header=False, index=False, float_format='%.1f')
 
         #  save dataframe to normal csv for use elsewhere
-        df = df[[c for c in df.columns if c not in ['Year', 'Month', 'day', 'hr', 'min']]]
+        df = df[[c for c in df.columns if c not in time_div]]
         df['date'] = df.index
-        df[df.values == -999.0] = np.nan
+        df[df.values == -901.0] = np.nan
         df.to_csv(out_csv, sep=' ', float_format='%.2f')
 
 
