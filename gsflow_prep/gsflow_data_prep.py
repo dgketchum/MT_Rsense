@@ -97,7 +97,7 @@ def get_ghcn_stations(basin_shp, ghcn_shp, snotel_shp, out_json, buffer=10):
         dst.write(json.dumps(stations))
 
 
-def precip_zone_geometry(basin_shp, huc_shp, station_meta, hru, zones_out, out_stations, n_stations=12):
+def met_zones_geometries(station_meta, hru, zones_out, out_stations):
     """Select 'spread out' meteorology stations (in 3 dimensions, using K means clustering),
     by selecting long-period stations near the center of each cluster,
     collect and assign the nearest HUC 12 basins to each station,
@@ -124,39 +124,25 @@ def precip_zone_geometry(basin_shp, huc_shp, station_meta, hru, zones_out, out_s
     def normz(z):
         return (z - z_min) / (z_max - z_min)
 
-    norm_cords = [(s, (normx(x), normy(y), normz(z))) for s, x, y, z in zip(s_ids, xx, yy, zz)]
-    kmeans = KMeans(n_clusters=n_stations).fit([c[1] for c in norm_cords])
-    centers = kmeans.cluster_centers_
-    pick_stations = []
-
-    for c in centers:
-        dist = [Point(c).distance(Point(nc[1])) for nc in norm_cords]
-        _id = s_ids[dist.index(min(dist))]
-        pick_stations.append(_id)
-
-    met = {k: v for k, v in met.items() if k in pick_stations}
     [met[k].update({'zone': i}) for i, k in enumerate(met.keys(), start=1)]
 
-    with fiona.open(basin_shp, 'r') as basn:
-        basin_geo = shape([f['geometry'] for f in basn][0])
+    met_norm_coords = [(s, Point(normx(x), normy(y), normz(z))) for s, x, y, z in zip(s_ids, xx, yy, zz)]
 
-    huc_intersect = []
-    with fiona.open(huc_shp, 'r') as src:
+    # TODO: use rtree 3D nearest to pair HRU to met stations
+    idx = index.Index()
+    hru_station = {}
+    with fiona.open(hru, 'r') as src:
         meta = src.meta
         for f in src:
-            geo = shape(f['geometry'])
-            if geo.intersects(basin_geo) and geo.intersection(basin_geo).area / geo.area > 0.1:
-                huc_intersect.append((f, shape(f['geometry']).centroid))
-
-    for f, cent in huc_intersect:
-        dist_tup = [(k, np.floor(cent.distance(Point(v[pj][1], v[pj][0])))) for k, v in met.items()]
-        sid, dist = [x[0] for x in dist_tup], [x[1] for x in dist_tup]
-        f['properties']['zone'] = met[sid[dist.index(min(dist))]]['zone']
-
-    idx = index.Index()
-    with fiona.open(hru, 'r') as src:
-        for f in src:
-            idx.insert(f['properties']['HRU_ID'], shape(f['geometry']).bounds)
+            _id = f['properties']['HRU_ID']
+            idx.insert(_id, shape(f['geometry']).bounds)
+            hru_cent = shape(f['geometry']).centroid
+            x, y = normx(hru_cent.x), normy(hru_cent.y)
+            z = normz(f['properties']['HRU_ID'])
+            norm_center = Point(x, y, z)
+            dist = [norm_center.distance(mnc[1]) for mnc in met_norm_coords]
+            dist_idx = dist.index(min(dist))
+            hru_station[_id] = (s_ids[dist_idx], shape(f['geometry']))
 
     ppt_zones = {}
     for k, v in met.items():
@@ -165,17 +151,18 @@ def precip_zone_geometry(basin_shp, huc_shp, station_meta, hru, zones_out, out_s
         hru = [x for x in idx.intersection(buf_pt)][0]
 
         zone = v['zone']
-        huc_geo = [shape(h[0]['geometry']) for h in huc_intersect if h[0]['properties']['zone'] == zone]
-        ppt_zone_geo = cascaded_union(huc_geo)
-        if not pt.intersects(ppt_zone_geo):
+
+        zone_geo = [vv[1] for kk, vv in hru_station.items() if vv[0] == k]
+        zone_geo = cascaded_union(zone_geo)
+
+        if not pt.intersects(zone_geo):
             hru = 0
         ppt_zones[v['zone']] = {'type': 'Feature',
-                                'geometry': mapping(ppt_zone_geo),
+                                'geometry': mapping(zone_geo),
                                 'properties': OrderedDict([('FID', zone),
                                                            ('PPT_ZONE', zone),
                                                            ('PPT_HRU_ID', hru),
                                                            ('STAID', k)])}
-
     meta['schema'] = {'type': 'Feature', 'properties': OrderedDict([('FID', 'int:9'),
                                                                     ('PPT_ZONE', 'int:9'),
                                                                     ('PPT_HRU_ID', 'int:9'),
@@ -231,6 +218,10 @@ def calculate_monthly_lapse_rates(csv, station_meta):
     print('tmax_lapse = {}'.format(', '.join(tmax_lapse)))
     print('tmin_lapse = {}'.format(', '.join(tmin_lapse)))
 
+    print('station elevations')
+    elevs = sorted([(v['zone'], v['elev']) for k, v in stations.items()], key=lambda x: x[0])
+    print(', '.join([str(x[1]) for x in elevs]))
+
 
 def attribute_precip_zones(ppt_zones_shp, csv, out_shp):
     """Write collected met data (created during datafile prep) mean precipitation data to precipitation zones
@@ -262,7 +253,7 @@ def attribute_precip_zones(ppt_zones_shp, csv, out_shp):
             df = mdf[[c for c in mdf.columns if staname in c]]
             df = df.resample('M').agg(DataFrame.sum, skipna=False)
             for m in range(1, 13):
-                data = [r['{}_prcp'.format(staname)] for i, r in df.iterrows() if i.month == m]
+                data = [r['{}_precip'.format(staname)] for i, r in df.iterrows() if i.month == m]
                 record.update({'PPT_{}'.format(str(m).rjust(2, '0')): np.nanmean(data)})
 
             props = OrderedDict([(k, record[k]) for k in meta['schema']['properties'].keys()])
@@ -288,24 +279,23 @@ if __name__ == '__main__':
     ghcn_shp_aea = os.path.join(stations_, 'ghcn_us_aea.shp')
     snotel_shp_ = os.path.join(stations_, 'snotel_stations.shp')
     sta_json = os.path.join(uy, 'stations.json')
-    # get_ghcn_stations(basin_, ghcn_shp_aea, snotel_shp_, out_json=sta_json, buffer=0)
+    # get_ghcn_stations(basin_, ghcn_shp_aea, snotel_shp_, out_json=sta_json, buffer=10)
 
-    huc_ = os.path.join(d, 'boundaries', 'hydrography', 'HUC_Boundaries', 'merge_huc12_aea.shp')
     ppt_zones_geo = os.path.join(uy, 'met', 'ppt_zone_geometries.shp')
     selected_stations_json = os.path.join(uy, 'selected_stations.json')
-    hru_shp_ = os.path.join(d, 'software', 'gsflow-arcpy-master',
-                            'uyws_multibasin', 'hru_params', 'hru_params.shp')
-    # precip_zone_geometry(basin_, huc_, sta_json, hru_shp_, ppt_zones_geo, selected_stations_json)
+    hru_shp_ = os.path.join(d, 'software', 'gsflow-arcpy-master', 'uyws',
+                            'uyws_carter', 'hru_params', 'hru_params.shp')
+    precip_zone_geometry(sta_json, hru_shp_, ppt_zones_geo, selected_stations_json)
 
     _ghcn_data = os.path.join(clim, 'ghcn', 'ghcn_daily_summaries_4FEB2022')
     _snotel_data = os.path.join(clim, 'snotel', 'snotel_records')
-    datafile = os.path.join(uy, 'uy.data')
+    datafile = os.path.join(uy, 'uyws.data')
     csv_ = os.path.join(uy, 'uy.csv')
-    write_basin_datafile(selected_stations_json, gage_json_, _ghcn_data, datafile, csv_)
+    # write_basin_datafile(selected_stations_json, gage_json_, _ghcn_data, datafile, csv_)
 
     ppt_zones_ = os.path.join(uy, 'met', 'ppt_zones.shp')
-    attribute_precip_zones(ppt_zones_geo, csv_, out_shp=ppt_zones_)
+    # attribute_precip_zones(ppt_zones_geo, csv_, out_shp=ppt_zones_)
 
-    calculate_monthly_lapse_rates(csv_, selected_stations_json)
+    # calculate_monthly_lapse_rates(csv_, selected_stations_json)
 
 # ========================= EOF ====================================================================
