@@ -20,6 +20,8 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
     invalid_stations = 0
 
     for k, v in stations.items():
+        # if k not in ['USC00243378', 'USC00245080']:
+        #     continue
         _file = os.path.join(ghcn_data, '{}.csv'.format(k))
         df = read_csv(_file, parse_dates=True, infer_datetime_format=True)
         df.index = to_datetime(df['DATE'])
@@ -50,22 +52,24 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
             invalid_stations += 1
             continue
 
-        df[isna(df)] = -901.0
+        df[isna(df)] = -999
 
         print(k, df.shape[0])
         stations[k]['data'] = df
 
     for k, v in gages.items():
+        if k != '06192500':
+            continue
         s, e = v['start'], v['end']
         df = get_station_daily_data('discharge', s, e, k, freq='dv')
-        df.columns = ['flow']
+        df.columns = ['runoff']
 
         if to_datetime(start) > to_datetime(s):
             df = df.loc[start:]
 
         df = df.tz_convert(None)
         df = df.reindex(dt_index)
-        df[isna(df)] = -901.0
+        df[isna(df)] = -999
 
         v['data'] = df
 
@@ -86,7 +90,7 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
             df[t_] = [0 for _ in df.index]
 
         [f.write('{}\n'.format(item)) for item in ['PRMS Datafile: {}\n'.format(dt_now),
-                                                   ''.join(['/' for _ in range(95)]),
+                                                   '// ',
                                                    '    '.join(
                                                        ['// ID  ',
                                                         '    Site Name{}'.format(' '.join([' ' for _ in range(14)])),
@@ -98,7 +102,6 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
 
         counts = {'tmax': 0, 'tmin': 0, 'precip': 0, 'runoff': 0}
         for var, unit in zip(['tmax', 'tmin', 'precip', 'runoff'], ['C', 'C', 'mm', 'cfs']):
-
             for k, v in input_dct.items():
                 try:
                     d = v['data']
@@ -116,16 +119,16 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
                     df['{}_{}'.format(k, var)] = d[var]
                     counts[var] += 1
 
-        f.write(''.join(['/' for _ in range(95)]) + '\n')
+        f.write('// \n')
         for k, v in counts.items():
             f.write('{} {}\n'.format(k, v))
-        f.write(''.join(['#' for _ in range(95)]) + '\n')
+        f.write('######################## \n')
         df.to_csv(f, sep=' ', header=False, index=False, float_format='%.1f')
 
         #  save dataframe to normal csv for use elsewhere
         df = df[[c for c in df.columns if c not in time_div]]
         df['date'] = df.index
-        df[df.values == -901.0] = np.nan
+        df[df.values == -999] = np.nan
         df.to_csv(out_csv, sep=' ', float_format='%.2f')
 
 

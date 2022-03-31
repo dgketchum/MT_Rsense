@@ -67,3 +67,8 @@ the resulting data's path should be edited in the project .ini file:
 5. Run batch_sequence.py through flow_parameters(). Observe initial stream network, and change DEM_ADJ according
     to instructions in the tutorial. Re-run flow_parameters().  Run crt_fill_parameters(), examine. Re-run
     these two steps if necessary. See the gsflow-arcpy readme at github.com/dgketchum/gsflow-arcpy/README.txt.
+
+Fix the .params file:
+1. In unix, open each .params file and :set ff=unix then :wq! to remove the carraige return characters.
+2. Set nlake and nlake_hrus to their true values.
+

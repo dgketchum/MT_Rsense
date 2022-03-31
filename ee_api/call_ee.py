@@ -268,7 +268,7 @@ def extract_flux_stations(shp):
 def get_landcover_info(basin, glob='none'):
     roi = ee.FeatureCollection('users/dgketchum/boundaries/{}'.format(basin))
 
-    dem = ee.Terrain.products(ee.Image('USGS/NED')).select('elevation').multiply(100).toUint16()
+    dem = ee.Terrain.products(ee.Image('USGS/NED')).select('elevation')
 
     clay = ee.Image('projects/openet/soil/ssurgo_Clay_WTA_0to152cm_composite').select(['b1']).rename('clay')
     sand = ee.Image('projects/openet/soil/ssurgo_Sand_WTA_0to152cm_composite').select(['b1']).rename('sand')
@@ -288,13 +288,15 @@ def get_landcover_info(basin, glob='none'):
     landfire_type = ee.Image('LANDFIRE/Vegetation/EVT/v1_4_0/CONUS').toUint8()
 
     # pt = ee.FeatureCollection([ee.Feature(ee.Geometry.Point([-110.64, 45.45])).set('FID', 1)])
-    # data = soil.sampleRegions(collection=pt,
-    #                           scale=30)
+    # data = dem.sampleRegions(collection=pt,
+    #                          scale=30)
     # pprint(data.getInfo())
 
     for prop, var in zip(
             ['clay', 'sand', 'loam', 'ksat', 'awc', 'nlcd', 'elevation', 'landfire_cover', 'landfire_type'],
             [clay, sand, loam, ksat, awc, nlcd, dem, landfire_cov, landfire_type]):
+        if prop != 'elevation':
+            continue
         desc = '{}_{}_{}'.format(prop, basin, glob)
         task = ee.batch.Export.image.toCloudStorage(
             var,

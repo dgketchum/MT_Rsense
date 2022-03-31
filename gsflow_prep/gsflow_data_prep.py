@@ -160,12 +160,12 @@ def met_zones_geometries(station_meta, hru, zones_out, out_stations):
         ppt_zones[v['zone']] = {'type': 'Feature',
                                 'geometry': mapping(zone_geo),
                                 'properties': OrderedDict([('FID', zone),
-                                                           ('PPT_ZONE', zone),
-                                                           ('PPT_HRU_ID', hru),
+                                                           ('MET_ZONE', zone),
+                                                           ('MET_HRU_ID', hru),
                                                            ('STAID', k)])}
     meta['schema'] = {'type': 'Feature', 'properties': OrderedDict([('FID', 'int:9'),
-                                                                    ('PPT_ZONE', 'int:9'),
-                                                                    ('PPT_HRU_ID', 'int:9'),
+                                                                    ('MET_ZONE', 'int:9'),
+                                                                    ('MET_HRU_ID', 'int:9'),
                                                                     ('STAID', 'str:254')]),
                       'geometry': 'Polygon'}
 
@@ -189,8 +189,8 @@ def met_zones_geometries(station_meta, hru, zones_out, out_stations):
             f = {'type': 'Feature',
                  'geometry': pt,
                  'properties': OrderedDict([('FID', k),
-                                            ('PPT_ZONE', k),
-                                            ('PPT_HRU_ID', v['properties']['PPT_HRU_ID']),
+                                            ('MET_ZONE', k),
+                                            ('MET_HRU_ID', v['properties']['MET_HRU_ID']),
                                             ('STAID', v['properties']['STAID'])])}
             dst.write(f)
 
@@ -234,8 +234,11 @@ def attribute_precip_zones(ppt_zones_shp, csv, out_shp):
 
     meta['schema']['properties'].update({'HRU_PSTA': 'int:9'})
     meta['schema']['properties'].update({'STAID': 'str:254'})
-    add_ = dict(('PPT_{}'.format(str(x).rjust(2, '0')), 'float:11.3') for x in range(1, 13))
-    meta['schema']['properties'].update(add_)
+
+    var_tuples = [('TMAX', 'tmax'), ('TMIN', 'tmin'), ('PPT', 'precip')]
+    for _var, _ in var_tuples:
+        add_ = dict(('{}_{}'.format(_var, str(x).rjust(2, '0')), 'float:11.3') for x in range(1, 13))
+        meta['schema']['properties'].update(add_)
 
     with fiona.open(out_shp, 'w', **meta) as dst:
         ct = 0
@@ -245,21 +248,24 @@ def attribute_precip_zones(ppt_zones_shp, csv, out_shp):
             staname = f['properties']['STAID']
 
             record = OrderedDict([('FID', _id),
-                                  ('PPT_ZONE', _id),
+                                  ('MET_ZONE', _id),
                                   ('STAID', staname),
-                                  ('PPT_HRU_ID', f['properties']['PPT_HRU_ID']),
+                                  ('MET_HRU_ID', f['properties']['MET_HRU_ID']),
                                   ('HRU_PSTA', _id)])
 
             df = mdf[[c for c in mdf.columns if staname in c]]
-            df = df.resample('M').agg(DataFrame.sum, skipna=False)
-            for m in range(1, 13):
-                data = [r['{}_precip'.format(staname)] for i, r in df.iterrows() if i.month == m]
-                record.update({'PPT_{}'.format(str(m).rjust(2, '0')): np.nanmean(data)})
+            resamp_method = {c: 'sum' if 'precip' in c else 'mean' for c in df.columns}
+            df = df.resample('M').agg(resamp_method)
+            for uvar, lvar in var_tuples:
+                for m in range(1, 13):
+                    data = [r['{}_{}'.format(staname, lvar)] for i, r in df.iterrows() if i.month == m]
+                    record.update({'{}_{}'.format(uvar, str(m).rjust(2, '0')): np.nanmean(data)})
 
             props = OrderedDict([(k, record[k]) for k in meta['schema']['properties'].keys()])
             feat = {'type': 'Feature', 'properties': props, 'geometry': f['geometry']}
 
             dst.write(feat)
+    print('wrote {}'.format(out_shp))
 
 
 if __name__ == '__main__':
@@ -281,11 +287,11 @@ if __name__ == '__main__':
     sta_json = os.path.join(uy, 'stations.json')
     # get_ghcn_stations(basin_, ghcn_shp_aea, snotel_shp_, out_json=sta_json, buffer=10)
 
-    ppt_zones_geo = os.path.join(uy, 'met', 'ppt_zone_geometries.shp')
+    met_zones_geo = os.path.join(uy, 'met', 'met_zone_geometries.shp')
     selected_stations_json = os.path.join(uy, 'selected_stations.json')
     hru_shp_ = os.path.join(d, 'software', 'gsflow-arcpy-master', 'uyws',
                             'uyws_carter', 'hru_params', 'hru_params.shp')
-    precip_zone_geometry(sta_json, hru_shp_, ppt_zones_geo, selected_stations_json)
+    # met_zones_geometries(sta_json, hru_shp_, ppt_zones_geo, selected_stations_json)
 
     _ghcn_data = os.path.join(clim, 'ghcn', 'ghcn_daily_summaries_4FEB2022')
     _snotel_data = os.path.join(clim, 'snotel', 'snotel_records')
@@ -293,8 +299,8 @@ if __name__ == '__main__':
     csv_ = os.path.join(uy, 'uy.csv')
     # write_basin_datafile(selected_stations_json, gage_json_, _ghcn_data, datafile, csv_)
 
-    ppt_zones_ = os.path.join(uy, 'met', 'ppt_zones.shp')
-    # attribute_precip_zones(ppt_zones_geo, csv_, out_shp=ppt_zones_)
+    met_zones_ = os.path.join(uy, 'met', 'met_zones.shp')
+    attribute_precip_zones(met_zones_geo, csv_, out_shp=met_zones_)
 
     # calculate_monthly_lapse_rates(csv_, selected_stations_json)
 
