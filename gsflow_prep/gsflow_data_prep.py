@@ -6,7 +6,7 @@ from collections import OrderedDict
 import fiona
 import numpy as np
 from sklearn.cluster import KMeans
-from shapely.geometry import shape, Point, mapping
+from shapely.geometry import shape, Point, mapping, box
 from shapely.ops import cascaded_union
 from pandas import read_csv, DataFrame, date_range
 from rtree import index
@@ -277,10 +277,11 @@ if __name__ == '__main__':
     clim = os.path.join(d, 'climate')
     stations_ = os.path.join(clim, 'stations')
 
-    basin_ = os.path.join(uy, 'uyws_basin.shp')
+
+    basin_ = os.path.join(uy, 'uyws_carter', 'domain', 'uyws_basin.shp')
     gage_shp_ = os.path.join(d, 'gages', 'gage_loc_usgs', 'selected_gages_aea.shp')
     gage_json_ = os.path.join(uy, 'gages.json')
-    # get_gage_stations(basin_, gage_shp_, out_json=gage_json_)
+    get_gage_stations(basin_, gage_shp_, out_json=gage_json_)
 
     ghcn_shp_aea = os.path.join(stations_, 'ghcn_us_aea.shp')
     snotel_shp_ = os.path.join(stations_, 'snotel_stations.shp')
@@ -300,7 +301,7 @@ if __name__ == '__main__':
     # write_basin_datafile(selected_stations_json, gage_json_, _ghcn_data, datafile, csv_)
 
     met_zones_ = os.path.join(uy, 'met', 'met_zones.shp')
-    attribute_precip_zones(met_zones_geo, csv_, out_shp=met_zones_)
+    # attribute_precip_zones(met_zones_geo, csv_, out_shp=met_zones_)
 
     # calculate_monthly_lapse_rates(csv_, selected_stations_json)
 

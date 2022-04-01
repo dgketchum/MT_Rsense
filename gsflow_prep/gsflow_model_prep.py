@@ -1,9 +1,9 @@
 import os
 from copy import copy
-from subprocess import check_call
+from subprocess import call
 
 import numpy as np
-import shapefile
+import rasterio
 import fiona
 from shapely.geometry import shape
 import matplotlib.pyplot as plt
@@ -17,6 +17,12 @@ from flopy.utils import GridIntersect
 from model_config import PRMSConfig
 
 _warp = '/home/dgketchum/miniconda3/envs/opnt/bin/gdalwarp'
+
+# 234
+# 105
+# 876
+
+d8_map = {5: 1, 6: 2, 7: 4, 8: 8, 1: 16, 2: 32, 3: 64, 4: 128}
 
 
 class PRMSModel:
@@ -33,25 +39,86 @@ class PRMSModel:
             self.hru_params = None
 
     def build_grid(self):
-        self.modelgrid = GenerateFishnet(self.cfg.dem_orig_path, float(self.cfg.hru_cellsize),
+        self.modelgrid = GenerateFishnet(self.cfg.elevation, float(self.cfg.hru_cellsize),
                                          float(self.cfg.hru_cellsize), buffer=10)
         self.modelgrid.write_shapefile(self.cfg.hru_fishnet_path, prj=self.prj)
 
         self.zeros = np.zeros((self.modelgrid.nrow, self.modelgrid.ncol))
 
-        self.build_raster_hru_attrs()
+        self.prepare_rasters()
         self.build_vector_hru_attrs()
+        self.build_raster_hru_attrs()
+
+    def prepare_rasters(self):
+        _float = ['sand', 'clay', 'loam', 'awc', 'ksat', 'elevation']
+        _int = ['landfire_cover', 'landfire_type', 'nlcd']
+        rasters = _float + _int
+
+        for raster in rasters:
+
+            in_path = getattr(self.cfg, raster)
+            out_dir = os.path.join(self.cfg.raster_folder, 'resamples', self.cfg.hru_cellsize)
+            if not os.path.isdir(out_dir):
+                os.makedirs(out_dir)
+            out_path = os.path.join(out_dir, '{}.tif'.format(raster))
+            setattr(self.cfg, raster, out_path)
+
+            txt = out_path.replace('.tif', '.txt')
+
+            if os.path.exists(out_path) and os.path.exists(txt):
+                continue
+
+            if raster in _float:
+                rsample, _dtype = 'min', 'Float32'
+            else:
+                rsample, _dtype = 'mode', 'UInt16'
+
+            warp = [_warp, in_path, out_path, '-ts', str(self.modelgrid.ncol),
+                    str(self.modelgrid.nrow), '-ot', 'Float32', '-r', rsample,
+                    '-dstnodata', '0', '-srcnodata', '0', '-overwrite']
+
+            call(warp, stdout=open(os.devnull, 'wb'))
+
+            with rasterio.open(out_path, 'r') as src:
+                a = src.read(1)
+            np.savetxt(txt, a)
 
     def build_raster_hru_attrs(self):
-        resamp = self.cfg.dem_resamp_path.replace('.txt', '.tif')
-        warp = [_warp, self.cfg.dem_orig_path, resamp, '-ts', str(self.modelgrid.ncol),
-                str(self.modelgrid.nrow), '-ot', 'Float32', '-r', 'min',
-                '-dstnodata', '0', '-srcnodata', '0', '-overwrite']
-        check_call(warp)
+
         dem = rd.LoadGDAL(resamp, no_data=0.0)
         rd.FillDepressions(dem, epsilon=0.0001, in_place=True)
         accum_d8 = rd.FlowAccumulation(dem, method='D8')
-        d8_fig = rd.rdShow(accum_d8, figsize=(8, 5.5), axes=False, cmap='jet', show=True)
+        props = rd.FlowProportions(dem=dem, method='D8')
+
+        # remap directions to pygsflow nomenclature
+        dirs = self.zeros + 1
+        for i in range(1, 9):
+            dirs = np.where(props[:, :, i] == 1, np.ones_like(dirs) * i, dirs)
+
+        flow_directions = copy(dirs)
+        for k, v in d8_map.items():
+            flow_directions[dirs == k] = v
+
+        fa = FlowAccumulation(
+            np.array(dem),
+            self.modelgrid.xcellcenters,
+            self.modelgrid.ycellcenters,
+            hru_type=self.hru_lakeless,
+            flow_dir_array=flow_directions,
+            verbose=True)
+
+        strm_obj = fa.make_streams(flow_directions, np.array(accum_d8), threshold=100, min_stream_len=10)
+
+        fig = plt.figure(figsize=(12, 12))
+        ax = fig.add_subplot(1, 1, 1, aspect="equal")
+
+        pmv = flopy.plot.PlotMapView(modelgrid=self.modelgrid, ax=ax)
+        # plot the watershed boundary on top
+        pc = pmv.plot_array(strm_obj.iseg, masked_values=[0, ])
+
+        plt.colorbar(pc, shrink=0.7)
+        plt.title("Upper Yellowstone Stream Segments")
+        plt.show()
 
     def build_vector_hru_attrs(self):
 
@@ -64,14 +131,19 @@ class PRMSModel:
             shp_file = getattr(self.cfg, path)
             feats = features(shp_file)
             data = copy(self.zeros)
+
             for i, f in enumerate(feats, start=1):
                 geo = shape(f['geometry'])
                 idx = ix.intersects(geo)
                 for x in idx:
                     data[x[0]] = i
+
             outfile = os.path.join(self.cfg.parameter_folder, '{}.txt'.format(param))
+
             if param == 'hru_type':
+                setattr(self, 'hru_lakeless', data)
                 data = np.where(self.lake_id > 0, self.zeros + 2, data)
+
             setattr(self, param, data)
             np.savetxt(outfile, data, delimiter="  ")
 
