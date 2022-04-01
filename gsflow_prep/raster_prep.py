@@ -24,6 +24,8 @@ def clip_raster(basin, raw_data_dir, clipped_dir, buffer_extent=None):
 
     for in_ras in _files:
         _var = os.path.basename(in_ras).split('.')[0]
+        if 'nlcd' not in in_ras:
+            continue
         if _var not in layers:
             print(_var, ' not in {}'.format(layers))
             continue

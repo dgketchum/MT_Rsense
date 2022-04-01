@@ -32,6 +32,7 @@ class PRMSModel:
 
     def __init__(self, config):
 
+        self.nnodes = None
         self.root_depth = None
         self.cfg = PRMSConfig(config)
 
@@ -66,12 +67,15 @@ class PRMSModel:
             hru_subbasin=self.hru_lakeless.ravel())
 
         self.parameters = prmsbuild.build()
-
-        self.build_veg_params()
-
-        # set hru_lat and hru_lon values, using dynamic methods
         self.parameters.hru_lat = self.lat
         self.parameters.hru_lon = self.lon
+        self.build_veg_params()
+        self.build_soil_params()
+
+        param_file = os.path.join(self.cfg.prms_parameter_folder,
+                                  '{}_{}.params'.format(self.cfg.proj_name,
+                                                        self.cfg.hru_cellsize))
+        self.parameters.write(param_file)
 
     def build_grid(self):
         self.modelgrid = GenerateFishnet(self.cfg.elevation, float(self.cfg.hru_cellsize),
@@ -82,7 +86,9 @@ class PRMSModel:
         trans = Transformer.from_proj('epsg:{}'.format(5071), 'epsg:4326', always_xy=True)
         self.lon, self.lat = trans.transform(x, y)
 
+        # error on property call nnodes = nlayer * ncol * nrow in StructuredGrid
         self.zeros = np.zeros((self.modelgrid.nrow, self.modelgrid.ncol))
+        self.nnodes = self.zeros.size
 
         self._prepare_rasters()
         self.build_domain_params()
@@ -115,10 +121,11 @@ class PRMSModel:
         self.streams = fa.make_streams(flow_directions, np.array(accum_d8), threshold=100, min_stream_len=10)
         self.cascades = fa.get_cascades(streams=self.streams, pour_point=self.cfg.model_outlet_path, fmt='shp',
                                         modelgrid=self.modelgrid)
+
         self.hru_aspect = bu.d8_to_hru_aspect(flow_directions)
         self.hru_slope = bu.d8_to_hru_slope(
             flow_directions,
-            self.modelgrid.top,
+            self.dem,
             self.modelgrid.xcellcenters,
             self.modelgrid.ycellcenters
         )
@@ -165,7 +172,6 @@ class PRMSModel:
                  wrain_intcp]
 
         for v in vars_:
-            print(v)
             self.parameters.add_record_object(v)
 
         self.root_depth = bu.root_depth(self.landfire_type, self.rtdepth_lut)
@@ -179,19 +185,19 @@ class PRMSModel:
         soil_rech_max = bu.soil_rech_max(self.awc, self.root_depth)
         soil_rech_init = bu.soil_rech_init(soil_rech_max.values)
         ssr2gw_rate = bu.ssr2gw_rate(self.ksat, self.sand, soil_moist_max.values)
-        ssr2gw_sq = bu.ssr2gw_exp(self.modelgrid.nnodes)
+        ssr2gw_sq = bu.ssr2gw_exp(self.nnodes)
         slowcoef_lin = bu.slowcoef_lin(self.ksat, self.hru_aspect.values, cellsize, cellsize)
         slowcoef_sq = bu.slowcoef_sq(self.ksat, self.hru_aspect.values, self.sand,
                                      soil_moist_max.values, cellsize, cellsize)
 
         hru_percent_imperv = bu.hru_percent_imperv(self.nlcd)
+        hru_percent_imperv.values /= 100
         carea_max = bu.carea_max(self.nlcd)
 
         vars_ = [soil_type, soil_moist_max, soil_moist_init, soil_rech_max, soil_rech_init,
                  ssr2gw_rate, ssr2gw_sq, slowcoef_lin, slowcoef_sq, hru_percent_imperv, carea_max]
 
         for v in vars_:
-            print(v)
             self.parameters.add_record_object(v)
 
     def _prepare_rasters(self):

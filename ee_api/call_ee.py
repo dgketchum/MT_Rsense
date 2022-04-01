@@ -283,7 +283,7 @@ def get_landcover_info(basin, glob='none'):
     ksat = ksat.multiply(100).toUint16()
     awc = awc.multiply(100).toUint16()
 
-    nlcd = ee.Image('USGS/NLCD/NLCD2011').select('landcover').rename('nlcd').toUint8()
+    nlcd = ee.Image('USGS/NLCD/NLCD2011').select('impervious').rename('nlcd').toUint8()
     landfire_cov = ee.Image('LANDFIRE/Vegetation/EVC/v1_4_0/CONUS').toUint16()
     landfire_type = ee.Image('LANDFIRE/Vegetation/EVT/v1_4_0/CONUS').toUint16()
 
@@ -295,7 +295,8 @@ def get_landcover_info(basin, glob='none'):
     for prop, var in zip(
             ['clay', 'sand', 'loam', 'ksat', 'awc', 'nlcd', 'elevation', 'landfire_cover', 'landfire_type'],
             [clay, sand, loam, ksat, awc, nlcd, dem, landfire_cov, landfire_type]):
-
+        if 'nlcd' not in prop:
+            continue
         desc = '{}_{}_{}'.format(prop, basin, glob)
         task = ee.batch.Export.image.toCloudStorage(
             var,
