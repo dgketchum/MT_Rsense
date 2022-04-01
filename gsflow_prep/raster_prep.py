@@ -17,15 +17,13 @@ def clip_raster(basin, raw_data_dir, clipped_dir, buffer_extent=None):
             geo = [mapping(shape(g).buffer(buffer_extent)) for g in geo]
 
     scaled = ['sand', 'clay', 'loam', 'awc', 'ksat']
-    not_scaled = ['landfire-cover', 'landfire-type', 'nlcd', 'elevation']
+    not_scaled = ['landfire_cover', 'landfire_type', 'nlcd', 'elevation']
     layers = scaled + not_scaled
 
     _files = [os.path.join(raw_data_dir, x) for x in os.listdir(raw_data_dir) if x.endswith('.tif')]
 
     for in_ras in _files:
-        if 'elevation' not in in_ras:
-            continue
-        _var = os.path.basename(in_ras).split('_')[0]
+        _var = os.path.basename(in_ras).split('.')[0]
         if _var not in layers:
             print(_var, ' not in {}'.format(layers))
             continue
