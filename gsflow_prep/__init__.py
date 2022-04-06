@@ -1,5 +1,41 @@
 import os
 
+PRMS_NOT_REQ = ['basin_tsta',
+                'dday_intcp',
+                'dday_slope',
+                'gvr_cell_pct',
+                'gvr_hru_pct',
+                'hru_psta',
+                'hru_tsta',
+                'jh_coef_hru',
+                'max_missing',
+                'ppt_rad_adj',
+                'radadj_intcp',
+                'radadj_slope',
+                'radj_sppt',
+                'radj_wppt',
+                'radmax',
+                'rain_adj',
+                'snow_adj',
+                'sstor_init',
+                'sstor_init_frac',
+                'tmax_adj',
+                'tmax_index',
+                'tmax_lapse',
+                'tmin_adj',
+                'tmin_lapse',
+                'gw_up_id',
+                'gw_down_id',
+                'gw_strmseg_down_id',
+                'gw_pct_up',
+                'gvr_cell_id',
+                'gvr_hru_id',
+                'soil_moist_init',
+                'soil_rechr_max',
+                'soil_rechr_init',
+                'nreach',
+                'ncascadgw']
+
 if __name__ == '__main__':
     pass
 # ========================= EOF ====================================================================
