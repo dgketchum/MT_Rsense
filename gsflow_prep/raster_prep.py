@@ -1,20 +1,22 @@
 import os
+from subprocess import check_call
 
 import fiona
-import rasterio
-from rasterio.mask import mask
-
-from shapely.geometry import shape, mapping
+from shapely.geometry import shape
 
 PROJ4 = '+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +ellps=GRS80' \
         ' +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'
+warp = '/home/dgketchum/miniconda3/envs/opnt/bin/gdalwarp'
 
 
 def clip_raster(basin, raw_data_dir, clipped_dir, buffer_extent=None):
     with fiona.open(basin, 'r') as basn:
-        geo = [f['geometry'] for f in basn]
+        geo = [f['geometry'] for f in basn][0]
+        geo = shape(geo)
         if buffer_extent:
-            geo = [mapping(shape(g).buffer(buffer_extent)) for g in geo]
+            geo = geo.buffer(buffer_extent)
+
+    bnd = geo.bounds
 
     scaled = ['sand', 'clay', 'loam', 'awc', 'ksat']
     not_scaled = ['landfire_cover', 'landfire_type', 'nlcd', 'elevation']
@@ -22,35 +24,47 @@ def clip_raster(basin, raw_data_dir, clipped_dir, buffer_extent=None):
 
     _files = [os.path.join(raw_data_dir, x) for x in os.listdir(raw_data_dir) if x.endswith('.tif')]
 
+    prism_params = ['ppt', 'tmax', 'tmin']
+    subdir_str = 'PRISM_{}_30yr_normal_800mM3_all_bil'
+    prism_dir = [os.path.join(raw_data_dir, 'prism', subdir_str.format(p)) for p in prism_params]
+    accept = ['bil', 'tif']
+    prism_files = [[os.path.join(p, x) for x in os.listdir(p) if x.split('.')[-1] in accept] for p in prism_dir]
+    prism_files = [i for l in prism_files for i in l]
+
+    _files = prism_files + _files
+
     for in_ras in _files:
+
         _var = os.path.basename(in_ras).split('.')[0]
-        if 'nlcd' not in in_ras:
-            continue
-        if _var not in layers:
+
+        if _var not in layers and 'prism' not in in_ras:
             print(_var, ' not in {}'.format(layers))
             continue
 
-        out_file = os.path.join(clipped_dir, '{}.tif'.format(_var))
+        if 'prism' in in_ras:
+            splt = os.path.basename(in_ras).split('_')
+            param, month = splt[1], splt[-2]
+            out_ras = os.path.join(clipped_dir, 'prism', 'prism_{}_{}.tif'.format(param, month))
 
-        with rasterio.open(in_ras) as src:
-            out_image, out_transform = rasterio.mask.mask(src, geo, crop=True)
-            out_meta = src.meta
+            cmd = [warp, '-of', 'GTiff', '-s_srs', 'EPSG:4326',
+                   '-t_srs', PROJ4, '-r', 'average', '-overwrite',
+                   '-te', str(bnd[0]), str(bnd[1]), str(bnd[2]), str(bnd[3]),
+                   in_ras, out_ras]
+            check_call(cmd)
+        else:
+            if _var == 'elevation' or _var in scaled:
+                resamp = 'average'
 
-        out_meta.update({'driver': 'GTiff',
-                         'height': out_image.shape[1],
-                         'width': out_image.shape[2],
-                         'transform': out_transform})
+            else:
+                resamp = 'nearest'
 
-        if _var in scaled:
-            out_image = out_image / 100.
-            out_meta['dtype'] = 'float32'
+            out_ras = os.path.join(clipped_dir, '{}.tif'.format(_var))
 
-        if _var == 'elevation':
-            out_meta['dtype'] = 'float32'
+            cmd = [warp, '-of', 'GTiff', '-r', resamp, '-overwrite',
+                   '-te', str(bnd[0]), str(bnd[1]), str(bnd[2]), str(bnd[3]),
+                   in_ras, out_ras]
 
-        with rasterio.open(out_file, 'w', **out_meta) as dest:
-            dest.write(out_image)
-            print('wrote {}'.format(out_file))
+            check_call(cmd)
 
 
 if __name__ == '__main__':
@@ -60,6 +74,6 @@ if __name__ == '__main__':
     src = os.path.join(d, 'statewide_rasters')
     project = os.path.join(d, 'upper_yellowstone', 'gsflow_prep')
     out_rasters = os.path.join(project, 'rasters')
-    basin_ = os.path.join(project, 'uyws_carter', 'domain', 'uyws_basin.shp')
-    clip_raster(basin_, src, out_rasters, buffer_extent=5000)
+    basin_ = os.path.join(project, 'uyws_carter', 'domain', 'UYWS_StremStats_Basin_Extent.shp')
+    clip_raster(basin_, src, out_rasters, buffer_extent=None)
 # ========================= EOF ======================= =============================================
