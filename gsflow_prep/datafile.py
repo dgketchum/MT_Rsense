@@ -9,7 +9,7 @@ from pandas import read_csv, date_range, to_datetime, isna, DataFrame
 from utils.hydrograph import get_station_daily_data
 
 
-def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv, start='1990-01-01'):
+def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=None, start='1990-01-01'):
     with open(station_json, 'r') as fp:
         stations = json.load(fp)
     with open(gage_json, 'r') as fp:
@@ -125,11 +125,12 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv,
         f.write('######################## \n')
         df.to_csv(f, sep=' ', header=False, index=False, float_format='%.1f')
 
-        #  save dataframe to normal csv for use elsewhere
-        df = df[[c for c in df.columns if c not in time_div]]
-        df['date'] = df.index
-        df[df.values == -999] = np.nan
-        df.to_csv(out_csv, sep=' ', float_format='%.2f')
+        if out_csv:
+            #  save dataframe to normal csv for use elsewhere
+            df = df[[c for c in df.columns if c not in time_div]]
+            df['date'] = df.index
+            df[df.values == -999] = np.nan
+            df.to_csv(out_csv, sep=' ', float_format='%.2f')
 
 
 if __name__ == '__main__':

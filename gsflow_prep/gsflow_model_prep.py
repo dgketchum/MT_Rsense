@@ -1,32 +1,37 @@
 import os
 from copy import copy
-from subprocess import call, Popen, PIPE
+from subprocess import call, Popen, PIPE, STDOUT
 import time
 
 import numpy as np
+from scipy.ndimage.morphology import binary_erosion
 from pyproj import Transformer
 import rasterio
 import fiona
 from affine import Affine
 from shapely.geometry import shape
-import matplotlib.pyplot as plt
 import richdem as rd
-from scipy.ndimage.morphology import binary_erosion
+import pandas as pd
+from pandas.plotting import register_matplotlib_converters
 
 import flopy
 import gsflow
-from gsflow.builder import GenerateFishnet, FlowAccumulation, PrmsBuilder
+from gsflow.builder import GenerateFishnet, FlowAccumulation, PrmsBuilder, ControlFileBuilder
+from gsflow.builder.builder_defaults import ControlFileDefaults
 from gsflow.builder import builder_utils as bu
 from gsflow.prms.prms_parameter import ParameterRecord
+from gsflow.prms import PrmsData, PrmsModel
 
 from flopy.utils import GridIntersect
 
 from model_config import PRMSConfig
 from gsflow_prep import PRMS_NOT_REQ
+from datafile import write_basin_datafile
 
-_warp = '/home/dgketchum/miniconda3/envs/opnt/bin/gdalwarp'
-_info = '/home/dgketchum/miniconda3/envs/opnt/bin/gdalinfo'
+register_matplotlib_converters()
+pd.options.mode.chained_assignment = None
 
+# RichDEM flow-direction coordinate system:
 # 234
 # 105
 # 876
@@ -34,7 +39,7 @@ _info = '/home/dgketchum/miniconda3/envs/opnt/bin/gdalinfo'
 d8_map = {5: 1, 6: 2, 7: 4, 8: 8, 1: 16, 2: 32, 3: 64, 4: 128}
 
 
-class PRMSModel:
+class MontanaPRMSModel:
 
     def __init__(self, config):
 
@@ -46,6 +51,16 @@ class PRMSModel:
         self.root_depth = None
         self.cfg = PRMSConfig(config)
         self.res = float(self.cfg.hru_cellsize)
+        self.proj_name_res = '{}_{}'.format(self.cfg.project_name,
+                                            self.cfg.hru_cellsize)
+
+        for folder in ['hru_folder', 'parameter_folder', 'control_folder', 'data_folder', 'output_folder']:
+            folder_path = os.path.join(self.cfg.project_folder,
+                                       self.proj_name_res,
+                                       getattr(self.cfg, folder))
+            setattr(self.cfg, folder, folder_path)
+            if not os.path.isdir(folder_path):
+                os.makedirs(folder_path, exist_ok=True)
 
         self.hru_aspect = None
         self.hru_slope = None
@@ -59,6 +74,12 @@ class PRMSModel:
         self.cascades = None
 
         self.parameters = None
+        self.control = None
+        self.data = None
+
+        self.parameter_file = None
+        self.control_file = None
+        self.data_file = None
 
         self.zeros = None
 
@@ -67,11 +88,49 @@ class PRMSModel:
             self.basin_geo = [shape(f['geometry']) for f in src][0]
             self.prj = self.cfg.study_area_path.replace('.shp', '.prj')
 
+    def run_model(self):
+
+        for obj_, var_ in [(self.control, 'control'),
+                           (self.parameters, 'parameters'),
+                           (self.data, 'data')]:
+            if not obj_:
+                raise TypeError('{} is not set, run "write_{}_file()"'.format(var_, var_))
+
+        buff = []
+        normal_msg = 'normal termination'
+        report, silent = True, False
+
+        argv = [self.cfg.prms_exe, self.control_file]
+        model_ws = os.path.dirname(self.control_file)
+        proc = Popen(argv, stdout=PIPE, stderr=STDOUT, cwd=model_ws)
+
+        while True:
+            line = proc.stdout.readline()
+            c = line.decode('utf-8')
+            if c != '':
+                for msg in normal_msg:
+                    if msg in c.lower():
+                        success = True
+                        break
+                c = c.rstrip('\r\n')
+                if not silent:
+                    print('{}'.format(c))
+                if report:
+                    buff.append(c)
+            else:
+                break
+        return success, buff
+
     def build_model_files(self):
 
         self.build_grid()
+        self.write_parameter_file()
+        self.write_datafile()
+        self.write_control_file()
 
-        prmsbuild = PrmsBuilder(
+    def write_parameter_file(self):
+
+        builder = PrmsBuilder(
             self.streams,
             self.cascades,
             self.modelgrid,
@@ -79,7 +138,7 @@ class PRMSModel:
             hru_type=self.hru_lakeless.ravel(),
             hru_subbasin=self.hru_lakeless.ravel())
 
-        self.parameters = prmsbuild.build()
+        self.parameters = builder.build()
         # remove gsflow records
         [self.parameters.remove_record(rec) for rec in PRMS_NOT_REQ]
         self.parameters.remove_record('subbasin_down')
@@ -90,13 +149,64 @@ class PRMSModel:
         self.build_veg_params()
         self.build_soil_params()
 
-        # self.write_raster_params()
         print('write {} of {} cells to parameters'.format(np.count_nonzero(self.hru_type),
                                                           self.dem.size))
-        param_file = os.path.join(self.cfg.prms_parameter_folder,
-                                  '{}_{}.params'.format(self.cfg.proj_name,
-                                                        self.cfg.hru_cellsize))
-        self.parameters.write(param_file)
+        self.parameter_file = os.path.join(self.cfg.parameter_folder, '{}.params'.format(self.proj_name_res))
+        self.parameters.write(self.parameter_file)
+
+    def write_control_file(self):
+        controlbuild = ControlFileBuilder(ControlFileDefaults())
+        self.control = controlbuild.build(name='{}.control'.format(self.proj_name_res),
+                                          parameter_obj=self.parameters)
+
+        self.control.model_mode = ['PRMS']
+        self.control.executable_desc = ['PRMS Model']
+        self.control.executable_model = [self.cfg.prms_exe]
+        self.control.cascadegw_flag = [0]
+        self.control.et_module = ['potet_jh']
+        self.control.precip_module = ['precip_1sta']
+        self.control.temp_module = ['temp_1sta']
+        self.control.solrad_module = ['ddsolrad']
+        self.control.rpt_days = [7]
+        self.control.snarea_curve_flag = [0]
+        self.control.soilzone_aet_flag = [0]
+        self.control.srunoff_module = ['srunoff_smidx']
+        self.control.start_time = [1991, 1, 1, 0, 0, 0]
+        self.control.subbasin_flag = [0]
+        self.control.transp_module = ['transp_tindex']
+
+        self.control.add_record('end_time', [2021, 12, 31, 0, 0, 0])
+        self.control.add_record('model_output_file', [os.path.join(self.cfg.output_folder, 'output.model')])
+        self.control.add_record('var_init_file', [os.path.join(self.cfg.output_folder, 'init.csv')])
+        self.control.add_record('stat_var_file', [os.path.join(self.cfg.output_folder, 'statvar.dat')])
+        self.control.add_record('data_file', [self.data_file])
+
+        self.control.set_values('csv_output_file', [os.path.join(self.cfg.output_folder, 'output.csv')])
+        self.control.set_values('param_file', [self.parameter_file])
+
+        # remove gsflow control objects
+        self.control.remove_record('gsflow_output_file')
+
+        self.control_file = os.path.join(self.cfg.control_folder,
+                                         '{}.control'.format(self.proj_name_res))
+        self.control.write(self.control_file)
+
+    def write_datafile(self):
+
+        ghcn = self.cfg.prms_data_ghcn
+        stations = self.cfg.prms_data_stations
+        gages = self.cfg.prms_data_gages
+
+        self.data_file = os.path.join(self.cfg.data_folder, '{}.data'.format(self.proj_name_res))
+
+        if not os.path.isfile(self.data_file):
+            write_basin_datafile(station_json=stations,
+                                 gage_json=gages,
+                                 ghcn_data=ghcn,
+                                 out_csv=None,
+                                 data_file=self.data_file)
+
+        self.data = PrmsData.load_from_file(self.data_file)
 
     def build_grid(self):
 
@@ -109,7 +219,6 @@ class PRMSModel:
                                          xcellsize=float(self.cfg.hru_cellsize),
                                          ycellsize=float(self.cfg.hru_cellsize))
         self._prepare_rasters()
-        exit()
 
         self.modelgrid.write_shapefile(self.cfg.hru_fishnet_path, prj=self.prj)
         x = self.modelgrid.xcellcenters.ravel()
@@ -148,13 +257,9 @@ class PRMSModel:
             flow_dir_array=flow_directions,
             verbose=True)
 
-        watershed = fa.define_watershed(self.pour_pt,
-                                        self.modelgrid,
-                                        fmt='xy')
-
-        self.watershed = np.where(accum_d8 > 0,
-                                  np.ones_like(self.hru_type),
-                                  np.zeros_like(self.hru_type))
+        self.watershed = fa.define_watershed(self.pour_pt,
+                                             self.modelgrid,
+                                             fmt='xy')
 
         self.streams = fa.make_streams(flow_directions,
                                        np.array(accum_d8),
@@ -191,10 +296,13 @@ class PRMSModel:
                 for x in idx:
                     data[x[0]] = i
 
-            outfile = os.path.join(self.cfg.parameter_folder, '{}.txt'.format(param))
+            outfile = os.path.join(self.cfg.hru_folder, '{}.txt'.format(param))
             if param == 'outlet':
                 setattr(self, 'pour_pt', [[geo.x, geo.y]])
             if param == 'hru_type':
+                dc = copy(data)
+                data = binary_erosion(data)
+                data = np.where(data < dc, np.zeros, data)
                 setattr(self, 'hru_lakeless', data)
                 data = np.where(self.lake_id > 0, self.zeros + 2, data)
 
@@ -255,10 +363,12 @@ class PRMSModel:
             self.parameters.add_record_object(v)
 
     def write_raster_params(self, name, values=None):
+
         out_dir = os.path.join(self.cfg.raster_folder, 'resamples', self.cfg.hru_cellsize)
         if not isinstance(values, np.ndarray):
             values = self.parameters.get_values(name).reshape((self.modelgrid.nrow, self.modelgrid.ncol))
-        _file = os.path.join(out_dir, name)
+        _file = os.path.join(out_dir, '{}.tif'.format(name))
+
         with rasterio.open(_file, 'w', **self.raster_meta) as dst:
             dst.write(values, 1)
 
@@ -321,7 +431,7 @@ class PRMSModel:
 
             s = time.time()
             b = self.bounds
-            warp = [_warp, in_path, out_path,
+            warp = [self.cfg.gdal_warp_exe, in_path, out_path,
                     '-te', str(b[0]), str(b[1]), str(b[2] + self.res), str(b[3]),
                     '-ts', str(array.shape[1]), str(array.shape[0]),
                     # '-tap', str(self.res), str(self.res),
@@ -370,6 +480,7 @@ def modify_params(control, model_ws):
 
 if __name__ == '__main__':
     conf = './model_files/uyws_parameters.ini'
-    model = PRMSModel(conf)
+    model = MontanaPRMSModel(conf)
     model.build_model_files()
+    model.run_model()
 # ========================= EOF ====================================================================

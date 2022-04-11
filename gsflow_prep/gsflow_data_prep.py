@@ -277,11 +277,10 @@ if __name__ == '__main__':
     clim = os.path.join(d, 'climate')
     stations_ = os.path.join(clim, 'stations')
 
-
     basin_ = os.path.join(uy, 'uyws_carter', 'domain', 'uyws_basin.shp')
     gage_shp_ = os.path.join(d, 'gages', 'gage_loc_usgs', 'selected_gages_aea.shp')
     gage_json_ = os.path.join(uy, 'gages.json')
-    get_gage_stations(basin_, gage_shp_, out_json=gage_json_)
+    # get_gage_stations(basin_, gage_shp_, out_json=gage_json_)
 
     ghcn_shp_aea = os.path.join(stations_, 'ghcn_us_aea.shp')
     snotel_shp_ = os.path.join(stations_, 'snotel_stations.shp')
@@ -298,7 +297,7 @@ if __name__ == '__main__':
     _snotel_data = os.path.join(clim, 'snotel', 'snotel_records')
     datafile = os.path.join(uy, 'uyws.data')
     csv_ = os.path.join(uy, 'uy.csv')
-    # write_basin_datafile(selected_stations_json, gage_json_, _ghcn_data, datafile, csv_)
+    write_basin_datafile(selected_stations_json, gage_json_, _ghcn_data, datafile, csv_)
 
     met_zones_ = os.path.join(uy, 'met', 'met_zones.shp')
     # attribute_precip_zones(met_zones_geo, csv_, out_shp=met_zones_)
