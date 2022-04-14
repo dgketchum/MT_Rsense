@@ -5,15 +5,13 @@ from collections import OrderedDict
 
 import fiona
 import numpy as np
-from sklearn.cluster import KMeans
-from shapely.geometry import shape, Point, mapping, box
+from shapely.geometry import shape, Point, mapping
 from shapely.ops import cascaded_union
-from pandas import read_csv, DataFrame, date_range
+from pandas import read_csv, date_range
 from rtree import index
 from scipy.stats.stats import linregress
 
 from utils.elevation import elevation_from_coordinate
-from datafile import write_basin_datafile
 
 
 def get_gage_stations(basin_shp, gages_shp, out_json):
@@ -269,39 +267,5 @@ def attribute_precip_zones(ppt_zones_shp, csv, out_shp):
 
 
 if __name__ == '__main__':
-    d = '/media/research/IrrigationGIS'
-    if not os.path.exists(d):
-        d = '/home/dgketchum/data/IrrigationGIS'
-
-    uy = os.path.join(d, 'Montana', 'upper_yellowstone', 'gsflow_prep')
-    clim = os.path.join(d, 'climate')
-    stations_ = os.path.join(clim, 'stations')
-
-    basin_ = os.path.join(uy, 'uyws_carter', 'domain', 'uyws_basin.shp')
-    gage_shp_ = os.path.join(d, 'gages', 'gage_loc_usgs', 'selected_gages_aea.shp')
-    gage_json_ = os.path.join(uy, 'gages.json')
-    # get_gage_stations(basin_, gage_shp_, out_json=gage_json_)
-
-    ghcn_shp_aea = os.path.join(stations_, 'ghcn_us_aea.shp')
-    snotel_shp_ = os.path.join(stations_, 'snotel_stations.shp')
-    sta_json = os.path.join(uy, 'stations.json')
-    # get_ghcn_stations(basin_, ghcn_shp_aea, snotel_shp_, out_json=sta_json, buffer=10)
-
-    met_zones_geo = os.path.join(uy, 'met', 'met_zone_geometries.shp')
-    selected_stations_json = os.path.join(uy, 'selected_stations.json')
-    hru_shp_ = os.path.join(d, 'software', 'gsflow-arcpy-master', 'uyws',
-                            'uyws_carter', 'hru_params', 'hru_params.shp')
-    # met_zones_geometries(sta_json, hru_shp_, ppt_zones_geo, selected_stations_json)
-
-    _ghcn_data = os.path.join(clim, 'ghcn', 'ghcn_daily_summaries_4FEB2022')
-    _snotel_data = os.path.join(clim, 'snotel', 'snotel_records')
-    datafile = os.path.join(uy, 'uyws.data')
-    csv_ = os.path.join(uy, 'uy.csv')
-    write_basin_datafile(selected_stations_json, gage_json_, _ghcn_data, datafile, csv_)
-
-    met_zones_ = os.path.join(uy, 'met', 'met_zones.shp')
-    # attribute_precip_zones(met_zones_geo, csv_, out_shp=met_zones_)
-
-    # calculate_monthly_lapse_rates(csv_, selected_stations_json)
-
+    pass
 # ========================= EOF ====================================================================

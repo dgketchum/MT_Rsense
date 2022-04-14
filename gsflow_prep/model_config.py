@@ -19,7 +19,7 @@ class HRUParameters:
 
 class PRMSConfig:
     def __init__(self, config_path):
-        section_names = ['INPUTS', 'PROCESSING']
+        section_names = ['INPUTS']
         parser = ConfigParser()
         parser.optionxform = str
         found = parser.read(config_path)

@@ -49,6 +49,7 @@ def clip_raster(basin, raw_data_dir, clipped_dir, buffer_extent=None):
             cmd = [warp, '-of', 'GTiff', '-s_srs', 'EPSG:4326',
                    '-t_srs', PROJ4, '-r', 'average', '-overwrite',
                    '-te', str(bnd[0]), str(bnd[1]), str(bnd[2]), str(bnd[3]),
+                   '-multi', '-wo', '-wo NUM_THREADS=8',
                    in_ras, out_ras]
             check_call(cmd)
         else:
@@ -62,6 +63,7 @@ def clip_raster(basin, raw_data_dir, clipped_dir, buffer_extent=None):
 
             cmd = [warp, '-of', 'GTiff', '-r', resamp, '-overwrite',
                    '-te', str(bnd[0]), str(bnd[1]), str(bnd[2]), str(bnd[3]),
+                   '-multi', '-wo', '-wo NUM_THREADS=8',
                    in_ras, out_ras]
 
             check_call(cmd)

@@ -38,7 +38,7 @@ def get_landsat_etf_time_series(tif_dir, out_tif, chunk=1000, year=2017, meta_da
             hydro = meta_d[str(year)]
 
     with rasterio.open(file_list[0], 'r') as src:
-        meta = src.meta
+        meta = src.raster_meta
 
     h, w = meta['height'], meta['width']
 
@@ -113,8 +113,8 @@ def merge_rasters(tiffs, doy_tiffs, out_tif, year):
     mosaic_t, out_trans_t = merge(t_src)
     mosaic_d, out_trans_d = merge(d_src)
 
-    out_meta_t = ts.meta.copy()
-    out_meta_d = td.meta.copy()
+    out_meta_t = ts.raster_meta.copy()
+    out_meta_d = td.raster_meta.copy()
 
     out_meta_t.update({'height': mosaic_t.shape[1],
                        'width': mosaic_t.shape[2],

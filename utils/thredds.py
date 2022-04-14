@@ -125,7 +125,7 @@ class Thredds(object):
         with rasopen(self.reprojection) as src:
             out_arr, out_trans = mask(src, self.clip_feature, crop=True,
                                       all_touched=True)
-            out_meta = src.meta.copy()
+            out_meta = src.raster_meta.copy()
             out_meta.update({'driver': 'GTiff',
                              'height': out_arr.shape[1],
                              'width': out_arr.shape[2],
