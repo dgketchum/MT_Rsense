@@ -9,7 +9,8 @@ from pandas import read_csv, date_range, to_datetime, isna, DataFrame
 from utils.hydrograph import get_station_daily_data
 
 
-def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=None, start='1990-01-01'):
+def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=None, start='1990-01-01',
+                         units='metric'):
     with open(station_json, 'r') as fp:
         stations = json.load(fp)
     with open(gage_json, 'r') as fp:
@@ -20,8 +21,6 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=
     invalid_stations = 0
 
     for k, v in stations.items():
-        # if k not in ['USC00243378', 'USC00245080']:
-        #     continue
         _file = os.path.join(ghcn_data, '{}.csv'.format(k))
         df = read_csv(_file, parse_dates=True, infer_datetime_format=True)
         df.index = to_datetime(df['DATE'])
@@ -38,10 +37,22 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=
 
         try:
             df = df[['TMAX', 'TMIN', 'PRCP']]
+
             df['tmax'] = df['TMAX'] / 10.
+            df[df['tmax'] > 43.0] = np.nan
+            df[df['tmax'] < -40.0] = np.nan
+
             df['tmin'] = df['TMIN'] / 10.
+            df[df['tmin'] > 43.0] = np.nan
+            df[df['tmin'] < -40.0] = np.nan
+
             df['precip'] = df['PRCP'] / 10.
             df = df[['tmax', 'tmin', 'precip']]
+
+            if units != 'metric':
+                df['tmax'] = (df['tmax'] * 9 / 5) + 32.
+                df['tmin'] = (df['tmin'] * 9 / 5) + 32.
+                df['precip'] = df['precip'] * 0.0393701
 
             if df.empty or df.shape[0] < 1000:
                 print(k, 'insuf records in date range')
@@ -52,7 +63,7 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=
             invalid_stations += 1
             continue
 
-        df[isna(df)] = -999
+        # df[isna(df)] = -999
 
         print(k, df.shape[0])
         stations[k]['data'] = df
@@ -69,7 +80,9 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=
 
         df = df.tz_convert(None)
         df = df.reindex(dt_index)
-        df[isna(df)] = -999
+
+        if units == 'metrc':
+            df = df * 0.0283168
 
         v['data'] = df
 
@@ -101,7 +114,14 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=
                                                         'Units'])]]
 
         counts = {'tmax': 0, 'tmin': 0, 'precip': 0, 'runoff': 0}
-        for var, unit in zip(['tmax', 'tmin', 'precip', 'runoff'], ['C', 'C', 'mm', 'cfs']):
+        vars_ = ['tmax', 'tmin', 'precip', 'runoff']
+
+        if units == 'metric':
+            units_ = ['C', 'C', 'mm', 'cms']
+        else:
+            units_ = ['F', 'F', 'in', 'cfs']
+
+        for var, unit in zip(vars_, units_):
             for k, v in input_dct.items():
                 try:
                     d = v['data']
@@ -123,6 +143,9 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=
         for k, v in counts.items():
             f.write('{} {}\n'.format(k, v))
         f.write('######################## \n')
+
+        df[isna(df)] = -999
+
         df.to_csv(f, sep=' ', header=False, index=False, float_format='%.1f')
 
         if out_csv:
