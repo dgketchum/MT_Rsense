@@ -13,16 +13,19 @@ from affine import Affine
 from shapely.geometry import shape
 from scipy.ndimage.morphology import binary_erosion
 from pandas.plotting import register_matplotlib_converters
+import matplotlib
+import matplotlib.pyplot as plt
 
 import flopy
 from flopy.utils import GridIntersect
-import gsflow
 import richdem as rd
 from gsflow.builder import GenerateFishnet, FlowAccumulation, PrmsBuilder, ControlFileBuilder
 from gsflow.builder.builder_defaults import ControlFileDefaults
 from gsflow.builder import builder_utils as bu
 from gsflow.prms.prms_parameter import ParameterRecord
-from gsflow.prms import PrmsData, PrmsModel, PrmsParameters
+from gsflow.prms import PrmsData, PrmsParameters
+from gsflow.control import ControlFile
+from gsflow.output import StatVar
 
 from model_config import PRMSConfig
 from gsflow_prep import PRMS_NOT_REQ
@@ -39,7 +42,7 @@ pd.options.mode.chained_assignment = None
 d8_map = {5: 1, 6: 2, 7: 4, 8: 8, 1: 16, 2: 32, 3: 64, 4: 128}
 
 
-class MontanaPRMSModel:
+class MontanaPrmsBuild(object):
 
     def __init__(self, config):
 
@@ -114,9 +117,6 @@ class MontanaPRMSModel:
 
         self.parameters = builder.build()
 
-        # remove gsflow records
-        [self.parameters.remove_record(rec) for rec in PRMS_NOT_REQ]
-
         self.parameters.hru_lat = self.lat
         self.parameters.hru_lon = self.lon
 
@@ -136,6 +136,7 @@ class MontanaPRMSModel:
 
         [self.parameters.add_record_object(rec) for rec in self.data_params]
 
+        [self.parameters.remove_record(rec) for rec in PRMS_NOT_REQ]
         print('write {} of {} cells to parameters'.format(np.count_nonzero(self.hru_type),
                                                           self.dem.size))
         self.parameters.write(self.parameter_file)
@@ -157,26 +158,89 @@ class MontanaPRMSModel:
         self.control.snarea_curve_flag = [0]
         self.control.soilzone_aet_flag = [0]
         self.control.srunoff_module = ['srunoff_smidx']
-        self.control.start_time = [2021, 1, 1, 0, 0, 0]
+
+        self.control.add_record('elev_units', [1])
+        self.control.add_record('precip_units', [1])
+        self.control.add_record('temp_units', [1])
+        self.control.add_record('runoff_units', [1])
+
+        self.control.start_time = [int(d) for d in self.cfg.start_time.split(',')] + [0, 0, 0]
+
         self.control.subbasin_flag = [0]
         self.control.transp_module = ['transp_tindex']
+        self.control.csv_output_file = [os.path.join(self.cfg.output_folder, 'output.csv')]
+        self.control.param_file = [self.parameter_file]
+        self.control.subbasin_flag = [0, ]
+        self.control.parameter_check_flag = [0, ]
 
-        self.control.add_record('end_time', [2021, 12, 31, 0, 0, 0])
-        self.control.add_record('model_output_file', [os.path.join(self.cfg.output_folder, 'output.model')])
-        self.control.add_record('var_init_file', [os.path.join(self.cfg.output_folder, 'init.csv')])
-        self.control.add_record('stat_var_file', [os.path.join(self.cfg.output_folder, 'statvar.dat')])
-        self.control.add_record('data_file', [self.data_file])
+        self.control.add_record('end_time', [int(d) for d in self.cfg.end_time.split(',')] + [0, 0, 0])
+
+        self.control.add_record('model_output_file', [os.path.join(self.cfg.output_folder, 'output.model')],
+                                datatype=4)
+        self.control.add_record('var_init_file', [os.path.join(self.cfg.output_folder, 'init.csv')],
+                                datatype=4)
+        self.control.add_record('data_file', [self.data_file], datatype=4)
+
+        stat_vars = ['runoff',
+                     'basin_tmin',
+                     'basin_tmax',
+                     'basin_ppt',
+                     'basin_rain',
+                     'basin_snow',
+                     'basin_potsw',
+                     'basin_potet',
+                     'basin_net_ppt',
+                     'basin_intcp_stor',
+                     'basin_pweqv',
+                     'basin_snowmelt',
+                     'basin_snowcov',
+                     'basin_sroff',
+                     'basin_hortonian',
+                     'basin_infil',
+                     'basin_soil_moist',
+                     'basin_recharge',
+                     'basin_actet',
+                     'basin_gwstor',
+                     'basin_gwflow',
+                     'basin_gwsink',
+                     'basin_cfs',
+                     'basin_ssflow',
+                     'basin_imperv_stor',
+                     'basin_lake_stor',
+                     'basin_ssstor']
+
+        self.control.add_record('statsON_OFF', values=[1], datatype=1)
+        self.control.add_record('nstatVars', values=[len(stat_vars)], datatype=1)
+        self.control.add_record('statVar_element', values=['1' for _ in stat_vars], datatype=4)
+        self.control.add_record('statVar_names', values=stat_vars, datatype=4)
+        self.control.add_record('stat_var_file', [os.path.join(self.cfg.output_folder, 'statvar.out')],
+                                datatype=4)
+
+        disp_vars = [('basin_cfs', '1'),
+                     ('runoff', '1'),
+                     ('basin_gwflow', '2'),
+                     ('basin_sroff', '2'),
+                     ('basin_ssflow', '2'),
+                     ('basin_actet', '3'),
+                     ('basin_potet', '3'),
+                     ('basin_perv_et', '3'),
+                     ('basin_pweqv', '4'),
+                     ('basin_snow', '4'),
+                     ('basin_snowdepth', '4'),
+                     ('basin_snowmelt', '4')]
+
+        self.control.add_record('dispVar_plot', values=[e[1] for e in disp_vars], datatype=4)
+        self.control.add_record('statVar_names', values=stat_vars, datatype=4)
+        self.control.add_record('dispVar_element', values=['1' for _ in disp_vars], datatype=4)
+
         self.control.add_record('gwr_swale_flag', [1])
-
-        self.control.set_values('csv_output_file', [os.path.join(self.cfg.output_folder, 'output.csv')])
-        self.control.set_values('param_file', [self.parameter_file])
 
         # remove gsflow control objects
         self.control.remove_record('gsflow_output_file')
 
         self.control.write(self.control_file)
 
-    def write_datafile(self):
+    def write_datafile(self, units='metric'):
 
         ghcn = self.cfg.prms_data_ghcn
         stations = self.cfg.prms_data_stations
@@ -188,11 +252,17 @@ class MontanaPRMSModel:
         sta_iter = sorted([(v['zone'], v) for k, v in sta_meta.items()], key=lambda x: x[0])
         tsta_elev, tsta_nuse, tsta_x, tsta_y, psta_elev = [], [], [], [], []
         for _, val in sta_iter:
-            tsta_elev.append(val['elev'])
+
+            if units != 'metric':
+                elev = val['elev'] / 0.3048
+            else:
+                elev = val['elev']
+
+            tsta_elev.append(elev)
             tsta_nuse.append(1)
             tsta_x.append(val['proj_coords'][1])
             tsta_y.append(val['proj_coords'][0])
-            psta_elev.append(val['elev'])
+            psta_elev.append(elev)
 
         self.data_params = [ParameterRecord('nrain', values=[len(tsta_x)], datatype=1),
 
@@ -204,8 +274,7 @@ class MontanaPRMSModel:
                             ParameterRecord('psta_nuse', np.array(tsta_nuse, dtype=int).ravel(),
                                             dimensions=[['nrain', len(tsta_nuse)]], datatype=1),
 
-                            ParameterRecord('ndist_psta', np.array(tsta_nuse, dtype=int).ravel(),
-                                            dimensions=[['nrain', len(tsta_nuse)]], datatype=1),
+                            ParameterRecord(name='ndist_psta', values=[len(tsta_nuse), ], datatype=1),
 
                             ParameterRecord('psta_x', np.array(tsta_x, dtype=float).ravel(),
                                             dimensions=[['nrain', len(tsta_x)]], datatype=2),
@@ -219,66 +288,42 @@ class MontanaPRMSModel:
                             ParameterRecord('tsta_nuse', np.array(tsta_nuse, dtype=int).ravel(),
                                             dimensions=[['ntemp', len(tsta_nuse)]], datatype=1),
 
-                            ParameterRecord('ndist_tsta', np.array(tsta_nuse, dtype=int).ravel(),
-                                            dimensions=[['ntemp', len(tsta_nuse)]], datatype=1),
+                            ParameterRecord(name='ndist_tsta', values=[len(tsta_nuse), ], datatype=1),
 
                             ParameterRecord('tsta_x', np.array(tsta_x, dtype=float).ravel(),
                                             dimensions=[['ntemp', len(tsta_x)]], datatype=2),
 
                             ParameterRecord('tsta_y', np.array(tsta_y, dtype=float).ravel(),
-                                            dimensions=[['ntemp', len(tsta_y)]], datatype=2)]
+                                            dimensions=[['ntemp', len(tsta_y)]], datatype=2),
+
+                            bu.tmax_adj(self.nhru),
+
+                            bu.tmin_adj(self.nhru),
+
+                            ParameterRecord(name='nobs', values=[1, ], datatype=1),
+                            ]
+
+        outlet_sta = self.modelgrid.intersect(self.pour_pt[0][0], self.pour_pt[0][1])
+        outlet_sta = self.modelgrid.get_node([(0,) + outlet_sta])
+        self.data_params.append(ParameterRecord('outlet_sta',
+                                                values=[outlet_sta[0] + 1, ],
+                                                dimensions=[['one', 1]],
+                                                datatype=1))
 
         if not os.path.isfile(self.data_file):
             write_basin_datafile(station_json=stations,
                                  gage_json=gages,
                                  ghcn_data=ghcn,
                                  out_csv=None,
-                                 data_file=self.data_file)
+                                 data_file=self.data_file,
+                                 units=units)
 
         self.data = PrmsData.load_from_file(self.data_file)
-
-    def run_model(self, stdout=None):
-
-        for obj_, var_ in [(self.control, 'control'),
-                           (self.parameters, 'parameters'),
-                           (self.data, 'data')]:
-            if not obj_:
-                raise TypeError('{} is not set, run "write_{}_file()"'.format(var_, var_))
-
-        buff = []
-        normal_msg = 'normal termination'
-        report, silent = True, False
-
-        argv = [self.cfg.prms_exe, self.control_file]
-        model_ws = os.path.dirname(self.control_file)
-        proc = Popen(argv, stdout=PIPE, stderr=STDOUT, cwd=model_ws)
-
-        while True:
-            line = proc.stdout.readline()
-            c = line.decode('utf-8')
-            if c != '':
-                for msg in normal_msg:
-                    if msg in c.lower():
-                        success = True
-                        break
-                c = c.rstrip('\r\n')
-                if not silent:
-                    print('{}'.format(c))
-                if report:
-                    buff.append(c)
-            else:
-                break
-        with open(stdout, 'w') as fp:
-            if report:
-                for line in buff:
-                    fp.write(line + '\n')
-
-        return success, buff
 
     def build_model_files(self):
 
         self.build_grid()
-        self.write_datafile()
+        self.write_datafile(units='metric')
         self.write_parameter_file()
         self.write_control_file()
 
@@ -311,15 +356,20 @@ class MontanaPRMSModel:
         """This method computes flow accumulation/direction rasters for both
         RichDEM and PyGSFLOW. RichDEM seems to fill depressions more effectively and is fast."""
 
-        self.dem = flopy.utils.Raster.load(self.cfg.elevation)._array[0, :, :]
+        self.dem = rd.LoadGDAL(self.cfg.elevation, no_data=0.0)
+
+        if np.any(self.dem == 0.0):
+            for r in range(self.dem.shape[0]):
+                d = self.dem[r, :].ravel()
+                idx = np.arange(len(d))
+                self.dem[r, :] = np.interp(idx, idx[d > 0.0], d[d > 0.0])
 
         if mode == 'richdem':
             # RichDEM flow accumulation and direction
-            _dem = rd.LoadGDAL(self.cfg.elevation, no_data=0.0)
-            rd.FillDepressions(_dem, epsilon=0.0001, in_place=True)
-            _dem = rd.rdarray(_dem, no_data=0, dtype=float)
-            rd_flow_accumulation = rd.FlowAccumulation(_dem, method='D8')
-            props = rd.FlowProportions(dem=_dem, method='D8')
+            rd.FillDepressions(self.dem, epsilon=0.0001, in_place=True)
+            self.dem = rd.rdarray(self.dem, no_data=0, dtype=float)
+            rd_flow_accumulation = rd.FlowAccumulation(self.dem, method='D8')
+            props = rd.FlowProportions(dem=self.dem, method='D8')
 
             # remap directions to pygsflow nomenclature
             dirs = np.ones_like(rd_flow_accumulation)
@@ -415,7 +465,7 @@ class MontanaPRMSModel:
                 data = np.where(self.lake_id > 0, self.zeros + 2, data)
 
             setattr(self, param, data)
-            np.savetxt(outfile, data, delimiter="  ")
+            np.savetxt(outfile, data, delimiter='  ')
 
     def build_lakes(self):
         lakes = bu.lake_hru_id(self.lake_id)
@@ -569,10 +619,61 @@ class MontanaPRMSModel:
             _name = '{}_lut'.format(rmp.split('.')[0])
             setattr(self, _name, lut)
 
-    def _instantiate_model(self):
-        self.control = PrmsModel.load_from_file(self.control_file)
-        self.parameters = PrmsParameters.load_from_file(self.parameter_file)
-        self.data = PrmsData.load_from_file(self.data_file)
+
+class MontanaPrmsModel():
+
+    def __init__(self, control_file, parameter_file, data_file):
+        self.control_file = control_file
+        self.parameter_file = parameter_file
+        self.data_file = data_file
+        self.control = ControlFile.load_from_file(control_file)
+        self.parameters = PrmsParameters(parameter_file)
+        self.data = PrmsData.load_from_file(data_file)
+        self.statvar = None
+
+    def run_model(self, stdout=None):
+
+        for obj_, var_ in [(self.control, 'control'),
+                           (self.parameters, 'parameters'),
+                           (self.data, 'data')]:
+            if not obj_:
+                raise TypeError('{} is not set, run "write_{}_file()"'.format(var_, var_))
+
+        buff = []
+        normal_msg = 'normal termination'
+        report, silent = True, False
+
+        argv = [self.control.get_values('executable_model')[0], self.control_file]
+        model_ws = os.path.dirname(self.control_file)
+        proc = Popen(argv, stdout=PIPE, stderr=STDOUT, cwd=model_ws)
+
+        while True:
+            line = proc.stdout.readline()
+            c = line.decode('utf-8')
+            if c != '':
+                for msg in normal_msg:
+                    if msg in c.lower():
+                        success = True
+                        break
+                c = c.rstrip('\r\n')
+                if not silent:
+                    print('{}'.format(c))
+                if report:
+                    buff.append(c)
+            else:
+                break
+        if stdout:
+            with open(stdout, 'w') as fp:
+                if report:
+                    for line in buff:
+                        fp.write(line + '\n')
+
+        return success, buff
+
+    def get_statvar(self):
+        self.statvar = StatVar.load_from_control_object(self.control)
+        df = self.statvar.stat_df.drop(columns=['Hour', 'Minute', 'Second'])
+        return df
 
 
 def features(shp):
@@ -580,19 +681,32 @@ def features(shp):
         return [f for f in src]
 
 
-def modify_params(control, model_ws):
-    control = gsflow.GsflowModel.load_from_file(control, model_ws=model_ws, prms_only=True)
-    hru_type = control.prms.parameters.get_values('hru_type')
-    lake_id_ = control.prms.parameters.get_values('lake_hru_id')
-    lake_id_ = np.where(hru_type == 2, np.ones_like(hru_type), np.zeros_like(hru_type))
-    control.prms.parameters.set_values('lake_hru_id', lake_id_)
-    control.prms.parameters.write()
+def plot_stats(stats):
+    fig, ax = plt.subplots(figsize=(16, 6))
+    ax.plot(stats.Date, stats.basin_cfs_1, color='r', linewidth=2.2, label="simulated")
+    ax.plot(stats.Date, stats.runoff_1, color='b', linewidth=1.5, label="measured")
+    ax.legend(bbox_to_anchor=(0.25, 0.65))
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Streamflow, in cfs")
+    # ax.set_ylim([0, 2000])
+    # plt.savefig('/home/dgketchum/Downloads/hydrograph.png')
+    plt.show()
+    plt.close()
 
 
 if __name__ == '__main__':
+    matplotlib.use('TkAgg')
+
     conf = './model_files/uyws_parameters.ini'
     stdout_ = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/uyws_carter_1000/out.txt'
-    model = MontanaPRMSModel(conf)
-    model.build_model_files()
-    model.run_model(stdout_)
+    prms_build = MontanaPrmsBuild(conf)
+    # prms_build.build_model_files()
+
+    prms = MontanaPrmsModel(prms_build.control_file,
+                            prms_build.parameter_file,
+                            prms_build.data_file)
+    # prms.run_model()
+    stats = prms.get_statvar()
+    plot_stats(stats)
+
 # ========================= EOF ====================================================================

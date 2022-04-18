@@ -34,7 +34,13 @@ PRMS_NOT_REQ = ['basin_tsta',
                 'soil_rechr_max',
                 'soil_rechr_init',
                 'nreach',
-                'ncascadgw']
+                'ncascadgw',
+                'soil_moist_init_frac',
+                'soil_rechr_init_frac',
+                'soil_rechr_max_frac',
+                'hru_subbasin',
+                'ssr2gw_sq',
+                ]
 
 if __name__ == '__main__':
     pass

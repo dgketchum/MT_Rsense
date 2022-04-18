@@ -42,16 +42,17 @@ def clip_raster(basin, raw_data_dir, clipped_dir, buffer_extent=None):
             continue
 
         if 'prism' in in_ras:
-            splt = os.path.basename(in_ras).split('_')
-            param, month = splt[1], splt[-2]
-            out_ras = os.path.join(clipped_dir, 'prism', 'prism_{}_{}.tif'.format(param, month))
-
-            cmd = [warp, '-of', 'GTiff', '-s_srs', 'EPSG:4326',
-                   '-t_srs', PROJ4, '-r', 'average', '-overwrite',
-                   '-te', str(bnd[0]), str(bnd[1]), str(bnd[2]), str(bnd[3]),
-                   '-multi', '-wo', '-wo NUM_THREADS=8',
-                   in_ras, out_ras]
-            check_call(cmd)
+            continue
+            # splt = os.path.basename(in_ras).split('_')
+            # param, month = splt[1], splt[-2]
+            # out_ras = os.path.join(clipped_dir, 'prism', 'prism_{}_{}.tif'.format(param, month))
+            #
+            # cmd = [warp, '-of', 'GTiff', '-s_srs', 'EPSG:4326',
+            #        '-t_srs', PROJ4, '-r', 'average', '-overwrite',
+            #        '-te', str(bnd[0]), str(bnd[1]), str(bnd[2]), str(bnd[3]),
+            #        '-multi', '-wo', '-wo NUM_THREADS=8',
+            #        in_ras, out_ras]
+            # check_call(cmd)
         else:
             if _var == 'elevation' or _var in scaled:
                 resamp = 'average'
