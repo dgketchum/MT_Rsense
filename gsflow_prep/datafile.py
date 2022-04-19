@@ -10,7 +10,7 @@ from utils.hydrograph import get_station_daily_data
 
 
 def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=None, start='1990-01-01',
-                         units='metric'):
+                         units='metric', nodata_value=-9999.9):
     with open(station_json, 'r') as fp:
         stations = json.load(fp)
     with open(gage_json, 'r') as fp:
@@ -47,12 +47,13 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=
             df[df['tmin'] < -40.0] = np.nan
 
             df['precip'] = df['PRCP'] / 10.
+
             df = df[['tmax', 'tmin', 'precip']]
 
             if units != 'metric':
                 df['tmax'] = (df['tmax'] * 9 / 5) + 32.
                 df['tmin'] = (df['tmin'] * 9 / 5) + 32.
-                df['precip'] = df['precip'] * 0.0393701
+                df['precip'] = df['precip'] / 25.4
 
             if df.empty or df.shape[0] < 1000:
                 print(k, 'insuf records in date range')
@@ -62,8 +63,6 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=
             print(k, 'incomplete', e)
             invalid_stations += 1
             continue
-
-        # df[isna(df)] = -999
 
         print(k, df.shape[0])
         stations[k]['data'] = df
@@ -144,7 +143,7 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=
             f.write('{} {}\n'.format(k, v))
         f.write('######################## \n')
 
-        df[isna(df)] = -999
+        df[isna(df)] = nodata_value
 
         df.to_csv(f, sep=' ', header=False, index=False, float_format='%.1f')
 
@@ -152,7 +151,7 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=
             #  save dataframe to normal csv for use elsewhere
             df = df[[c for c in df.columns if c not in time_div]]
             df['date'] = df.index
-            df[df.values == -999] = np.nan
+            df[df.values == nodata_value] = np.nan
             df.to_csv(out_csv, sep=' ', float_format='%.2f')
 
 
