@@ -1,25 +1,9 @@
-import os.path
+import os
 from configparser import ConfigParser
-
-
-class HRUParameters:
-
-    def __init__(self, config_path):
-        section_names = ['FIELDS']
-        parser = ConfigParser()
-        parser.optionxform = str
-        config_path = os.path.join(os.path.dirname(config_path), 'field_list.ini')
-        found = parser.read(config_path)
-        if not found:
-            raise ValueError('No config file found!')
-
-        for name in section_names:
-            self.__dict__.update(parser.items(name))
 
 
 class PRMSConfig:
     def __init__(self, config_path):
-        section_names = ['INPUTS']
         parser = ConfigParser()
         parser.optionxform = str
         found = parser.read(config_path)
@@ -27,10 +11,13 @@ class PRMSConfig:
             print('{} not found'.format(config_path))
             raise ValueError('No config file found!')
 
-        # self.fields = HRUParameters(config_path)
-
-        for name in section_names:
+        for name in ['INPUTS']:
             self.__dict__.update(parser.items(name))
+
+        for name in ['PROJECT_PATHS']:
+            _dir = self.__dict__['project_folder']
+            dct = {k: os.path.join(_dir, v) for k, v in parser.items(name)}
+            self.__dict__.update(dct)
 
 
 if __name__ == '__main__':
