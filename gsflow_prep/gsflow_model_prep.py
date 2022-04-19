@@ -42,7 +42,7 @@ pd.options.mode.chained_assignment = None
 d8_map = {5: 1, 6: 2, 7: 4, 8: 8, 1: 16, 2: 32, 3: 64, 4: 128}
 
 
-class MontanaPrmsBuild(object):
+class StandardPrmsBuild(object):
 
     def __init__(self, config):
 
@@ -723,7 +723,7 @@ if __name__ == '__main__':
 
     conf = './model_files/uyws_parameters.ini'
     stdout_ = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/uyws_carter_1000/out.txt'
-    prms_build = MontanaPrmsBuild(conf)
+    prms_build = StandardPrmsBuild(conf)
     prms_build.build_model_files()
 
     prms = MontanaPrmsModel(prms_build.control_file,
