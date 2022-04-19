@@ -78,12 +78,6 @@ class MontanaPrmsBuild(object):
 
         self.data_file = os.path.join(self.cfg.data_folder, '{}.data'.format(self.proj_name_res))
 
-        # try:
-        #     self._instantiate_model()
-        #     self.instantiated = True
-        # except FileNotFoundError:
-        #     self.instantiated = False
-
     def write_parameter_file(self):
 
         builder = PrmsBuilder(
@@ -118,14 +112,13 @@ class MontanaPrmsBuild(object):
                                                           datatype=2))
 
         # self.build_lakes()
-        self.build_veg_params()
-        self.build_soil_params()
+        self._build_veg_params()
+        self._build_soil_params()
 
         [self.parameters.add_record_object(rec) for rec in self.data_params]
 
         [self.parameters.remove_record(rec) for rec in PRMS_NOT_REQ]
-        print('write {} of {} cells to parameters'.format(np.count_nonzero(self.hru_type),
-                                                          self.dem.size))
+
         self.parameters.write(self.parameter_file)
 
     def write_control_file(self):
@@ -338,12 +331,21 @@ class MontanaPrmsBuild(object):
 
     def build_model_files(self):
 
-        self.build_grid()
+        self._build_grid()
         self.write_datafile(units='standard')
         self.write_parameter_file()
         self.write_control_file()
 
-    def build_grid(self):
+    def write_raster_params(self, name, values=None):
+        out_dir = os.path.join(self.cfg.raster_folder, 'resamples', self.cfg.hru_cellsize)
+        if not isinstance(values, np.ndarray):
+            values = self.parameters.get_values(name).reshape((self.modelgrid.nrow, self.modelgrid.ncol))
+        _file = os.path.join(out_dir, '{}.tif'.format(name))
+
+        with rasterio.open(_file, 'w', **self.raster_meta) as dst:
+            dst.write(values, 1)
+
+    def _build_grid(self):
         with fiona.open(self.cfg.study_area_path, 'r') as domain:
             geo = [f['geometry'] for f in domain][0]
             geo = shape(geo)
@@ -366,10 +368,10 @@ class MontanaPrmsBuild(object):
         self.zeros = np.zeros((self.modelgrid.nrow, self.modelgrid.ncol))
         self.nnodes = self.zeros.size
 
-        self.build_domain_params()
-        self.build_terrain_params(mode='richdem')
+        self._build_domain_params()
+        self._build_terrain_params(mode='richdem')
 
-    def build_terrain_params(self, mode='pygsflow'):
+    def _build_terrain_params(self, mode='pygsflow'):
         """This method computes flow accumulation/direction rasters for both
         RichDEM and PyGSFLOW. RichDEM seems to fill depressions more effectively and is fast."""
 
@@ -453,7 +455,7 @@ class MontanaPrmsBuild(object):
                                             self.modelgrid.xcellcenters,
                                             self.modelgrid.ycellcenters)
 
-    def build_domain_params(self):
+    def _build_domain_params(self):
         ix = GridIntersect(self.modelgrid, method='vertex', rtree=True)
         shape_input = [('outlet', 'model_outlet_path'),
                        ('lake_id', 'lake_path'),
@@ -484,7 +486,7 @@ class MontanaPrmsBuild(object):
             setattr(self, param, data)
             np.savetxt(outfile, data, delimiter='  ')
 
-    def build_lakes(self):
+    def _build_lakes(self):
         lakes = bu.lake_hru_id(self.lake_id)
         nlake = ParameterRecord(
             name='nlake', values=[np.unique(self.lake_id)], datatype=1, file_name=None
@@ -494,7 +496,7 @@ class MontanaPrmsBuild(object):
         )
         [self.parameters.add_record_object(l) for l in [lakes, nlake, nlake_hrus]]
 
-    def build_veg_params(self):
+    def _build_veg_params(self):
         self._prepare_lookups()
         covtype = bu.covtype(self.landfire_type, self.covtype_lut)
         covden_sum = bu.covden_sum(self.landfire_cover, self.covdensum_lut)
@@ -512,7 +514,7 @@ class MontanaPrmsBuild(object):
 
         self.root_depth = bu.root_depth(self.landfire_type, self.rtdepth_lut)
 
-    def build_soil_params(self):
+    def _build_soil_params(self):
         cellsize = int(self.cfg.hru_cellsize)
         soil_type = bu.soil_type(self.clay, self.sand)
 
@@ -549,15 +551,6 @@ class MontanaPrmsBuild(object):
 
         for v in vars_:
             self.parameters.add_record_object(v)
-
-    def write_raster_params(self, name, values=None):
-        out_dir = os.path.join(self.cfg.raster_folder, 'resamples', self.cfg.hru_cellsize)
-        if not isinstance(values, np.ndarray):
-            values = self.parameters.get_values(name).reshape((self.modelgrid.nrow, self.modelgrid.ncol))
-        _file = os.path.join(out_dir, '{}.tif'.format(name))
-
-        with rasterio.open(_file, 'w', **self.raster_meta) as dst:
-            dst.write(values, 1)
 
     def _prepare_rasters(self):
         """gdal warp is > 10x faster for nearest, here, we resample a single raster using nearest, and use
