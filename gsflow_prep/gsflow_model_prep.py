@@ -46,15 +46,6 @@ class MontanaPrmsBuild(object):
 
     def __init__(self, config):
 
-        self.nmonths = None
-        self.hru_area = None
-        self.fishnet_file = None
-        self.bounds = None
-        self.dem = None
-        self.nhru = None
-        self.watershed = None
-        self.nnodes = None
-        self.root_depth = None
         self.cfg = PRMSConfig(config)
         self.res = float(self.cfg.hru_cellsize)
         self.proj_name_res = '{}_{}'.format(self.cfg.project_name,
@@ -67,20 +58,6 @@ class MontanaPrmsBuild(object):
             setattr(self.cfg, folder, folder_path)
             if not os.path.isdir(folder_path):
                 os.makedirs(folder_path, exist_ok=True)
-
-        self.data_params = None
-        self.hru_aspect = None
-        self.hru_slope = None
-        self.modelgrid = None
-        self.flow_accumulation = None
-        self.hru_params = None
-        self.flow_direction = None
-
-        self.hru_type = None
-
-        self.lat, self.lon = None, None
-        self.streams = None
-        self.cascades = None
 
         self.parameters = None
         self.control = None
