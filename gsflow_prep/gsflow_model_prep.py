@@ -46,6 +46,8 @@ class MontanaPrmsBuild(object):
 
     def __init__(self, config):
 
+        self.nmonths = None
+        self.hru_area = None
         self.fishnet_file = None
         self.bounds = None
         self.dem = None
@@ -121,12 +123,20 @@ class MontanaPrmsBuild(object):
         self.parameters.hru_lon = self.lon
 
         self.parameters.add_record_object(ParameterRecord('hru_x',
-                                                          np.array(self.lon, dtype=float).ravel(),
+                                                          np.array(self.modelgrid.xcellcenters.ravel(),
+                                                                   dtype=float).ravel(),
                                                           dimensions=[['nhru', len(self.lon)]],
                                                           datatype=2))
 
         self.parameters.add_record_object(ParameterRecord('hru_y',
-                                                          np.array(self.lat, dtype=float).ravel(),
+                                                          np.array(self.modelgrid.ycellcenters.ravel(),
+                                                                   dtype=float).ravel(),
+                                                          dimensions=[['nhru', len(self.lat)]],
+                                                          datatype=2))
+
+        areas = np.ones_like(self.lat) * self.hru_area
+        self.parameters.add_record_object(ParameterRecord('hru_area',
+                                                          np.array(areas, dtype=float).ravel(),
                                                           dimensions=[['nhru', len(self.lat)]],
                                                           datatype=2))
 
@@ -151,18 +161,20 @@ class MontanaPrmsBuild(object):
         self.control.executable_model = [self.cfg.prms_exe]
         self.control.cascadegw_flag = [0]
         self.control.et_module = ['potet_jh']
-        self.control.precip_module = ['ide_dist']
-        self.control.temp_module = ['ide_dist']
-        self.control.solrad_module = ['ddsolrad']
+        self.control.precip_module = ['xyz_dist']
+        self.control.temp_module = ['xyz_dist']
+        self.control.solrad_module = ['ccsolrad']
         self.control.rpt_days = [7]
         self.control.snarea_curve_flag = [0]
         self.control.soilzone_aet_flag = [0]
         self.control.srunoff_module = ['srunoff_smidx']
 
-        self.control.add_record('elev_units', [1])
-        self.control.add_record('precip_units', [1])
-        self.control.add_record('temp_units', [1])
-        self.control.add_record('runoff_units', [1])
+        # 0: standard; 1: SI/metric
+        units = 0
+        self.control.add_record('elev_units', [units])
+        self.control.add_record('precip_units', [units])
+        self.control.add_record('temp_units', [units])
+        self.control.add_record('runoff_units', [units])
 
         self.control.start_time = [int(d) for d in self.cfg.start_time.split(',')] + [0, 0, 0]
 
@@ -242,6 +254,8 @@ class MontanaPrmsBuild(object):
 
     def write_datafile(self, units='metric'):
 
+        self.nmonths = 12
+
         ghcn = self.cfg.prms_data_ghcn
         stations = self.cfg.prms_data_stations
         gages = self.cfg.prms_data_gages
@@ -309,6 +323,31 @@ class MontanaPrmsBuild(object):
                                                 values=[outlet_sta[0] + 1, ],
                                                 dimensions=[['one', 1]],
                                                 datatype=1))
+        if units == 'metric':
+            allrain_max = np.ones((self.nhru * self.nmonths)) * 3.3
+            tmax_allrain = np.ones((self.nhru * self.nmonths)) * 3.3
+            tmax_allsnow = np.ones((self.nhru * self.nmonths)) * 0.0
+        else:
+            allrain_max = np.ones((self.nhru * self.nmonths)) * 38.0
+            tmax_allrain = np.ones((self.nhru * self.nmonths)) * 38.0
+            tmax_allsnow = np.ones((self.nhru * self.nmonths)) * 32.0
+
+        self.data_params.append(ParameterRecord('tmax_allrain_sta', allrain_max,
+                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
+                                                datatype=2))
+
+        self.data_params.append(ParameterRecord('tmax_allrain', tmax_allrain,
+                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
+                                                datatype=2))
+
+        self.data_params.append(ParameterRecord('tmax_allsnow', tmax_allsnow,
+                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
+                                                datatype=2))
+
+        self.data_params.append(ParameterRecord('snowpack_init',
+                                                np.ones_like(self.ksat).ravel(),
+                                                dimensions=[['nhru', self.nhru]],
+                                                datatype=2))
 
         if not os.path.isfile(self.data_file):
             write_basin_datafile(station_json=stations,
@@ -323,7 +362,7 @@ class MontanaPrmsBuild(object):
     def build_model_files(self):
 
         self.build_grid()
-        self.write_datafile(units='metric')
+        self.write_datafile(units='standard')
         self.write_parameter_file()
         self.write_control_file()
 
@@ -343,6 +382,7 @@ class MontanaPrmsBuild(object):
         x = self.modelgrid.xcellcenters.ravel()
         y = self.modelgrid.ycellcenters.ravel()
         self.nhru = (x * y).size
+        self.hru_area = (float(self.cfg.hru_cellsize) ** 2) * 0.000247105
         trans = Transformer.from_proj('epsg:{}'.format(5071), 'epsg:4326', always_xy=True)
         self.lon, self.lat = trans.transform(x, y)
 
@@ -498,23 +538,37 @@ class MontanaPrmsBuild(object):
     def build_soil_params(self):
         cellsize = int(self.cfg.hru_cellsize)
         soil_type = bu.soil_type(self.clay, self.sand)
+
+        # awc meters to inches
+        self.awc = self.awc * 1000 / 25.4
+
         soil_moist_max = bu.soil_moist_max(self.awc, self.root_depth)
         soil_moist_init = bu.soil_moist_init(soil_moist_max.values)
         soil_rech_max = bu.soil_rech_max(self.awc, self.root_depth)
         soil_rech_init = bu.soil_rech_init(soil_rech_max.values)
+
+        # ksat mircrometer/sec to inches/day
+        self.ksat = self.ksat * 3.4 / 1000
+
         ssr2gw_rate = bu.ssr2gw_rate(self.ksat, self.sand, soil_moist_max.values)
         ssr2gw_sq = bu.ssr2gw_exp(self.nnodes)
         slowcoef_lin = bu.slowcoef_lin(self.ksat, self.hru_aspect.values, cellsize, cellsize)
         slowcoef_sq = bu.slowcoef_sq(self.ksat, self.hru_aspect.values, self.sand,
                                      soil_moist_max.values, cellsize, cellsize)
 
+        # parameterize this
+        sat_threshold = ParameterRecord('sat_threshold',
+                                        np.ones_like(self.ksat).ravel(),
+                                        dimensions=[['nhru', self.nhru]],
+                                        datatype=2)
+
         hru_percent_imperv = bu.hru_percent_imperv(self.nlcd)
         hru_percent_imperv.values /= 100
-        carea_max = bu.carea_max(self.nlcd)
+        carea_max = bu.carea_max(self.nlcd) / 100
 
         vars_ = [soil_type, soil_moist_max, soil_moist_init, soil_rech_max, soil_rech_init,
                  ssr2gw_rate, ssr2gw_sq, slowcoef_lin, slowcoef_sq, hru_percent_imperv, carea_max,
-                 self.hru_aspect, self.hru_slope]
+                 self.hru_aspect, self.hru_slope, sat_threshold]
 
         for v in vars_:
             self.parameters.add_record_object(v)
@@ -553,7 +607,7 @@ class MontanaPrmsBuild(object):
             if os.path.exists(out_path) and os.path.exists(txt):
                 with rasterio.open(out_path, 'r') as src:
                     a = src.read(1)
-                    if raster in ['sand', 'clay', 'loam' 'ksat', 'awc']:
+                    if raster in ['sand', 'clay', 'loam', 'ksat', 'awc']:
                         a /= 100.
                     if first:
                         self.raster_meta = src.meta
@@ -599,7 +653,7 @@ class MontanaPrmsBuild(object):
 
             with rasterio.open(out_path, 'r') as src:
                 a = src.read(1)
-                if raster in ['sand', 'clay', 'loam' 'ksat', 'awc']:
+                if raster in ['sand', 'clay', 'loam', 'ksat', 'awc']:
                     a /= 100.
                 if first:
                     self.raster_meta = src.raster_meta
@@ -620,14 +674,14 @@ class MontanaPrmsBuild(object):
             setattr(self, _name, lut)
 
 
-class MontanaPrmsModel():
+class MontanaPrmsModel:
 
     def __init__(self, control_file, parameter_file, data_file):
         self.control_file = control_file
         self.parameter_file = parameter_file
         self.data_file = data_file
         self.control = ControlFile.load_from_file(control_file)
-        self.parameters = PrmsParameters(parameter_file)
+        self.parameters = PrmsParameters.load_from_file(parameter_file)
         self.data = PrmsData.load_from_file(data_file)
         self.statvar = None
 
@@ -700,13 +754,15 @@ if __name__ == '__main__':
     conf = './model_files/uyws_parameters.ini'
     stdout_ = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/uyws_carter_1000/out.txt'
     prms_build = MontanaPrmsBuild(conf)
-    # prms_build.build_model_files()
+    prms_build.build_model_files()
 
     prms = MontanaPrmsModel(prms_build.control_file,
                             prms_build.parameter_file,
                             prms_build.data_file)
-    # prms.run_model()
+    prms.run_model(stdout_)
+
     stats = prms.get_statvar()
     plot_stats(stats)
+    pass
 
 # ========================= EOF ====================================================================
