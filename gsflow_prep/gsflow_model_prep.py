@@ -1,6 +1,5 @@
 import os
-import json
-from copy import copy
+from copy import copy, deepcopy
 from subprocess import call, Popen, PIPE, STDOUT
 import time
 
@@ -13,8 +12,6 @@ from affine import Affine
 from shapely.geometry import shape
 from scipy.ndimage.morphology import binary_erosion
 from pandas.plotting import register_matplotlib_converters
-import matplotlib
-import matplotlib.pyplot as plt
 
 import flopy
 from flopy.utils import GridIntersect
@@ -29,7 +26,6 @@ from gsflow.output import StatVar
 
 from model_config import PRMSConfig
 from gsflow_prep import PRMS_NOT_REQ
-from datafile import write_basin_datafile
 
 register_matplotlib_converters()
 pd.options.mode.chained_assignment = None
@@ -42,7 +38,7 @@ pd.options.mode.chained_assignment = None
 d8_map = {5: 1, 6: 2, 7: 4, 8: 8, 1: 16, 2: 32, 3: 64, 4: 128}
 
 
-class StandardPrmsBuild(object):
+class StandardPrmsBuild:
 
     def __init__(self, config):
 
@@ -52,9 +48,7 @@ class StandardPrmsBuild(object):
                                             self.cfg.hru_cellsize)
 
         for folder in ['hru_folder', 'parameter_folder', 'control_folder', 'data_folder', 'output_folder']:
-            folder_path = os.path.join(self.cfg.project_folder,
-                                       self.proj_name_res,
-                                       getattr(self.cfg, folder))
+            folder_path = os.path.join(self.cfg.project_folder, self.proj_name_res, getattr(self.cfg, folder))
             setattr(self.cfg, folder, folder_path)
             if not os.path.isdir(folder_path):
                 os.makedirs(folder_path, exist_ok=True)
@@ -62,6 +56,8 @@ class StandardPrmsBuild(object):
         self.parameters = None
         self.control = None
         self.data = None
+        self.data_params = []
+        self.control_records = []
 
         self.zeros = None
 
@@ -78,7 +74,7 @@ class StandardPrmsBuild(object):
 
         self.data_file = os.path.join(self.cfg.data_folder, '{}.data'.format(self.proj_name_res))
 
-    def write_parameter_file(self):
+    def build_parameters(self):
 
         builder = PrmsBuilder(
             self.streams,
@@ -115,13 +111,9 @@ class StandardPrmsBuild(object):
         self._build_veg_params()
         self._build_soil_params()
 
-        [self.parameters.add_record_object(rec) for rec in self.data_params]
-
         [self.parameters.remove_record(rec) for rec in PRMS_NOT_REQ]
 
-        self.parameters.write(self.parameter_file)
-
-    def write_control_file(self):
+    def build_controls(self):
         controlbuild = ControlFileBuilder(ControlFileDefaults())
         self.control = controlbuild.build(name='{}.control'.format(self.proj_name_res),
                                           parameter_obj=self.parameters)
@@ -130,23 +122,13 @@ class StandardPrmsBuild(object):
         self.control.executable_desc = ['PRMS Model']
         self.control.executable_model = [self.cfg.prms_exe]
         self.control.cascadegw_flag = [0]
-        self.control.et_module = ['potet_jh']
-        self.control.precip_module = ['xyz_dist']
-        self.control.temp_module = ['xyz_dist']
-        self.control.solrad_module = ['ccsolrad']
-        self.control.rpt_days = [7]
+
+        # self.control.rpt_days = [7]
         self.control.snarea_curve_flag = [0]
-        self.control.soilzone_aet_flag = [0]
+        self.control.soilzone_aet_flag = [1]
         self.control.srunoff_module = ['srunoff_smidx']
 
-        # 0: standard; 1: SI/metric
-        units = 0
-        self.control.add_record('elev_units', [units])
-        self.control.add_record('precip_units', [units])
-        self.control.add_record('temp_units', [units])
-        self.control.add_record('runoff_units', [units])
-
-        self.control.start_time = [int(d) for d in self.cfg.start_time.split(',')] + [0, 0, 0]
+        self.control.start_time = [int(d) for d in self.cfg.start_time.split('-')] + [0, 0, 0]
 
         self.control.subbasin_flag = [0]
         self.control.transp_module = ['transp_tindex']
@@ -155,12 +137,16 @@ class StandardPrmsBuild(object):
         self.control.subbasin_flag = [0, ]
         self.control.parameter_check_flag = [0, ]
 
-        self.control.add_record('end_time', [int(d) for d in self.cfg.end_time.split(',')] + [0, 0, 0])
+        self.control.add_record('end_time', [int(d) for d in self.cfg.end_time.split('-')] + [0, 0, 0])
 
-        self.control.add_record('model_output_file', [os.path.join(self.cfg.output_folder, 'output.model')],
+        self.control.add_record('model_output_file',
+                                [os.path.join(self.cfg.output_folder, 'output.model')],
                                 datatype=4)
-        self.control.add_record('var_init_file', [os.path.join(self.cfg.output_folder, 'init.csv')],
+
+        self.control.add_record('var_init_file',
+                                [os.path.join(self.cfg.output_folder, 'init.csv')],
                                 datatype=4)
+
         self.control.add_record('data_file', [self.data_file], datatype=4)
 
         stat_vars = ['runoff',
@@ -220,127 +206,15 @@ class StandardPrmsBuild(object):
         # remove gsflow control objects
         self.control.remove_record('gsflow_output_file')
 
-        self.control.write(self.control_file)
+    def write_raster_params(self, name, values=None, out_file=None):
 
-    def write_datafile(self, units='metric'):
-
-        self.nmonths = 12
-
-        ghcn = self.cfg.prms_data_ghcn
-        stations = self.cfg.prms_data_stations
-        gages = self.cfg.prms_data_gages
-
-        with open(stations, 'r') as js:
-            sta_meta = json.load(js)
-
-        sta_iter = sorted([(v['zone'], v) for k, v in sta_meta.items()], key=lambda x: x[0])
-        tsta_elev, tsta_nuse, tsta_x, tsta_y, psta_elev = [], [], [], [], []
-        for _, val in sta_iter:
-
-            if units != 'metric':
-                elev = val['elev'] / 0.3048
-            else:
-                elev = val['elev']
-
-            tsta_elev.append(elev)
-            tsta_nuse.append(1)
-            tsta_x.append(val['proj_coords'][1])
-            tsta_y.append(val['proj_coords'][0])
-            psta_elev.append(elev)
-
-        self.data_params = [ParameterRecord('nrain', values=[len(tsta_x)], datatype=1),
-
-                            ParameterRecord('ntemp', values=[len(tsta_x)], datatype=1),
-
-                            ParameterRecord('psta_elev', np.array(psta_elev, dtype=float).ravel(),
-                                            dimensions=[['nrain', len(psta_elev)]], datatype=2),
-
-                            ParameterRecord('psta_nuse', np.array(tsta_nuse, dtype=int).ravel(),
-                                            dimensions=[['nrain', len(tsta_nuse)]], datatype=1),
-
-                            ParameterRecord(name='ndist_psta', values=[len(tsta_nuse), ], datatype=1),
-
-                            ParameterRecord('psta_x', np.array(tsta_x, dtype=float).ravel(),
-                                            dimensions=[['nrain', len(tsta_x)]], datatype=2),
-
-                            ParameterRecord('psta_y', np.array(tsta_y, dtype=float).ravel(),
-                                            dimensions=[['nrain', len(tsta_y)]], datatype=2),
-
-                            ParameterRecord('tsta_elev', np.array(tsta_elev, dtype=float).ravel(),
-                                            dimensions=[['ntemp', len(tsta_elev)]], datatype=2),
-
-                            ParameterRecord('tsta_nuse', np.array(tsta_nuse, dtype=int).ravel(),
-                                            dimensions=[['ntemp', len(tsta_nuse)]], datatype=1),
-
-                            ParameterRecord(name='ndist_tsta', values=[len(tsta_nuse), ], datatype=1),
-
-                            ParameterRecord('tsta_x', np.array(tsta_x, dtype=float).ravel(),
-                                            dimensions=[['ntemp', len(tsta_x)]], datatype=2),
-
-                            ParameterRecord('tsta_y', np.array(tsta_y, dtype=float).ravel(),
-                                            dimensions=[['ntemp', len(tsta_y)]], datatype=2),
-
-                            bu.tmax_adj(self.nhru),
-
-                            bu.tmin_adj(self.nhru),
-
-                            ParameterRecord(name='nobs', values=[1, ], datatype=1),
-                            ]
-
-        outlet_sta = self.modelgrid.intersect(self.pour_pt[0][0], self.pour_pt[0][1])
-        outlet_sta = self.modelgrid.get_node([(0,) + outlet_sta])
-        self.data_params.append(ParameterRecord('outlet_sta',
-                                                values=[outlet_sta[0] + 1, ],
-                                                dimensions=[['one', 1]],
-                                                datatype=1))
-        if units == 'metric':
-            allrain_max = np.ones((self.nhru * self.nmonths)) * 3.3
-            tmax_allrain = np.ones((self.nhru * self.nmonths)) * 3.3
-            tmax_allsnow = np.ones((self.nhru * self.nmonths)) * 0.0
-        else:
-            allrain_max = np.ones((self.nhru * self.nmonths)) * 38.0
-            tmax_allrain = np.ones((self.nhru * self.nmonths)) * 38.0
-            tmax_allsnow = np.ones((self.nhru * self.nmonths)) * 32.0
-
-        self.data_params.append(ParameterRecord('tmax_allrain_sta', allrain_max,
-                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
-                                                datatype=2))
-
-        self.data_params.append(ParameterRecord('tmax_allrain', tmax_allrain,
-                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
-                                                datatype=2))
-
-        self.data_params.append(ParameterRecord('tmax_allsnow', tmax_allsnow,
-                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
-                                                datatype=2))
-
-        self.data_params.append(ParameterRecord('snowpack_init',
-                                                np.ones_like(self.ksat).ravel(),
-                                                dimensions=[['nhru', self.nhru]],
-                                                datatype=2))
-
-        if not os.path.isfile(self.data_file):
-            write_basin_datafile(station_json=stations,
-                                 gage_json=gages,
-                                 ghcn_data=ghcn,
-                                 out_csv=None,
-                                 data_file=self.data_file,
-                                 units=units)
-
-        self.data = PrmsData.load_from_file(self.data_file)
-
-    def build_model_files(self):
-
-        self._build_grid()
-        self.write_datafile(units='standard')
-        self.write_parameter_file()
-        self.write_control_file()
-
-    def write_raster_params(self, name, values=None):
-        out_dir = os.path.join(self.cfg.raster_folder, 'resamples', self.cfg.hru_cellsize)
         if not isinstance(values, np.ndarray):
             values = self.parameters.get_values(name).reshape((self.modelgrid.nrow, self.modelgrid.ncol))
-        _file = os.path.join(out_dir, '{}.tif'.format(name))
+
+        if out_file is None:
+            _file = os.path.join(self.cfg.hru_folder, '{}.tif'.format(name))
+        else:
+            _file = out_file
 
         with rasterio.open(_file, 'w', **self.raster_meta) as dst:
             dst.write(values, 1)
@@ -349,6 +223,7 @@ class StandardPrmsBuild(object):
         with fiona.open(self.cfg.study_area_path, 'r') as domain:
             geo = [f['geometry'] for f in domain][0]
             geo = shape(geo)
+            self.study_area = geo
             self.bounds = geo.bounds
 
         self.modelgrid = GenerateFishnet(bbox=self.cfg.elevation,
@@ -436,9 +311,7 @@ class StandardPrmsBuild(object):
             flow_dir_array=self.flow_direction,
             verbose=False)
 
-        self.watershed = fa.define_watershed(self.pour_pt,
-                                             self.modelgrid,
-                                             fmt='xy')
+        self.watershed = self._watershed_recursion(fa)
 
         self.streams = fa.make_streams(self.flow_direction,
                                        self.flow_accumulation,
@@ -446,7 +319,7 @@ class StandardPrmsBuild(object):
                                        min_stream_len=10)
 
         self.cascades = fa.get_cascades(streams=self.streams,
-                                        pour_point=self.pour_pt, fmt='xy',
+                                        pour_point=self.pour_pt_rowcol, fmt='rowcol',
                                         modelgrid=self.modelgrid)
 
         self.hru_aspect = bu.d8_to_hru_aspect(self.flow_direction)
@@ -472,9 +345,9 @@ class StandardPrmsBuild(object):
                 for x in idx:
                     data[x[0]] = i
 
-            outfile = os.path.join(self.cfg.hru_folder, '{}.txt'.format(param))
             if param == 'outlet':
-                setattr(self, 'pour_pt', [[geo.x, geo.y]])
+                setattr(self, 'pour_pt_rowcol', [[x[0][0], x[0][1]]])
+                setattr(self, 'pour_pt_coords', [[geo.x, geo.y]])
             if param == 'hru_type':
                 erode = binary_erosion(data)
                 border = erode < data
@@ -484,7 +357,6 @@ class StandardPrmsBuild(object):
                 data = np.where(self.lake_id > 0, self.zeros + 2, data)
 
             setattr(self, param, data)
-            np.savetxt(outfile, data, delimiter='  ')
 
     def _build_lakes(self):
         lakes = bu.lake_hru_id(self.lake_id)
@@ -560,21 +432,15 @@ class StandardPrmsBuild(object):
         rasters = _int + _float
 
         first = True
-        modelgrid = GenerateFishnet(self.cfg.elevation, xcellsize=1000, ycellsize=1000)
 
         for raster in rasters:
 
             in_path = getattr(self.cfg, raster)
-            out_dir = os.path.join(self.cfg.raster_folder, 'resamples', self.cfg.hru_cellsize)
-            if not os.path.isdir(out_dir):
-                os.makedirs(out_dir)
 
-            out_path = os.path.join(out_dir, '{}.tif'.format(raster))
+            out_path = os.path.join(self.cfg.hru_folder, '{}.tif'.format(raster))
             setattr(self.cfg, raster, out_path)
 
-            txt = out_path.replace('.tif', '.txt')
-
-            if os.path.exists(out_path) and os.path.exists(txt):
+            if os.path.exists(out_path):
                 with rasterio.open(out_path, 'r') as src:
                     a = src.read(1)
                     if raster in ['sand', 'clay', 'loam', 'ksat', 'awc']:
@@ -593,13 +459,13 @@ class StandardPrmsBuild(object):
             if first:
                 robj = flopy.utils.Raster.load(in_path)
 
-                array = robj.resample_to_grid(modelgrid, robj.bands[0], method=rsample, thread_pool=8)
+                array = robj.resample_to_grid(self.modelgrid, robj.bands[0], method=rsample, thread_pool=8)
 
-                example_raster = os.path.join(out_dir, 'flopy_raster.tif')
+                example_raster = os.path.join(self.cfg.hru_folder, 'flopy_raster.tif')
 
                 self.raster_meta = robj._meta
                 sa = copy(self.raster_meta['transform'])
-                transform = Affine(1000., sa[1], sa[2], sa[3], -1000., sa[5])
+                transform = Affine(self.res, sa[1], sa[2], sa[3], -self.res, sa[5])
 
                 self.raster_meta.update({'height': array.shape[0],
                                          'width': array.shape[1],
@@ -630,7 +496,6 @@ class StandardPrmsBuild(object):
                     first = False
 
             setattr(self, raster, a)
-            np.savetxt(txt, a)
 
     def _prepare_lookups(self):
         req_remaps = ['covtype.rmp', 'covdenwin.rmp', 'srain_intcp.rmp',
@@ -642,6 +507,46 @@ class StandardPrmsBuild(object):
             lut = bu.build_lut(rmp_file)
             _name = '{}_lut'.format(rmp.split('.')[0])
             setattr(self, _name, lut)
+
+    def _watershed_recursion(self, floacc):
+        """Watersheds tend to be poorly built from flow accumulation, try different methods,
+        this approach looks around for a better spot for the outlet"""
+
+        def check_size(ws):
+            shed_size_est = np.count_nonzero(self.hru_type >= 1)
+            shed_size_fa = np.count_nonzero(ws)
+            ws_frac = shed_size_fa / shed_size_est
+            return ws_frac
+
+        dir_map = {0: [-1, -1],
+                   1: [-1, 0],
+                   2: [-1, 1],
+                   3: [0, -1],
+                   4: [0, 0],
+                   5: [0, 1],
+                   6: [1, -1],
+                   7: [1, 0],
+                   8: [1, 1]}
+
+        flo = np.array(self.flow_accumulation, dtype=int)
+        dem = np.array(self.dem)
+        size_frac = 0.0
+        rc = self.pour_pt_rowcol[0]
+        while size_frac < 0.5:
+            fa = deepcopy(floacc)
+            shed = fa.define_watershed([rc], self.modelgrid, fmt='rowcol')
+            size_frac = check_size(shed)
+            if size_frac > 0.95:
+                self.pour_pt_rowcol = [rc]
+                self.pour_pt_coords = [[self.modelgrid.xcellcenters[rc[0],
+                                                                  rc[1]], self.modelgrid.ycellcenters[rc[0], rc[1]]]]
+                return shed
+            hood = flo[rc[0] - 1:rc[0] + 2, rc[1] - 1:rc[1] + 2]
+            idx_add = dir_map[np.argmax(hood)]
+            rc = [rc[0] + idx_add[0], rc[1] + idx_add[1]]
+            print('{:.3f} of expected watershed\n'
+                  'moving to {}, flow acc: {:.3f} at elev: {:.3f}'.format(size_frac, rc, flo[rc[0], rc[1]],
+                                                                          dem[rc[0], rc[1]]))
 
 
 class MontanaPrmsModel:
@@ -705,34 +610,6 @@ def features(shp):
         return [f for f in src]
 
 
-def plot_stats(stats):
-    fig, ax = plt.subplots(figsize=(16, 6))
-    ax.plot(stats.Date, stats.basin_cfs_1, color='r', linewidth=2.2, label="simulated")
-    ax.plot(stats.Date, stats.runoff_1, color='b', linewidth=1.5, label="measured")
-    ax.legend(bbox_to_anchor=(0.25, 0.65))
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Streamflow, in cfs")
-    # ax.set_ylim([0, 2000])
-    # plt.savefig('/home/dgketchum/Downloads/hydrograph.png')
-    plt.show()
-    plt.close()
-
-
 if __name__ == '__main__':
-    matplotlib.use('TkAgg')
-
-    conf = './model_files/uyws_parameters.ini'
-    stdout_ = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/uyws_carter_1000/out.txt'
-    prms_build = StandardPrmsBuild(conf)
-    prms_build.build_model_files()
-
-    prms = MontanaPrmsModel(prms_build.control_file,
-                            prms_build.parameter_file,
-                            prms_build.data_file)
-    prms.run_model(stdout_)
-
-    stats = prms.get_statvar()
-    plot_stats(stats)
     pass
-
 # ========================= EOF ====================================================================
