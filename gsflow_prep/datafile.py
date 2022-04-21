@@ -9,63 +9,14 @@ from pandas import read_csv, date_range, to_datetime, isna, DataFrame
 from utils.hydrograph import get_station_daily_data
 
 
-def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=None, start='1990-01-01',
+def write_basin_datafile(gage_json, data_file,
+                         station_json=None, ghcn_data=None, out_csv=None, start='1990-01-01',
                          units='metric', nodata_value=-9999.9):
-    with open(station_json, 'r') as fp:
-        stations = json.load(fp)
-    with open(gage_json, 'r') as fp:
-        gages = json.load(fp)
 
     dt_index = date_range(start, '2021-12-31')
 
-    invalid_stations = 0
-
-    for k, v in stations.items():
-        _file = os.path.join(ghcn_data, '{}.csv'.format(k))
-        df = read_csv(_file, parse_dates=True, infer_datetime_format=True)
-        df.index = to_datetime(df['DATE'])
-
-        s = v['start']
-        if to_datetime(start) > to_datetime(s):
-            df = df.loc[start:]
-            if df.empty or df.shape[0] < 1000:
-                print(k, 'insuf records in date range')
-                invalid_stations += 1
-                continue
-
-        df = df.reindex(dt_index)
-
-        try:
-            df = df[['TMAX', 'TMIN', 'PRCP']]
-
-            df['tmax'] = df['TMAX'] / 10.
-            df[df['tmax'] > 43.0] = np.nan
-            df[df['tmax'] < -40.0] = np.nan
-
-            df['tmin'] = df['TMIN'] / 10.
-            df[df['tmin'] > 43.0] = np.nan
-            df[df['tmin'] < -40.0] = np.nan
-
-            df['precip'] = df['PRCP'] / 10.
-
-            df = df[['tmax', 'tmin', 'precip']]
-
-            if units != 'metric':
-                df['tmax'] = (df['tmax'] * 9 / 5) + 32.
-                df['tmin'] = (df['tmin'] * 9 / 5) + 32.
-                df['precip'] = df['precip'] / 25.4
-
-            if df.empty or df.shape[0] < 1000:
-                print(k, 'insuf records in date range')
-                invalid_stations += 1
-
-        except KeyError as e:
-            print(k, 'incomplete', e)
-            invalid_stations += 1
-            continue
-
-        print(k, df.shape[0])
-        stations[k]['data'] = df
+    with open(gage_json, 'r') as fp:
+        gages = json.load(fp)
 
     for k, v in gages.items():
         if k != '06192500':
@@ -80,14 +31,71 @@ def write_basin_datafile(station_json, gage_json, ghcn_data, data_file, out_csv=
         df = df.tz_convert(None)
         df = df.reindex(dt_index)
 
-        if units == 'metrc':
+        if units == 'metric':
             df = df * 0.0283168
 
         v['data'] = df
 
-    # sort by zone for met stations
-    input_dct = OrderedDict(sorted(stations.items(), key=lambda item: item[1]['zone']))
-    [input_dct.update({k: v}) for k, v in gages.items()]
+    if station_json:
+        with open(station_json, 'r') as fp:
+            stations = json.load(fp)
+
+        invalid_stations = 0
+
+        for k, v in stations.items():
+            _file = os.path.join(ghcn_data, '{}.csv'.format(k))
+            df = read_csv(_file, parse_dates=True, infer_datetime_format=True)
+            df.index = to_datetime(df['DATE'])
+
+            s = v['start']
+            if to_datetime(start) > to_datetime(s):
+                df = df.loc[start:]
+                if df.empty or df.shape[0] < 1000:
+                    print(k, 'insuf records in date range')
+                    invalid_stations += 1
+                    continue
+
+            df = df.reindex(dt_index)
+
+            try:
+                df = df[['TMAX', 'TMIN', 'PRCP']]
+
+                df['tmax'] = df['TMAX'] / 10.
+                df[df['tmax'] > 43.0] = np.nan
+                df[df['tmax'] < -40.0] = np.nan
+
+                df['tmin'] = df['TMIN'] / 10.
+                df[df['tmin'] > 43.0] = np.nan
+                df[df['tmin'] < -40.0] = np.nan
+
+                df['precip'] = df['PRCP'] / 10.
+
+                df = df[['tmax', 'tmin', 'precip']]
+
+                if units != 'metric':
+                    df['tmax'] = (df['tmax'] * 9 / 5) + 32.
+                    df['tmin'] = (df['tmin'] * 9 / 5) + 32.
+                    df['precip'] = df['precip'] / 25.4
+
+                if df.empty or df.shape[0] < 1000:
+                    print(k, 'insuf records in date range')
+                    invalid_stations += 1
+
+            except KeyError as e:
+                print(k, 'incomplete', e)
+                invalid_stations += 1
+                continue
+
+            print(k, df.shape[0])
+            stations[k]['data'] = df
+
+        # sort by zone for met stations
+        input_dct = OrderedDict(sorted(stations.items(), key=lambda item: item[1]['zone']))
+
+    else:
+        input_dct = OrderedDict()
+        [input_dct.update({k: v}) for k, v in gages.items()]
+
     dt_now = datetime.now().strftime('%Y-%m-%d %H:%M')
 
     with open(data_file, 'w') as f:
