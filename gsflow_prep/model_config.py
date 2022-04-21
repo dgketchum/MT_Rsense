@@ -11,10 +11,10 @@ class PRMSConfig:
             print('{} not found'.format(config_path))
             raise ValueError('No config file found!')
 
-        for name in ['INPUTS']:
+        for name in ['MODEL_INFO', 'MODEL_PATHS']:
             self.__dict__.update(parser.items(name))
 
-        for name in ['PROJECT_PATHS']:
+        for name in ['INPUT_PATHS']:
             _dir = self.__dict__['project_folder']
             dct = {k: os.path.join(_dir, v) for k, v in parser.items(name)}
             self.__dict__.update(dct)
