@@ -94,7 +94,8 @@ def write_basin_datafile(gage_json, data_file,
 
     else:
         input_dct = OrderedDict()
-        [input_dct.update({k: v}) for k, v in gages.items()]
+
+    [input_dct.update({k: v}) for k, v in gages.items()]
 
     dt_now = datetime.now().strftime('%Y-%m-%d %H:%M')
 

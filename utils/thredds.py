@@ -44,8 +44,7 @@ class Thredds:
             subset = array(subset, dtype=float32)
         self._project(subset)
         self._warp()
-        if self.clip_feature:
-            self._mask()
+        self._mask()
         result = self._resample()
         if out_file:
             self.save_raster(result, self.target_profile, output_filename=out_file)
@@ -112,10 +111,10 @@ class Thredds:
 
             reproject(src_array, dst_array, src_transform=src_profile['transform'],
                       src_crs=src_profile['crs'], dst_crs=self.target_profile['crs'],
-                      dst_transform=dst_affine, resampling=Resampling.nearest,
+                      dst_transform=dst_affine, resampling=Resampling.bilinear,
                       num_threads=2)
 
-            dst.write(dst_array.reshape(src_array.shape[0], dst_array.shape[1], dst_array.shape[2]))
+            dst.write(dst_array)
 
     def _mask(self):
 

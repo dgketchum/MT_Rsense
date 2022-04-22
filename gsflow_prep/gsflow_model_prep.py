@@ -107,6 +107,13 @@ class StandardPrmsBuild:
                                                           dimensions=[['nhru', len(self.lat)]],
                                                           datatype=2))
 
+        outlet_sta = self.modelgrid.intersect(self.pour_pt_coords[0][0], self.pour_pt_coords[0][1])
+        outlet_sta = self.modelgrid.get_node([(0,) + outlet_sta])
+        self.data_params.append(ParameterRecord('outlet_sta',
+                                                values=[outlet_sta[0] + 1, ],
+                                                dimensions=[['one', 1]],
+                                                datatype=1))
+
         # self.build_lakes()
         self._build_veg_params()
         self._build_soil_params()
@@ -236,7 +243,7 @@ class StandardPrmsBuild:
         x = self.modelgrid.xcellcenters.ravel()
         y = self.modelgrid.ycellcenters.ravel()
         self.nhru = (x * y).size
-        self.hru_area = (float(self.cfg.hru_cellsize) ** 2) * 0.000247105
+        self.hru_area = (float(self.cfg.hru_cellsize) ** 2) * 0.000247105  # acres
         trans = Transformer.from_proj('epsg:{}'.format(5071), 'epsg:4326', always_xy=True)
         self.lon, self.lat = trans.transform(x, y)
 
@@ -532,21 +539,24 @@ class StandardPrmsBuild:
         dem = np.array(self.dem)
         size_frac = 0.0
         rc = self.pour_pt_rowcol[0]
-        while size_frac < 0.5:
+        while size_frac < 0.7:
             fa = deepcopy(floacc)
             shed = fa.define_watershed([rc], self.modelgrid, fmt='rowcol')
             size_frac = check_size(shed)
-            if size_frac > 0.95:
-                self.pour_pt_rowcol = [rc]
-                self.pour_pt_coords = [[self.modelgrid.xcellcenters[rc[0],
-                                                                  rc[1]], self.modelgrid.ycellcenters[rc[0], rc[1]]]]
-                return shed
             hood = flo[rc[0] - 1:rc[0] + 2, rc[1] - 1:rc[1] + 2]
+
+            if hood.size == 0:
+                flo_ = np.pad(flo, 1, 'constant', constant_values=0)
+                rc_ = [rc[0] + 1, rc[1] + 1]
+                hood = flo_[rc_[0] - 1:rc_[0] + 2, rc_[1] - 1:rc_[1] + 2]
+
             idx_add = dir_map[np.argmax(hood)]
             rc = [rc[0] + idx_add[0], rc[1] + idx_add[1]]
-            print('{:.3f} of expected watershed\n'
-                  'moving to {}, flow acc: {:.3f} at elev: {:.3f}'.format(size_frac, rc, flo[rc[0], rc[1]],
-                                                                          dem[rc[0], rc[1]]))
+
+        self.pour_pt_rowcol = [rc]
+        self.pour_pt_coords = [[self.modelgrid.xcellcenters[rc[0], rc[1]],
+                                self.modelgrid.ycellcenters[rc[0], rc[1]]]]
+        return shed
 
 
 class MontanaPrmsModel:
