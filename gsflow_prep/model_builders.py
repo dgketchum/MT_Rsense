@@ -320,7 +320,7 @@ def plot_stats(stats):
     # ax.set_ylim([0, 2000])
     # plt.savefig('/home/dgketchum/Downloads/hydrograph.png')
     plt.show()
-    plt.close()
+    # plt.close()
 
 
 if __name__ == '__main__':

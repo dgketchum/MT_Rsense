@@ -118,7 +118,7 @@ class StandardPrmsBuild:
         self._build_veg_params()
         self._build_soil_params()
 
-        [self.parameters.remove_record(rec) for rec in PRMS_NOT_REQ]
+        # [self.parameters.remove_record(rec) for rec in PRMS_NOT_REQ]
 
     def build_controls(self):
         controlbuild = ControlFileBuilder(ControlFileDefaults())
@@ -150,9 +150,9 @@ class StandardPrmsBuild:
                                 [os.path.join(self.cfg.output_folder, 'output.model')],
                                 datatype=4)
 
-        self.control.add_record('var_init_file',
-                                [os.path.join(self.cfg.output_folder, 'init.csv')],
-                                datatype=4)
+        # self.control.add_record('var_init_file',
+        #                         [os.path.join(self.cfg.output_folder, 'init.csv')],
+        #                         datatype=4)
 
         self.control.add_record('data_file', [self.data_file], datatype=4)
 
@@ -191,7 +191,7 @@ class StandardPrmsBuild:
         self.control.add_record('stat_var_file', [os.path.join(self.cfg.output_folder, 'statvar.out')],
                                 datatype=4)
 
-        disp_vars = [('basin_cfs', '1'),
+        disp_vars = [('basin_cms', '1'),
                      ('runoff', '1'),
                      ('basin_gwflow', '2'),
                      ('basin_sroff', '2'),
@@ -401,12 +401,12 @@ class StandardPrmsBuild:
         self.awc = self.awc * 1000 / 25.4
 
         soil_moist_max = bu.soil_moist_max(self.awc, self.root_depth)
-        soil_moist_init = bu.soil_moist_init(soil_moist_max.values)
+        soil_moist_init = bu.soil_moist_init(soil_moist_max.values, factor=0.1)
         soil_rech_max = bu.soil_rech_max(self.awc, self.root_depth)
-        soil_rech_init = bu.soil_rech_init(soil_rech_max.values)
+        soil_rech_init = bu.soil_rech_init(soil_rech_max.values, factor=0.1)
 
         # ksat mircrometer/sec to inches/day
-        self.ksat = self.ksat * 3.4 / 1000
+        self.ksat = self.ksat * 86400. * 0.00003937
 
         ssr2gw_rate = bu.ssr2gw_rate(self.ksat, self.sand, soil_moist_max.values)
         ssr2gw_sq = bu.ssr2gw_exp(self.nnodes)
@@ -420,13 +420,23 @@ class StandardPrmsBuild:
                                         dimensions=[['nhru', self.nhru]],
                                         datatype=2)
 
+        gwstor_init = ParameterRecord('gwstor_init',
+                                      [0.1],
+                                      dimensions=[['one', 1]],
+                                      datatype=2)
+
+        gwstor_min = ParameterRecord('gwstor_min',
+                                     [0.01],
+                                     dimensions=[['one', 1]],
+                                     datatype=2)
+
         hru_percent_imperv = bu.hru_percent_imperv(self.nlcd)
         hru_percent_imperv.values /= 100
         carea_max = bu.carea_max(self.nlcd) / 100
 
         vars_ = [soil_type, soil_moist_max, soil_moist_init, soil_rech_max, soil_rech_init,
                  ssr2gw_rate, ssr2gw_sq, slowcoef_lin, slowcoef_sq, hru_percent_imperv, carea_max,
-                 self.hru_aspect, self.hru_slope, sat_threshold]
+                 self.hru_aspect, self.hru_slope, sat_threshold, gwstor_init, gwstor_min]
 
         for v in vars_:
             self.parameters.add_record_object(v)
@@ -612,6 +622,9 @@ class MontanaPrmsModel:
     def get_statvar(self):
         self.statvar = StatVar.load_from_control_object(self.control)
         df = self.statvar.stat_df.drop(columns=['Hour', 'Minute', 'Second'])
+        s, e = self.control.get_values('start_time'), self.control.get_values('end_time')
+        df.index = pd.date_range('{}-{}-{}'.format(s[0], s[1], s[2]), '{}-{}-{}'.format(e[0], e[1], e[2]), freq='D')
+        df = self.statvar.stat_df.drop(columns=['Year', 'Month', 'Day'])
         return df
 
 
