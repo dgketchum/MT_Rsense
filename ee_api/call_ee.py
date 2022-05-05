@@ -20,7 +20,7 @@ RF_ASSET = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
 BASINS = 'users/dgketchum/gages/gage_basins'
 COUNTIES = 'users/dgketchum/boundaries/western_11_co_study'
 
-FIELDS = 'projects/earthengine-legacy/assets/users/dgketchum/fields/smb'
+FIELDS = 'projects/earthengine-legacy/assets/users/dgketchum/fields/Milk_Thatcher'
 
 UMRB_CLIP = 'users/dgketchum/boundaries/umrb_ylstn_clip'
 CMBRB_CLIP = 'users/dgketchum/boundaries/CMB_RB_CLIP'
@@ -81,7 +81,7 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
     umrb_clip = ee.FeatureCollection(UMRB_CLIP)
     corb_clip = ee.FeatureCollection(CORB_CLIP)
 
-    fc = ee.FeatureCollection(ee.FeatureCollection(tables).filter(ee.Filter.eq('FID', 164)))
+    # fc = ee.FeatureCollection(ee.FeatureCollection(tables).filter(ee.Filter.eq('FID', 4333)))
 
     irr_coll = ee.ImageCollection(RF_ASSET)
     coll = irr_coll.filterDate('1991-01-01', '2020-12-31').select('classification')
@@ -91,14 +91,15 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
 
     for yr in years:
         for month in range(5, 11):
-            if not yr == 2018 or not month == 8:
-                continue
             s = '{}-{}-01'.format(yr, str(month).rjust(2, '0'))
             end_day = monthrange(yr, month)[1]
             e = '{}-{}-{}'.format(yr, str(month).rjust(2, '0'), end_day)
 
             irr = irr_coll.filterDate('{}-01-01'.format(yr), '{}-12-31'.format(yr)).select('classification').mosaic()
             irr_mask = irr_min_yr_mask.updateMask(irr.lt(1))
+
+            senay = ee.ImageCollection('projects/usgs-ssebop/et/conus/monthly/v4').filter(ee.Filter.date(s, e))
+            senay = senay.select('et_actual').sum().divide(1000.0)
 
             annual_coll = ee.ImageCollection('users/dgketchum/ssebop/cmbrb').merge(
                 ee.ImageCollection('users/hoylmanecohydro2/ssebop/cmbrb'))
@@ -149,14 +150,15 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
 
             else:
                 irr = irr_mask.multiply(area).rename('irr')
-                et = et.rename('et')
+                et = et.rename('et_ketchum')
+                senay = senay.rename('et_senay')
                 cc = cc.rename('cc')
                 ppt = ppt.rename('ppt')
                 etr = etr.rename('etr')
                 swb_aet = swb_aet.rename('aet')
 
-            bands = irr.addBands([et, cc, ppt, etr, swb_aet])
-            select_ = ['FID', 'irr', 'et', 'cc', 'ppt', 'etr', 'aet']
+            bands = irr.addBands([et, senay, cc, ppt, etr, swb_aet])
+            select_ = ['FID_new', 'et_ketchum', 'et_senay']
 
             if volume:
                 data = bands.reduceRegions(collection=fc,
@@ -170,7 +172,7 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
             # poly = ee.Geometry.Rectangle([-109.45560755, 48.5731717, -109.45069, 48.5757698])
             # feat = ee.FeatureCollection([ee.Feature(poly, {'system:index': 'abc123'})])
             # poly_data = bands.reduceRegions(collection=feat, reducer=ee.Reducer.mean(), scale=30)
-            test = data.getInfo()
+            # test = data.getInfo()
 
             out_desc = '{}_{}_{}'.format(description, yr, month)
             task = ee.batch.Export.table.toCloudStorage(
@@ -316,9 +318,9 @@ def get_landcover_info(basin, glob='none'):
 if __name__ == '__main__':
     is_authorized()
 
-    # extract_gridded_data(FIELDS, years=[i for i in range(1991, 2021)],
-    #                      description='SMB_11FEB2022', min_years=0,
-    #                      mask_irr=False, volume=False)
+    extract_gridded_data(FIELDS, years=[i for i in range(2015, 2016)],
+                         description='MSMComp_3MAY2022', min_years=0,
+                         mask_irr=False, volume=False)
 
-    get_landcover_info('huc6_MT_intersect_dissolve', glob='7MAR2022')
+    # get_landcover_info('huc6_MT_intersect_dissolve', glob='7MAR2022')
 # ========================= EOF ================================================================================

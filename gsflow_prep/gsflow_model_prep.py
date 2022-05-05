@@ -118,7 +118,7 @@ class StandardPrmsBuild:
         self._build_veg_params()
         self._build_soil_params()
 
-        # [self.parameters.remove_record(rec) for rec in PRMS_NOT_REQ]
+        [self.parameters.remove_record(rec) for rec in PRMS_NOT_REQ]
 
     def build_controls(self):
         controlbuild = ControlFileBuilder(ControlFileDefaults())
@@ -178,6 +178,7 @@ class StandardPrmsBuild:
                      'basin_gwstor',
                      'basin_gwflow',
                      'basin_gwsink',
+                     'basin_cms',
                      'basin_cfs',
                      'basin_ssflow',
                      'basin_imperv_stor',
@@ -322,8 +323,8 @@ class StandardPrmsBuild:
 
         self.streams = fa.make_streams(self.flow_direction,
                                        self.flow_accumulation,
-                                       threshold=100,
-                                       min_stream_len=10)
+                                       threshold=4,
+                                       min_stream_len=2)
 
         self.cascades = fa.get_cascades(streams=self.streams,
                                         pour_point=self.pour_pt_rowcol, fmt='rowcol',
@@ -397,8 +398,11 @@ class StandardPrmsBuild:
         cellsize = int(self.cfg.hru_cellsize)
         soil_type = bu.soil_type(self.clay, self.sand)
 
-        # awc meters to inches
-        self.awc = self.awc * 1000 / 25.4
+        # awc meters to inches; to fraction
+        self.awc = self.awc / 0.0254
+        self.awc /= self.root_depth.reshape(self.awc.shape[0], self.awc.shape[1])
+        self.awc[np.isinf(self.awc)] = 0.0001
+        self.awc[np.isnan(self.awc)] = 0.0001
 
         soil_moist_max = bu.soil_moist_max(self.awc, self.root_depth)
         soil_moist_init = bu.soil_moist_init(soil_moist_max.values, factor=0.1)
@@ -406,7 +410,8 @@ class StandardPrmsBuild:
         soil_rech_init = bu.soil_rech_init(soil_rech_max.values, factor=0.1)
 
         # ksat mircrometer/sec to inches/day
-        self.ksat = self.ksat * 86400. * 0.00003937
+        self.ksat = self.ksat * 86400. / 25400.
+        self.ksat = np.where(self.ksat > 85.0, np.ones_like(self.ksat) * 85.0, self.ksat)
 
         ssr2gw_rate = bu.ssr2gw_rate(self.ksat, self.sand, soil_moist_max.values)
         ssr2gw_sq = bu.ssr2gw_exp(self.nnodes)
@@ -416,23 +421,23 @@ class StandardPrmsBuild:
 
         # parameterize this
         sat_threshold = ParameterRecord('sat_threshold',
-                                        np.ones_like(self.ksat).ravel(),
+                                        self.awc.ravel() * 3.,
                                         dimensions=[['nhru', self.nhru]],
                                         datatype=2)
 
         gwstor_init = ParameterRecord('gwstor_init',
-                                      [0.1],
+                                      [0.5],
                                       dimensions=[['one', 1]],
                                       datatype=2)
 
         gwstor_min = ParameterRecord('gwstor_min',
-                                     [0.01],
+                                     [0.1],
                                      dimensions=[['one', 1]],
                                      datatype=2)
 
         hru_percent_imperv = bu.hru_percent_imperv(self.nlcd)
         hru_percent_imperv.values /= 100
-        carea_max = bu.carea_max(self.nlcd) / 100
+        carea_max = bu.carea_max(1 - self.nlcd / 100)
 
         vars_ = [soil_type, soil_moist_max, soil_moist_init, soil_rech_max, soil_rech_init,
                  ssr2gw_rate, ssr2gw_sq, slowcoef_lin, slowcoef_sq, hru_percent_imperv, carea_max,
@@ -461,10 +466,9 @@ class StandardPrmsBuild:
                 with rasterio.open(out_path, 'r') as src:
                     a = src.read(1)
                     if raster in ['sand', 'clay', 'loam', 'ksat', 'awc']:
-                        a /= 100.
+                        a /= 10000.
                     if first:
                         self.raster_meta = src.meta
-                        first = False
                 setattr(self, raster, a)
                 continue
 
@@ -507,7 +511,7 @@ class StandardPrmsBuild:
             with rasterio.open(out_path, 'r') as src:
                 a = src.read(1)
                 if raster in ['sand', 'clay', 'loam', 'ksat', 'awc']:
-                    a /= 100.
+                    a /= 10000.
                 if first:
                     self.raster_meta = src.raster_meta
                     first = False
@@ -621,11 +625,15 @@ class MontanaPrmsModel:
 
     def get_statvar(self):
         self.statvar = StatVar.load_from_control_object(self.control)
-        df = self.statvar.stat_df.drop(columns=['Hour', 'Minute', 'Second'])
+        self.statvar.stat_df.drop(columns=['Hour', 'Minute', 'Second'], inplace=True)
         s, e = self.control.get_values('start_time'), self.control.get_values('end_time')
-        df.index = pd.date_range('{}-{}-{}'.format(s[0], s[1], s[2]), '{}-{}-{}'.format(e[0], e[1], e[2]), freq='D')
-        df = self.statvar.stat_df.drop(columns=['Year', 'Month', 'Day'])
-        return df
+        try:
+            self.statvar.stat_df.index = pd.date_range('{}-{}-{}'.format(s[0], s[1], s[2]),
+                                                       '{}-{}-{}'.format(e[0], e[1], e[2]), freq='D')
+            self.statvar.stat_df.drop(columns=['Year', 'Month', 'Day'], inplace=True)
+        except ValueError:
+            pass
+        return self.statvar.stat_df
 
 
 def features(shp):

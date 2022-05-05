@@ -16,6 +16,8 @@ from datafile import write_basin_datafile
 from utils.thredds import GridMet
 from utils.bounds import GeoBounds
 import warnings
+from gsflow.prms import PrmsData, PrmsParameters
+
 
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
 
@@ -45,7 +47,7 @@ class CbhruPrmsBuild(StandardPrmsBuild):
 
         self.data = PrmsData.load_from_file(self.data_file)
 
-    def write_day_files(self):
+    def write_day_files(self, units='metric'):
         s = datetime.strptime(self.cfg.start_time, '%Y-%m-%d')
         e = datetime.strptime(self.cfg.end_time, '%Y-%m-%d')
 
@@ -91,9 +93,19 @@ class CbhruPrmsBuild(StandardPrmsBuild):
 
             if var_ in ['tmmn', 'tmmx']:
                 vals = np.where(vals > 0, vals - 273.15, np.zeros_like(vals))
+                if units != 'metric':
+                    vals = (vals * 9 / 5) + 32.
 
             if var_ == 'pr':
                 vals = np.where(vals > 30.0, np.ones_like(vals) * 29.9, vals)
+                if units != 'metric':
+                    vals = vals / 25.4
+
+            if var_ == 'vs':
+                pass
+
+            if var_ == 'pet':
+                vals = vals / 25.4
 
             if var_ == 'rmax':
                 rmax = np.copy(vals)
@@ -128,10 +140,10 @@ class CbhruPrmsBuild(StandardPrmsBuild):
                 df.to_csv(f, sep=' ', header=False, index=False, float_format='%.1f')
             print('write {}'.format(_file))
 
-    def build_model(self):
+    def build_model(self, units='metric'):
         self._build_grid()
-        self.write_datafile()
-        self.write_day_files()
+        self.write_datafile(units=units)
+        self.write_day_files(units=units)
         self.build_parameters()
         self.build_controls()
         self.write_parameters()
@@ -145,11 +157,10 @@ class CbhruPrmsBuild(StandardPrmsBuild):
 
     def write_control(self):
         # 0: standard; 1: SI/metric
-        units = 1
-        self.control.add_record('elev_units', [units])
-        self.control.add_record('precip_units', [units])
-        self.control.add_record('temp_units', [units])
-        self.control.add_record('runoff_units', [units])
+        self.control.add_record('elev_units', [1])
+        self.control.add_record('precip_units', [1])
+        self.control.add_record('temp_units', [1])
+        self.control.add_record('runoff_units', [1])
 
         self.control.precip_module = ['climate_hru']
         self.control.temp_module = ['climate_hru']
@@ -312,30 +323,67 @@ def dt_index_to_dct(dt_range):
 
 def plot_stats(stats):
     fig, ax = plt.subplots(figsize=(16, 6))
-    ax.plot(stats.Date, stats.basin_cfs_1, color='r', linewidth=2.2, label="simulated")
+    ax.plot(stats.Date, stats.basin_cms_1, color='r', linewidth=2.2, label="simulated")
     ax.plot(stats.Date, stats.runoff_1, color='b', linewidth=1.5, label="measured")
     ax.legend(bbox_to_anchor=(0.25, 0.65))
     ax.set_xlabel("Date")
     ax.set_ylabel("Streamflow, in cfs")
     # ax.set_ylim([0, 2000])
-    # plt.savefig('/home/dgketchum/Downloads/hydrograph.png')
+    # plt.savefig('/home/dgketchum/Downloads/hydrograph_luca.png')
     plt.show()
     # plt.close()
 
 
 if __name__ == '__main__':
+    root = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep'
     matplotlib.use('TkAgg')
 
     conf = './model_files/uyws_parameters.ini'
+
     prms_build = CbhruPrmsBuild(conf)
     # prms_build = XyzDistBuild(conf)
-    prms_build.build_model()
+    # prms_build.build_model()
+
+    # luca_params = os.path.join(root, 'uyws_carter_5000/input/luca')
+    # params_ = ['adjmix_rain',
+    #            'carea_max',
+    #            'snow_adj',
+    #            'snowinfil_max',
+    #            'cecn_coef',
+    #            'fastcoef_lin',
+    #            'fastcoef_sq',
+    #            'freeh2o_cap',
+    #            'gwflow_coef',
+    #            'gwstor_init',
+    #            'smidx_coef',
+    #            'smidx_exp',
+    #            'soil_moist_max',
+    #            'soil_rechr_max',
+    #            'soil2gw_max']
+    # dct = {k: None for k in params_}
+    # l = sorted([os.path.join(luca_params, x) for x in os.listdir(luca_params)])
+    # first = True
+    # for ll in l:
+    #     params = PrmsParameters.load_from_file(ll)
+    #     if first:
+    #         for p in params_:
+    #             vals = params.get_values(p)
+    #             dct[p] = vals.mean()
+    #         first = False
+    #         continue
+    #
+    #     for p in params_:
+    #         vals = params.get_values(p)
+    #         new_val = vals.mean()
+    #         delta = new_val - dct[p]
+    #         print('{:.3f} {} delta'.format(delta, p))
+    #         dct[p] = new_val
+
     prms = MontanaPrmsModel(prms_build.control_file,
                             prms_build.parameter_file,
                             prms_build.data_file)
-
     stdout_ = os.path.join(prms_build.cfg.output_folder, 'out.txt')
-    prms.run_model(stdout_)
+    # prms.run_model(stdout_)
 
     stats = prms.get_statvar()
     plot_stats(stats)
