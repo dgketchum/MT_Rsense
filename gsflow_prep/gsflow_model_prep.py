@@ -624,13 +624,30 @@ class MontanaPrmsModel:
         return success, buff
 
     def get_statvar(self):
+
         self.statvar = StatVar.load_from_control_object(self.control)
-        self.statvar.stat_df.drop(columns=['Hour', 'Minute', 'Second'], inplace=True)
+        df = self.statvar.stat_df
+        df.drop(columns=['Hour', 'Minute', 'Second'], inplace=True)
+
+        if self.control.get_record('runoff_units').values[0] == 0:
+            raise AttributeError('Set runoff units to metric')
+
+        # cms to m3 per day
+        df['obs_q_vol_m3'] = 60 * 60 * 24 * df['runoff_1'] / 1e6
+        df['pred_q_vol_m3'] = 60 * 60 * 24 * df['basin_cms_1'] / 1e6
+
+        # ppt in inches, hru_area in acres
+        hru_area = self.parameters.get_values('hru_area')[0]
+        hru_active = np.count_nonzero(self.parameters.get_values('hru_type'))
+        basin_area = hru_active * hru_area * 43560.
+        ppt_meters = df['basin_ppt_1'] / 39.3701
+        df['ppt_vol_m3'] = basin_area * ppt_meters / 1e6
+
         s, e = self.control.get_values('start_time'), self.control.get_values('end_time')
         try:
-            self.statvar.stat_df.index = pd.date_range('{}-{}-{}'.format(s[0], s[1], s[2]),
-                                                       '{}-{}-{}'.format(e[0], e[1], e[2]), freq='D')
-            self.statvar.stat_df.drop(columns=['Year', 'Month', 'Day'], inplace=True)
+            df.index = pd.date_range('{}-{}-{}'.format(s[0], s[1], s[2]),
+                                     '{}-{}-{}'.format(e[0], e[1], e[2]), freq='D')
+            df.drop(columns=['Year', 'Month', 'Day'], inplace=True)
         except ValueError:
             pass
         return self.statvar.stat_df

@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 
 import numpy as np
-from pandas import DataFrame, to_datetime, date_range
+from pandas import DataFrame, to_datetime, date_range, read_csv
 import fiona
 from rasterstats import zonal_stats
 
@@ -37,6 +37,31 @@ def zonal_snodas(in_shp, raster_dir, out_csv):
     df.to_csv(out_csv)
 
 
+def snodas_data_file(in_csv, out_csv):
+
+    df = read_csv(in_csv, infer_datetime_format=True, index_col=['Unnamed: 0'],
+                  parse_dates=True)
+
+    df['mean'] = df['mean'] / 25.4
+
+    with open(out_csv, 'w') as f:
+
+        time_div = ['Year', 'Month', 'day', 'hr', 'min', 'sec']
+        df['Year'] = [i.year for i in df.index]
+        df['Month'] = [i.month for i in df.index]
+        df['day'] = [i.day for i in df.index]
+        for t_ in time_div[3:]:
+            df[t_] = [0 for _ in df.index]
+
+        df = df[['Year', 'Month', 'day', 'mean']]
+
+        [f.write('{}\n'.format(item)) for item in ['PRMS Snow (SWE) Datafile']]
+
+        f.write('######################## \n')
+
+        df.to_csv(f, sep=' ', header=False, index=False, float_format='%.1f')
+
+
 if __name__ == '__main__':
     d = '/media/research/IrrigationGIS'
     if not os.path.exists(d):
@@ -45,5 +70,9 @@ if __name__ == '__main__':
     shp = os.path.join(d, 'Montana/upper_yellowstone/gsflow_prep/domain/carter_basin.shp')
     ras_dir = os.path.join(d, 'climate/snodas/rasters')
     out_csv_ = os.path.join(d, 'Montana/upper_yellowstone/gsflow_prep/snodas/carter_basin_snodas.csv')
-    zonal_snodas(shp, ras_dir, out_csv_)
+    # zonal_snodas(shp, ras_dir, out_csv_)
+
+    datafile_ = os.path.join(d, 'Montana/upper_yellowstone/gsflow_prep/snodas/snodas.data')
+    snodas_data_file(out_csv_, datafile_)
 # ========================= EOF ====================================================================
+

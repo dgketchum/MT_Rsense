@@ -24,15 +24,6 @@ def clip_raster(basin, raw_data_dir, clipped_dir, buffer_extent=None):
 
     _files = [os.path.join(raw_data_dir, x) for x in os.listdir(raw_data_dir) if x.endswith('.tif')]
 
-    prism_params = ['ppt', 'tmax', 'tmin']
-    subdir_str = 'PRISM_{}_30yr_normal_800mM3_all_bil'
-    prism_dir = [os.path.join(raw_data_dir, 'prism', subdir_str.format(p)) for p in prism_params]
-    accept = ['bil', 'tif']
-    prism_files = [[os.path.join(p, x) for x in os.listdir(p) if x.split('.')[-1] in accept] for p in prism_dir]
-    prism_files = [i for l in prism_files for i in l]
-
-    _files = prism_files + _files
-
     for in_ras in _files:
 
         _var = os.path.basename(in_ras).split('.')[0]
@@ -64,6 +55,6 @@ if __name__ == '__main__':
     src = os.path.join(d, 'statewide_rasters')
     project = os.path.join(d, 'upper_yellowstone', 'gsflow_prep')
     out_rasters = os.path.join(project, 'rasters')
-    basin_ = os.path.join(project, 'uyws_carter', 'domain', 'UYWS_StremStats_Basin_Extent.shp')
+    basin_ = os.path.join(project, 'domain', 'carter_basin.shp')
     clip_raster(basin_, src, out_rasters, buffer_extent=None)
 # ========================= EOF ======================= =============================================

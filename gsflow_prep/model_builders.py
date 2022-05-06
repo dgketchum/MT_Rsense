@@ -18,7 +18,6 @@ from utils.bounds import GeoBounds
 import warnings
 from gsflow.prms import PrmsData, PrmsParameters
 
-
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
 
 
@@ -60,11 +59,11 @@ class CbhruPrmsBuild(StandardPrmsBuild):
                            east=self.lon.max(),
                            south=self.lat.min())
 
-        req_vars = {'tmmx': 'tmax_day',
+        req_vars = {'pr': 'precip_day',
+                    'tmmx': 'tmax_day',
                     'tmmn': 'tmin_day',
                     'rmin': None,
                     'rmax': None,
-                    'pr': 'precip_day',
                     'pet': 'potet_day',
                     'srad': 'swrad_day',
                     'vs': 'windspeed_day'}
@@ -334,6 +333,61 @@ def plot_stats(stats):
     # plt.close()
 
 
+def read_calibration(params_dir):
+    params_ = ['adjmix_rain',
+               'tmax_allsnow',
+               'srain_intcp',
+               'wrain_intcp',
+               'cecn_coef',
+               'emis_noppt',
+               'freeh2o_cap',
+               'potet_sublim',
+               'carea_max',
+               'smidx_coef',
+               'smidx_exp',
+               'fastcoef_lin',
+               'fastcoef_sq',
+               'pref_flow_den',
+               'sat_threshold',
+               'slowcoef_lin',
+               'slowcoef_sq',
+               'soil_moist_max',
+               'soil_rechr_max',
+               'soil2gw_max',
+               'ssr2gw_exp',
+               'ssr2gw_rate',
+               'transp_tmax',
+               'gwflow_coef']
+
+    dct = {k: None for k in params_}
+    l = sorted([os.path.join(params_dir, x) for x in os.listdir(params_dir)])
+    first = True
+    for i, ll in enumerate(l):
+        params = PrmsParameters.load_from_file(ll)
+        if first:
+            for p in params_:
+                vals = params.get_values(p)
+                dct[p] = vals.mean()
+            first = False
+            continue
+
+        for p in params_:
+            vals = params.get_values(p)
+            new_val = vals.mean()
+            delta = new_val - dct[p]
+            print('{:.3f} {} delta'.format(delta, p))
+            dct[p] = new_val
+            if p == 'ssr2gw_exp':
+                pass
+
+        if i == len(l) - 1:
+            print('final luca parameter values')
+            for p in params_:
+                vals = params.get_values(p)
+                new_val = vals.mean()
+                print('{:.3f} {} final values'.format(new_val, p))
+
+
 if __name__ == '__main__':
     root = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep'
     matplotlib.use('TkAgg')
@@ -342,48 +396,23 @@ if __name__ == '__main__':
 
     prms_build = CbhruPrmsBuild(conf)
     # prms_build = XyzDistBuild(conf)
-    # prms_build.build_model()
+    prms_build.build_model()
 
-    # luca_params = os.path.join(root, 'uyws_carter_5000/input/luca')
-    # params_ = ['adjmix_rain',
-    #            'carea_max',
-    #            'snow_adj',
-    #            'snowinfil_max',
-    #            'cecn_coef',
-    #            'fastcoef_lin',
-    #            'fastcoef_sq',
-    #            'freeh2o_cap',
-    #            'gwflow_coef',
-    #            'gwstor_init',
-    #            'smidx_coef',
-    #            'smidx_exp',
-    #            'soil_moist_max',
-    #            'soil_rechr_max',
-    #            'soil2gw_max']
-    # dct = {k: None for k in params_}
-    # l = sorted([os.path.join(luca_params, x) for x in os.listdir(luca_params)])
-    # first = True
-    # for ll in l:
-    #     params = PrmsParameters.load_from_file(ll)
-    #     if first:
-    #         for p in params_:
-    #             vals = params.get_values(p)
-    #             dct[p] = vals.mean()
-    #         first = False
-    #         continue
-    #
-    #     for p in params_:
-    #         vals = params.get_values(p)
-    #         new_val = vals.mean()
-    #         delta = new_val - dct[p]
-    #         print('{:.3f} {} delta'.format(delta, p))
-    #         dct[p] = new_val
+    luca_dir = os.path.join(root, 'uyws_carter_10000/input/luca')
+    luca_params = os.path.join(luca_dir, 'calib1_round3_step6.par')
+    # read_calibration(luca_dir)
 
     prms = MontanaPrmsModel(prms_build.control_file,
                             prms_build.parameter_file,
                             prms_build.data_file)
-    stdout_ = os.path.join(prms_build.cfg.output_folder, 'out.txt')
-    # prms.run_model(stdout_)
+    prms.run_model()
+    stats = prms.get_statvar()
+    plot_stats(stats)
+
+    prms = MontanaPrmsModel(prms_build.control_file,
+                            luca_params,
+                            prms_build.data_file)
+    prms.run_model()
 
     stats = prms.get_statvar()
     plot_stats(stats)
