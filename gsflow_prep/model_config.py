@@ -12,7 +12,11 @@ class PRMSConfig:
             raise ValueError('No config file found!')
 
         for name in ['MODEL_INFO', 'MODEL_PATHS']:
-            self.__dict__.update(parser.items(name))
+            for k, v in parser.items(name):
+                if 'units' in k:
+                    self.__dict__.update({k: int(v)})
+                else:
+                    self.__dict__.update({k: v})
 
         for name in ['INPUT_PATHS']:
             _dir = self.__dict__['project_folder']

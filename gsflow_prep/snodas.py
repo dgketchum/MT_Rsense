@@ -55,10 +55,6 @@ def snodas_data_file(in_csv, out_csv):
 
         df = df[['Year', 'Month', 'day', 'mean']]
 
-        [f.write('{}\n'.format(item)) for item in ['PRMS Snow (SWE) Datafile']]
-
-        f.write('######################## \n')
-
         df.to_csv(f, sep=' ', header=False, index=False, float_format='%.1f')
 
 
@@ -72,7 +68,7 @@ if __name__ == '__main__':
     out_csv_ = os.path.join(d, 'Montana/upper_yellowstone/gsflow_prep/snodas/carter_basin_snodas.csv')
     # zonal_snodas(shp, ras_dir, out_csv_)
 
-    datafile_ = os.path.join(d, 'Montana/upper_yellowstone/gsflow_prep/snodas/snodas.data')
+    datafile_ = os.path.join(d, 'Montana/upper_yellowstone/gsflow_prep/uyws_carter_5000/input/snodas.data')
     snodas_data_file(out_csv_, datafile_)
 # ========================= EOF ====================================================================
 
