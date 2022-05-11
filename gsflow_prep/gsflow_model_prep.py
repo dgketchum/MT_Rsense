@@ -597,6 +597,7 @@ class MontanaPrmsModel:
         self.control_file = control_file
         self.parameter_file = parameter_file
         self.data_file = data_file
+
         self.control = ControlFile.load_from_file(control_file)
 
         if str(self.control.get_record('param_file').values[0]) != self.parameter_file:

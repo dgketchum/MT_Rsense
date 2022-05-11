@@ -7,7 +7,6 @@ from pandas import DataFrame, date_range
 from gsflow.prms.prms_parameter import ParameterRecord
 from gsflow.control import ControlRecord
 from gsflow.builder import builder_utils as bu
-from gsflow.prms import PrmsData
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -28,7 +27,7 @@ class CbhruPrmsBuild(StandardPrmsBuild):
         self.data_file = os.path.join(self.cfg.data_folder,
                                       '{}_runoff.data'.format(self.proj_name_res))
 
-    def write_datafile(self, units='metric'):
+    def write_datafile(self,):
 
         gages = self.cfg.prms_data_gages
 
@@ -42,11 +41,12 @@ class CbhruPrmsBuild(StandardPrmsBuild):
                                                 datatype=2))
 
         if not os.path.isfile(self.data_file):
+            units = 'metric' if self.cfg.runoff_units == 1 else 'standard'
             write_basin_datafile(gages, self.data_file, units=units)
 
         self.data = PrmsData.load_from_file(self.data_file)
 
-    def write_day_files(self, units='metric'):
+    def write_day_files(self):
         s = datetime.strptime(self.cfg.start_time, '%Y-%m-%d')
         e = datetime.strptime(self.cfg.end_time, '%Y-%m-%d')
 
@@ -92,12 +92,12 @@ class CbhruPrmsBuild(StandardPrmsBuild):
 
             if var_ in ['tmmn', 'tmmx']:
                 vals = np.where(vals > 0, vals - 273.15, np.zeros_like(vals))
-                if units != 'metric':
+                if self.cfg.temp_units == 0:
                     vals = (vals * 9 / 5) + 32.
 
             if var_ == 'pr':
                 vals = np.where(vals > 30.0, np.ones_like(vals) * 29.9, vals)
-                if units != 'metric':
+                if self.cfg.precip_units == 1:
                     vals = vals / 25.4
 
             if var_ == 'vs':
@@ -139,27 +139,36 @@ class CbhruPrmsBuild(StandardPrmsBuild):
                 df.to_csv(f, sep=' ', header=False, index=False, float_format='%.1f')
             print('write {}'.format(_file))
 
-    def build_model(self, units='metric'):
+    def build_model(self):
         self._build_grid()
-        self.write_datafile(units=units)
-        self.write_day_files(units=units)
+        self.write_datafile()
+        self.write_day_files()
         self.build_parameters()
         self.build_controls()
         self.write_parameters()
         self.write_control()
 
     def write_parameters(self):
-        if self.data_params is not None:
-            [self.parameters.add_record_object(rec) for rec in self.data_params]
+
+        rain_snow_adj = np.ones((self.nhru * self.nmonths), dtype=float)
+
+        self.data_params.append(ParameterRecord('rain_cbh_adj', rain_snow_adj,
+                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
+                                                datatype=2))
+
+        self.data_params.append(ParameterRecord('snow_cbh_adj', rain_snow_adj,
+                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
+                                                datatype=2))
+
+        [self.parameters.add_record_object(rec) for rec in self.data_params]
 
         self.parameters.write(self.parameter_file)
 
     def write_control(self):
-        # 0: standard; 1: SI/metric
-        self.control.add_record('elev_units', [1])
-        self.control.add_record('precip_units', [1])
-        self.control.add_record('temp_units', [1])
-        self.control.add_record('runoff_units', [1])
+        self.control.add_record('elev_units', [self.cfg.elev_units])
+        self.control.add_record('precip_units', [self.cfg.precip_units])
+        self.control.add_record('temp_units', [self.cfg.temp_units])
+        self.control.add_record('runoff_units', [self.cfg.runoff_units])
 
         self.control.precip_module = ['climate_hru']
         self.control.temp_module = ['climate_hru']
@@ -179,7 +188,7 @@ class XyzDistBuild(StandardPrmsBuild):
         self.data_file = os.path.join(self.cfg.data_folder,
                                       '{}_xyz.data'.format(self.proj_name_res))
 
-    def write_datafile(self, units='metric'):
+    def write_datafile(self):
 
         self.nmonths = 12
 
@@ -194,7 +203,7 @@ class XyzDistBuild(StandardPrmsBuild):
         tsta_elev, tsta_nuse, tsta_x, tsta_y, psta_elev = [], [], [], [], []
         for _, val in sta_iter:
 
-            if units != 'metric':
+            if self.elev_units == 1:
                 elev = val['elev'] / 0.3048
             else:
                 elev = val['elev']
@@ -244,24 +253,12 @@ class XyzDistBuild(StandardPrmsBuild):
                             ParameterRecord(name='nobs', values=[1, ], datatype=1),
                             ]
 
-        if units == 'metric':
+        if self.temp_units == 1:
             allrain_max = np.ones((self.nhru * self.nmonths)) * 3.3
-            tmax_allrain = np.ones((self.nhru * self.nmonths)) * 3.3
-            tmax_allsnow = np.ones((self.nhru * self.nmonths)) * 0.0
         else:
             allrain_max = np.ones((self.nhru * self.nmonths)) * 38.0
-            tmax_allrain = np.ones((self.nhru * self.nmonths)) * 38.0
-            tmax_allsnow = np.ones((self.nhru * self.nmonths)) * 32.0
 
         self.data_params.append(ParameterRecord('tmax_allrain_sta', allrain_max,
-                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
-                                                datatype=2))
-
-        self.data_params.append(ParameterRecord('tmax_allrain', tmax_allrain,
-                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
-                                                datatype=2))
-
-        self.data_params.append(ParameterRecord('tmax_allsnow', tmax_allsnow,
                                                 dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
                                                 datatype=2))
 
@@ -271,6 +268,7 @@ class XyzDistBuild(StandardPrmsBuild):
                                                 datatype=2))
 
         if not os.path.isfile(self.data_file):
+            units = 'metric' if self.cfg.precip_units == 1 else 'standard'
             write_basin_datafile(gage_json=gages, data_file=self.data_file, station_json=stations, ghcn_data=ghcn,
                                  out_csv=None, units=units)
 
@@ -320,17 +318,22 @@ def dt_index_to_dct(dt_range):
     return dct
 
 
-def plot_stats(stats):
+def plot_stats(stats, file=None):
     fig, ax = plt.subplots(figsize=(16, 6))
-    ax.plot(stats.Date, stats.basin_cms_1, color='r', linewidth=2.2, label="simulated")
+    stats = stats.loc['2017-01-01': '2017-12-31']
+    ax.plot(stats.Date, stats.basin_cfs_1, color='r', linewidth=2.2, label="simulated")
     ax.plot(stats.Date, stats.runoff_1, color='b', linewidth=1.5, label="measured")
     ax.legend(bbox_to_anchor=(0.25, 0.65))
     ax.set_xlabel("Date")
     ax.set_ylabel("Streamflow, in cfs")
     # ax.set_ylim([0, 2000])
-    # plt.savefig('/home/dgketchum/Downloads/hydrograph_luca.png')
-    plt.show()
-    # plt.close()
+
+    if file:
+        plt.savefig(file)
+    else:
+        plt.show()
+
+    plt.close()
 
 
 def read_calibration(params_dir):
@@ -393,29 +396,34 @@ if __name__ == '__main__':
     matplotlib.use('TkAgg')
 
     conf = './model_files/uyws_parameters.ini'
+    project = os.path.join(root, 'uyws_carter_5000')
+    luca_dir = os.path.join(project, 'input', 'luca')
+    stdout_ = os.path.join(project, 'output', 'stdout.txt')
 
     prms_build = CbhruPrmsBuild(conf)
     # prms_build = XyzDistBuild(conf)
-    prms_build.build_model()
+    # prms_build.build_model()
 
-    luca_dir = os.path.join(root, 'uyws_carter_10000/input/luca')
-    luca_params = os.path.join(luca_dir, 'calib1_round3_step6.par')
+    luca_params = os.path.join(luca_dir, 'calib1_round3_step2.par')
     # read_calibration(luca_dir)
 
     prms = MontanaPrmsModel(prms_build.control_file,
                             prms_build.parameter_file,
                             prms_build.data_file)
-    prms.run_model()
-    stats = prms.get_statvar()
-    plot_stats(stats)
+
+    prms.run_model(stdout_)
+    stats_uncal = prms.get_statvar()
+    fig_ = os.path.join(project, 'output', 'hydrograph_uncal.png')
+    plot_stats(stats_uncal, fig_)
 
     prms = MontanaPrmsModel(prms_build.control_file,
                             luca_params,
                             prms_build.data_file)
-    prms.run_model()
 
-    stats = prms.get_statvar()
-    plot_stats(stats)
+    prms.run_model()
+    stats_cal = prms.get_statvar()
+    fig_ = os.path.join(project, 'output', 'hydrograph_cal.png')
+    plot_stats(stats_cal, fig_)
     pass
 
 # ========================= EOF ====================================================================
