@@ -42,6 +42,8 @@ class StandardPrmsBuild:
 
     def __init__(self, config):
 
+        self.nmonths = 12
+
         self.cfg = PRMSConfig(config)
         self.res = float(self.cfg.hru_cellsize)
         self.proj_name_res = '{}_{}'.format(self.cfg.project_name,
@@ -109,6 +111,22 @@ class StandardPrmsBuild:
 
         outlet_sta = self.modelgrid.intersect(self.pour_pt_coords[0][0], self.pour_pt_coords[0][1])
         outlet_sta = self.modelgrid.get_node([(0,) + outlet_sta])
+
+        if self.cfg.temp_units == 1:
+            tmax_allrain = np.ones((self.nhru * self.nmonths)) * 3.3
+            tmax_allsnow = np.ones((self.nhru * self.nmonths)) * 0.0
+        else:
+            tmax_allrain = np.ones((self.nhru * self.nmonths)) * 38.0
+            tmax_allsnow = np.ones((self.nhru * self.nmonths)) * 32.0
+
+        self.data_params.append(ParameterRecord('tmax_allrain', tmax_allrain,
+                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
+                                                datatype=2))
+
+        self.data_params.append(ParameterRecord('tmax_allsnow', tmax_allsnow,
+                                                dimensions=[['nhru', self.nhru], ['nmonths', self.nmonths]],
+                                                datatype=2))
+
         self.data_params.append(ParameterRecord('outlet_sta',
                                                 values=[outlet_sta[0] + 1, ],
                                                 dimensions=[['one', 1]],
@@ -580,7 +598,13 @@ class MontanaPrmsModel:
         self.parameter_file = parameter_file
         self.data_file = data_file
         self.control = ControlFile.load_from_file(control_file)
+
+        if str(self.control.get_record('param_file').values[0]) != self.parameter_file:
+            self.control.param_file = [self.parameter_file]
+            self.control.write()
+
         self.parameters = PrmsParameters.load_from_file(parameter_file)
+
         self.data = PrmsData.load_from_file(data_file)
         self.statvar = None
 
@@ -628,9 +652,6 @@ class MontanaPrmsModel:
         self.statvar = StatVar.load_from_control_object(self.control)
         df = self.statvar.stat_df
         df.drop(columns=['Hour', 'Minute', 'Second'], inplace=True)
-
-        if self.control.get_record('runoff_units').values[0] == 0:
-            raise AttributeError('Set runoff units to metric')
 
         # cms to m3 per day
         df['obs_q_vol_m3'] = 60 * 60 * 24 * df['runoff_1'] / 1e6
