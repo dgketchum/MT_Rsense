@@ -44,7 +44,7 @@ def point_climatology(lat, lon, out_csv):
 
     first, df = True, None
     for v in vars_:
-        grd = GridMet(variable=v, start='1991-01-01', end='2020-12-31',
+        grd = GridMet(variable=v, start='1981-01-01', end='2020-12-31',
                       lat=lat, lon=lon)
         if first:
             df = grd.get_point_timeseries()
@@ -60,7 +60,7 @@ def point_climatology(lat, lon, out_csv):
 
     a = date(2021, 1, 1)
     b = date(2021, 12, 31)
-    years = [x for x in range(1991, 2021)]
+    years = [x for x in range(1981, 2021)]
 
     dct = {v: {'mean': [], 'std': [], 'date': []} for v in ['tmmn', 'tmmx', 'vs']}
     for dt in rrule(DAILY, dtstart=a, until=b):
@@ -94,13 +94,13 @@ def point_climatology(lat, lon, out_csv):
 
 
 def plot_climatology(csv):
-    # for v, t in zip(['tmmn', 'tmmx', 'vs'], ['Mean Minimum Temperature (F)',
-    #                                          'Mean Maximum Temperature (F)',
-    #                                          'Mean Wind Speed (m/s)']):
-    #     _file = csv.replace('.csv', '_{}.csv'.format(v))
-    #     df = read_csv(_file, parse_dates=True, index_col='date', infer_datetime_format=True)
-    #     fig_ = os.path.join(_file.replace('.csv', '.png'.format(v)))
-    #     time_series(df, t, fig_)
+    for v, t in zip(['tmmn', 'tmmx', 'vs'], ['Mean Minimum Temperature (F)',
+                                             'Mean Maximum Temperature (F)',
+                                             'Mean Wind Speed (m/s)']):
+        _file = csv.replace('.csv', '_{}.csv'.format(v))
+        df = read_csv(_file, parse_dates=True, index_col='date', infer_datetime_format=True)
+        fig_ = os.path.join(_file.replace('.csv', '.png'.format(v)))
+        time_series(df, t, fig_)
 
     _file = csv.replace('.csv', '_min_winter_temp.csv')
     min_winter_t = read_csv(_file, parse_dates=True, infer_datetime_format=True, index_col='date')
@@ -195,6 +195,6 @@ if __name__ == '__main__':
         d = '/home/dgketchum/data/IrrigationGIS/climate/'
     out_ = os.path.join(d, 'fortine', 'fortine_climate.csv')
     out_min_winter_t = os.path.join(d, 'fortine', 'fortine_climate_min_winter_temp.csv')
-    # point_climatology(48.753, -114.854, out_)
+    point_climatology(48.753, -114.854, out_)
     plot_climatology(out_)
 # ========================= EOF ====================================================================

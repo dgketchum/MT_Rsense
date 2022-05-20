@@ -355,10 +355,12 @@ class GridMet(Thredds):
     """
 
     def __init__(self, variable=None, date=None, start=None, end=None, bbox=None,
-                 target_profile=None, clip_feature=None):
+                 target_profile=None, clip_feature=None, lat=None, lon=None):
         Thredds.__init__(self)
 
         self.date = date
+        self.start = start
+        self.end = end
 
         if isinstance(start, str):
             self.start = datetime.strptime(start, '%Y-%m-%d')
@@ -370,11 +372,11 @@ class GridMet(Thredds):
         if self.start and self.end is None:
             raise AttributeError('Must set both start and end date')
 
-        self.start = start
-        self.end = end
         self.bbox = bbox
         self.target_profile = target_profile
         self.clip_feature = clip_feature
+        self.lat = lat
+        self.lon = lon
 
         self.service = 'thredds.northwestknowledge.net:8080'
         self.scheme = 'http'
@@ -511,10 +513,11 @@ class GridMet(Thredds):
     def get_point_timeseries(self):
 
         url = self._build_url()
+        url = url + '#fillmismatch'
         xray = open_dataset(url)
         subset = xray.sel(lon=self.lon, lat=self.lat, method='nearest')
         subset = subset.loc[dict(day=slice(self.start, self.end))]
-        subset.rename({'day': 'time'}, inplace=True)
+        subset = subset.rename({'day': 'time'})
         date_ind = self._date_index()
         subset['time'] = date_ind
         time = subset['time'].values

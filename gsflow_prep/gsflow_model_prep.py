@@ -180,10 +180,10 @@ class StandardPrmsBuild:
                      'basin_ppt',
                      'basin_rain',
                      'basin_snow',
-                     'basin_potsw',
-                     'basin_potet',
                      'basin_net_ppt',
                      'basin_intcp_stor',
+                     'basin_potet',
+                     'basin_actet',
                      'basin_pweqv',
                      'basin_snowmelt',
                      'basin_snowcov',
@@ -192,7 +192,6 @@ class StandardPrmsBuild:
                      'basin_infil',
                      'basin_soil_moist',
                      'basin_recharge',
-                     'basin_actet',
                      'basin_gwstor',
                      'basin_gwflow',
                      'basin_gwsink',
@@ -648,7 +647,7 @@ class MontanaPrmsModel:
 
         return success, buff
 
-    def get_statvar(self):
+    def get_statvar(self, snow=None):
 
         self.statvar = StatVar.load_from_control_object(self.control)
         df = self.statvar.stat_df
@@ -672,6 +671,16 @@ class MontanaPrmsModel:
             df.drop(columns=['Year', 'Month', 'Day'], inplace=True)
         except ValueError:
             pass
+
+        if snow:
+            s = pd.read_csv(snow, parse_dates=True, index_col='Unnamed: 0', infer_datetime_format=True)
+            s = s.loc[df.index]
+            s /= 25.4
+            s.rename(columns={'mean': 'swe'}, inplace=True)
+            s = s['swe']
+            df = pd.concat([df, s], axis=1, ignore_index=False)
+
+        self.statvar.stat_df = df
         return self.statvar.stat_df
 
 

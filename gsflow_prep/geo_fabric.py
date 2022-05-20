@@ -51,6 +51,11 @@ def join(features, dbf_dir, intersect):
         df_ct += 1
         ct = 0
 
+        df = df.loc[:, ~df.columns.duplicated()]
+
+        for f in ['hru_id_nat', 'hru_id_reg', 'region']:
+            df[f] = [np.nan for x in range(df.shape[0])]
+
         with fiona.open(shp) as src:
             for f in src:
                 p = f['properties']
@@ -80,13 +85,15 @@ def join(features, dbf_dir, intersect):
             master = deepcopy(df)
 
     master = master.loc[:, ~master.columns.duplicated()]
-    _file = os.path.join(dbf_dir, 'prms_params_sample.shp')
+    _file = os.path.join(dbf_dir, 'prms_params_carter.shp')
     master.to_file(_file, crs='EPSG:4326')
+    DataFrame(master.drop(columns=['geometry'])).to_csv(_file.replace('.shp', '.csv'))
 
 
 if __name__ == '__main__':
     d = '/media/research/IrrigationGIS/Montana/geospatial_fabric'
-    intersect_ = os.path.join(d, 'huc6_MT_intersect_dissolve.shp')
+    # intersect_ = os.path.join(d, 'huc6_MT_intersect_dissolve.shp')
+    intersect_ = '/media/research/IrrigationGIS/Montana/geospatial_fabric/carter_basin_wgs.shp'
     feats = [os.path.join(d, 'nhru_10U.shp'), os.path.join(d, 'nhru_17.shp')]
     join(feats, d, intersect_)
 

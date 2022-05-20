@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 
 import numpy as np
-from pandas import DataFrame, date_range
+from pandas import DataFrame, date_range, read_csv
 from gsflow.prms.prms_parameter import ParameterRecord
 from gsflow.control import ControlRecord
 from gsflow.builder import builder_utils as bu
@@ -391,6 +391,23 @@ def read_calibration(params_dir):
                 print('{:.3f} {} final values'.format(new_val, p))
 
 
+def compare_parameters(model, csv):
+
+    df = read_csv(csv)
+    df = df.mean(axis=0)
+
+    param_names = model.parameters.record_names
+
+    comp_params = [x for x in df.index if x in param_names]
+
+    for p in comp_params:
+        mp = prms.parameters.get_values(p).mean()
+        gf = df[p]
+        print('p: {}, actual: {:.3f}, geofabric: {:.3f}'.format(p, mp, gf))
+
+    pass
+
+
 if __name__ == '__main__':
     root = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep'
     matplotlib.use('TkAgg')
@@ -399,29 +416,33 @@ if __name__ == '__main__':
     project = os.path.join(root, 'uyws_carter_5000')
     luca_dir = os.path.join(project, 'input', 'luca')
     stdout_ = os.path.join(project, 'output', 'stdout.txt')
+    snodas = os.path.join(project, 'input', 'carter_basin_snodas.csv')
+
+    csv = '/media/research/IrrigationGIS/Montana/geospatial_fabric/prms_params_carter.csv'
 
     prms_build = CbhruPrmsBuild(conf)
-    # prms_build = XyzDistBuild(conf)
     # prms_build.build_model()
 
     luca_params = os.path.join(luca_dir, 'calib1_round3_step2.par')
     # read_calibration(luca_dir)
 
-    prms = MontanaPrmsModel(prms_build.control_file,
-                            prms_build.parameter_file,
-                            prms_build.data_file)
-
-    prms.run_model(stdout_)
-    stats_uncal = prms.get_statvar()
-    fig_ = os.path.join(project, 'output', 'hydrograph_uncal.png')
-    plot_stats(stats_uncal, fig_)
+    # prms = MontanaPrmsModel(prms_build.control_file,
+    #                         prms_build.parameter_file,
+    #                         prms_build.data_file)
+    #
+    # prms.run_model(stdout_)
+    # stats_uncal = prms.get_statvar()
+    # fig_ = os.path.join(project, 'output', 'hydrograph_uncal.png')
+    # plot_stats(stats_uncal, fig_)
 
     prms = MontanaPrmsModel(prms_build.control_file,
                             luca_params,
                             prms_build.data_file)
 
-    prms.run_model()
-    stats_cal = prms.get_statvar()
+    compare_parameters(prms, csv)
+    #
+    # prms.run_model()
+    stats_cal = prms.get_statvar(snow=snodas)
     fig_ = os.path.join(project, 'output', 'hydrograph_cal.png')
     plot_stats(stats_cal, fig_)
     pass
