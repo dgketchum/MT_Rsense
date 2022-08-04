@@ -20,7 +20,7 @@ RF_ASSET = 'projects/ee-dgketchum/assets/IrrMapper/IrrMapperComp'
 BASINS = 'users/dgketchum/gages/gage_basins'
 COUNTIES = 'users/dgketchum/boundaries/western_11_co_study'
 
-FIELDS = 'projects/earthengine-legacy/assets/users/dgketchum/fields/Milk_Thatcher'
+FIELDS = 'users/dgketchum/boundaries/MilkHUC8'
 
 UMRB_CLIP = 'users/dgketchum/boundaries/umrb_ylstn_clip'
 CMBRB_CLIP = 'users/dgketchum/boundaries/CMB_RB_CLIP'
@@ -315,12 +315,45 @@ def get_landcover_info(basin, glob='none'):
         print(desc)
 
 
+def attribute_irrigation(collection, polygons, years):
+    """
+    Extracts fraction of vector classified as irrigated. Been using this to attribute irrigation to
+    field polygon coverages.
+    :return:
+    """
+    fc = ee.FeatureCollection(polygons)
+    for state in ['MT']:
+        for yr in years:
+            images = os.path.join(collection, '{}_{}'.format(state, yr))
+            coll = ee.Image(images)
+            tot = coll.select('classification').remap([0, 1, 2, 3], [1, 0, 0, 0]).reproject(crs='EPSG:5070', scale=30)
+            area = ee.Image.pixelArea()
+
+            tot = tot.multiply(area).rename('irr')
+            areas = tot.reduceRegions(collection=fc,
+                                      reducer=ee.Reducer.sum(),
+                                      scale=30)
+
+            task = ee.batch.Export.table.toCloudStorage(
+                areas,
+                description='{}_{}'.format(state, yr),
+                bucket='wudr',
+                fileNamePrefix='Milk_{}_{}'.format(state, yr),
+                fileFormat='CSV',
+                selectors=['HUC8', 'sum'])
+
+            print(state, yr)
+            task.start()
+
+
 if __name__ == '__main__':
     is_authorized()
 
-    extract_gridded_data(FIELDS, years=[i for i in range(2015, 2016)],
-                         description='MSMComp_3MAY2022', min_years=0,
-                         mask_irr=False, volume=False)
+    # extract_gridded_data(FIELDS, years=[i for i in range(2015, 2016)],
+    #                      description='MSMComp_3MAY2022', min_years=0,
+    #                      mask_irr=False, volume=False)
+
+    attribute_irrigation(RF_ASSET, FIELDS, years=[x for x in range(1986, 2022)])
 
     # get_landcover_info('huc6_MT_intersect_dissolve', glob='7MAR2022')
 # ========================= EOF ================================================================================

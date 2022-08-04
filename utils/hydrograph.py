@@ -30,7 +30,7 @@ def get_station_daily_data(param, start, end, sid, freq='dv', out_dir=None):
 
 
 def get_station_daterange_data(year_start, daily_q_dir, aggregate_q_dir, start_month=None, end_month=None,
-                               resample_freq='A', convert_to_mcube=True):
+                               resample_freq='M', convert_to_mcube=False):
     q_files = [os.path.join(daily_q_dir, x) for x in os.listdir(daily_q_dir)]
 
     s, e = '{}-01-01'.format(year_start), '2020-12-31'
@@ -91,13 +91,13 @@ def read_hydrograph(c):
 
 if __name__ == '__main__':
 
-    d = '/media/research/IrrigationGIS/Montana/water_rights/hydrographs'
+    d = '/media/research/IrrigationGIS/Montana/upper_yellowstone/hydrographs'
     dirs_ = [os.path.join(d, x) for x in os.listdir(d)]
 
     for d in dirs_:
-        dst = os.path.join(d, 'insta_q')
+        daily = os.path.join(d, 'daily')
+        monthly = os.path.join(d, 'monthly')
         sid = os.path.basename(d)
-        for year in [x for x in range(1991, 2021)]:
-            get_station_daily_data('discharge', '{}-01-01'.format(year), '{}-12-31'.format(year), sid, freq='iv',
-                                   out_dir=dst)
+        get_station_daily_data('discharge', '2016-01-01', '2021-12-31', sid, freq='dv', out_dir=daily)
+        get_station_daterange_data(2016, daily, aggregate_q_dir=monthly, start_month=1, end_month=12)
 # ========================= EOF ====================================================================
