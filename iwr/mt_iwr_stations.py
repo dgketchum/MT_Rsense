@@ -1,6 +1,4 @@
 import os
-from pprint import pprint
-from collections import OrderedDict
 
 import pandas as pd
 import geopandas as gpd
@@ -191,17 +189,17 @@ MT_IWR_STATION_NAMES = ['Dillon',
                         'Wibaux']
 
 
-def write_ghcn_iwr_station_shapefile(stations_file, out_shp, csv_dir):
+def write_ghcn_iwr_station_shapefile(stations_file, out_shp, csv_dir, out_csv):
     iwr_stations = [x.upper() for x in MT_IWR_STATION_NAMES]
     missing = {}
     lines = []
     with open(stations_file, 'r') as fp:
         for l in fp.readlines():
             splt = l.split()
-            if splt[-1] == 'HCN' and splt[4] == 'MT':
-                values = splt[:5] + [' '.join(splt[5:-1])]
-            elif splt[0][-4:] in MT_IWR_STATION_CODES and splt[4] == 'MT':
-                values = splt[:5] + [' '.join(splt[5:])]
+            if splt[0][-4:] in MT_IWR_STATION_CODES and splt[4] == 'MT':
+                values = splt[:5] + [' '.join(splt[5:])] + ['exists in db']
+            elif splt[-1] == 'HCN' and splt[4] == 'MT':
+                values = splt[:5] + [' '.join(splt[5:-1])] + ['missing from db']
             elif splt[4] == 'MT':
                 if splt[5] in iwr_stations:
                     if splt[5] not in missing.keys():
@@ -230,14 +228,20 @@ def write_ghcn_iwr_station_shapefile(stations_file, out_shp, csv_dir):
         for l in fp.readlines():
             splt = l.split()
             if splt[0] in found_id:
-                values = splt[:5] + [' '.join(splt[5:])]
+                values = splt[:5] + [' '.join(splt[5:])] + ['missing from db']
                 lines.append(values)
 
-    gdf = gpd.GeoDataFrame(data=lines, columns=['STAID', 'LAT', 'LON', 'ELEV', 'STATE', 'NAME'])
+    # for l in lines:
+    #     src = os.path.join(csv_dir, '{}.csv'.format(l[0]))
+    #     dst = os.path.join(out_csv, '{}.csv'.format(l[0]))
+    #     shutil.copyfile(src, dst)
+
+    gdf = gpd.GeoDataFrame(data=lines, columns=['STAID', 'LAT', 'LON', 'ELEV', 'STATE', 'NAME', 'PACKAGED'])
     geo = [Point(float(r['LON']), float(r['LAT'])) for i, r in gdf.iterrows()]
     gdf.geometry = geo
     gdf = gdf.set_crs('epsg:4326')
     gdf.to_file(out_shp)
+    gdf.to_csv(out_shp.replace('.shp', '.csv'))
 
 
 if __name__ == '__main__':
@@ -251,8 +255,9 @@ if __name__ == '__main__':
     gages_ = os.path.join(clim, 'gages')
 
     ghcn_data_dir = os.path.join(d, 'climate', 'ghcn', 'ghcn_daily_summaries_4FEB2022')
+    iwr_data_dir = os.path.join(d, 'climate', 'montana_iwr_station_data', 'from_ghcn')
     _txt = os.path.join(stations_, 'ghcnd-stations.txt')
     ghcn_shp_ = os.path.join(stations_, 'mt_arm_iwr_stations.shp')
-    write_ghcn_iwr_station_shapefile(_txt, ghcn_shp_, ghcn_data_dir)
+    write_ghcn_iwr_station_shapefile(_txt, ghcn_shp_, ghcn_data_dir, iwr_data_dir)
 
 # ========================= EOF ====================================================================
