@@ -26,7 +26,7 @@ from datetime import datetime
 from fiona import collection
 from fiona.crs import from_epsg
 from geopy.distance import geodesic
-from pandas import read_table, to_datetime, date_range, read_csv, to_numeric, DataFrame
+from pandas import read_table, to_datetime, date_range, to_numeric, DataFrame
 
 STATION_INFO_URL = 'https://www.usbr.gov/pn/agrimet/agrimetmap/usbr_map.json'
 AGRIMET_MET_REQ_SCRIPT_PN = 'https://www.usbr.gov/pn-bin/agrimet.pl'
