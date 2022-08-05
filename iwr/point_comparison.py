@@ -2,14 +2,41 @@ import os
 
 import pandas as pd
 import numpy as np
-
+import geopandas as gpd
+from shapely.geometry import Point
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from utils.agrimet import load_stations
 from reference_et.combination import pm_fao56, get_rn
 from reference_et.rad_utils import extraterrestrial_r, calc_rso
 from reference_et.modified_bcriddle import modified_blaney_criddle
 from utils.elevation import elevation_from_coordinate
+import warnings
+warnings.filterwarnings(action='once')
+
+large = 22
+med = 16
+small = 12
+params = {'axes.titlesize': large,
+          'legend.fontsize': med,
+          'figure.figsize': (16, 10),
+          'axes.labelsize': med,
+          'xtick.labelsize': med,
+          'ytick.labelsize': med,
+          'figure.titlesize': large,
+          'xtick.color': 'black',
+          'ytick.color': 'black',
+          'xtick.direction': 'out',
+          'ytick.direction': 'out',
+          'xtick.bottom': True,
+          'xtick.top': False,
+          'ytick.left': True,
+          'ytick.right': False,
+          }
+plt.rcParams.update(params)
+plt.style.use('seaborn-whitegrid')
+sns.set_style("white", {'axes.linewidth': 0.5})
 
 
 def point_comparison_iwr_stations(_dir, meta_csv):
@@ -43,10 +70,12 @@ def point_comparison_agrimet(station_dir, out_figs, out_shp):
     stations = load_stations()
     station_files = [os.path.join(station_dir, x) for x in os.listdir(station_dir)]
     etbc, etos = [], []
+    station_comp = {}
     for f in station_files:
         sid = os.path.basename(f).split('.')[0]
         meta = stations[sid]
         coords = meta['geometry']['coordinates']
+        geo = Point(coords)
         coord_rads = np.array(coords) * np.pi / 180
         elev = elevation_from_coordinate(coords[1], coords[0])
         df = pd.read_csv(f, index_col=0, parse_dates=True,
@@ -57,7 +86,7 @@ def point_comparison_agrimet(station_dir, out_figs, out_shp):
         rso = calc_rso(ra, elev)
         rn = get_rn(tmean, rs=rs, lat=coord_rads[1], tmax=tmax, tmin=tmin, rh=rh, elevation=elev, rso=rso)
         df['ETOS'] = pm_fao56(tmean, wind, rs=rs, tmax=tmax, tmin=tmin, rh=rh, elevation=elev, rn=rn)
-        df['ETRS'] = df['ETOS'] * 1.
+        df['ETRS'] = df['ETOS'] * 1.2
 
         try:
             bc, start, end = modified_blaney_criddle(df, coords[1])
@@ -78,20 +107,33 @@ def point_comparison_agrimet(station_dir, out_figs, out_shp):
             if s < len(target_range) - 1:
                 df = df.loc[[x for x in df.index if x.year != i]]
 
+        years = len(list(set([d.year for d in df.index])))
+
         etos_ = df['ETOS'].resample('A').sum().mean() / 25.4
         etbc.append(etbc_)
         etos.append(etos_)
+        station_comp[sid] = {'STAID': sid, 'etbc': etbc_, 'etos': etos_, 'no_yrs': years, 'geo': geo}
         print(sid)
 
-    xmin, xmax = min([min(etos), min(etbc)]) - 5, max([max(etos), max(etbc)]) + 5
+    gdf = gpd.GeoDataFrame(station_comp, columns=station_comp.keys()).T
+    gdf.geometry = gdf['geo']
+    gdf.drop(columns=['geo'], inplace=True)
+    gdf = gdf.set_crs('epsg:4326')
+    gdf.to_file(out_shp)
+    gdf.to_csv(out_shp.replace('.shp', '.csv'))
+
+    xmin, xmax = min([min(etos), min(etbc)]) - 2, max([max(etos), max(etbc)]) + 2
     line = np.linspace(xmin, xmax)
-    plt.scatter(etos, etbc)
-    plt.plot(line, line)
+    sns.scatterplot(etos, etbc)
+    sns.lineplot(line, line, alpha=0.8, dashes=[(2, 2), (2, 2)])
     plt.xlim([xmin, xmax])
     plt.ylim([xmin, xmax])
     plt.xlabel('FAO 56')
     plt.ylabel('Modified Blaney Criddle (SCS TR 21)')
-    plt.show()
+    plt.suptitle('Seasonal Crop Water Demand Comparisin [inches/season]')
+    _filename = os.path.join(out_figs, 'FAO_56_SCSTR21_MBC_comparison.png')
+    # plt.show()
+    plt.savefig(_filename)
 
 
 if __name__ == '__main__':

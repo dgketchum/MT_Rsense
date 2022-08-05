@@ -10,26 +10,27 @@ from thredds import GridMet
 from bounds import GeoBounds
 
 
-def gridmet_subset_stack(extent_shp, start, end, variable, filename):
-    with fiona.open(extent_shp, 'r') as src:
+def mt_county_gridmet_stacks(shapes_dir, out_dir, start, end):
+    vars_ = ['pr', 'pet', 'tmmn', 'tmmx']
+    shps = [os.path.join(shapes_dir, x) for x in os.listdir(shapes_dir) if x.endswith('.shp')]
+    for shp_ in shps:
+        for var in vars_:
+            name_ = os.path.basename(shp_).split('.')[0]
+            out_ = os.path.join(out_dir, '{}_{}_{}_{}.nc'.format(var, start[:4], end[:4], name_))
+            gridmet_subset_stack(shp_, '1997-01-01', '2006-12-13', var, out_)
+
+
+def gridmet_subset_stack(extent, start, end, variable, filename):
+    with fiona.open(extent, 'r') as src:
         for f in src:
             polygon = shape(f['geometry'])
             w, s, e, n = (x for x in polygon.bounds)
             bounds = GeoBounds(w, s, e, n).to_geographic(5071)
-    dt_range = date_range(start, end)
-    years = [x for x in range(dt_range[0].year, dt_range[-1].year + 1)]
-    sets = []
-    for y in years:
-        dates = [x for x in dt_range if x.year == y]
-        s, e = dates[0], dates[-1]
-        print('gridmet {} downloading {} to {}'.format(variable, s, e))
-        gridmet = GridMet(variable=variable, start=s, end=e, bbox=bounds,
-                          clip_feature=polygon)
-
-        ds = gridmet.subset_nc(return_array=True)
-        sets.append(ds)
-
-    xarray.concat(sets, dim='time').to_netcdf(filename)
+    gridmet = GridMet(variable=variable, start=start, end=end, bbox=bounds,
+                      clip_feature=polygon)
+    ds = gridmet.subset_nc(return_array=True)
+    ds.to_netcdf(filename)
+    print(filename)
 
 
 def nc_point_extract(points, nc, out_dir):
@@ -48,14 +49,12 @@ def nc_point_extract(points, nc, out_dir):
 
 
 if __name__ == '__main__':
-    d = '/media/research/IrrigationGIS/Montana/upper_yellowston/gsflow_prep'
+    d = '/media/research/IrrigationGIS'
     if not os.path.exists(d):
-        d = '/home/dgketchum/data/IrrigationGIS/Montana/upper_yellowston/gsflow_prep'
+        d = '/home/dgketchum/data/IrrigationGIS'
 
-    basin = os.path.join(d, 'uyws_basin.shp')
-    target_points = os.path.join(d, 'uyws_fake_stations.shp')
-    var = 'pr'
-    out_ = os.path.join(d, 'gridmet_{}_{}_{}.nc'.format(var, '1991', '2020'))
-    gridmet_subset_stack(basin, '1991-01-01', '2020-12-13', var, out_)
-    nc_point_extract(target_points, out_, d)
+    shapes_co = os.path.join(d, 'boundaries', 'mt_counties', 'mt_counties.shp')
+    shapes_dir_out = os.path.join(d, 'boundaries', 'mt_counties', 'individual_shapes')
+    nc_dir = os.path.join(d, 'climate', 'gridmet_nc', 'mt_counties')
+    mt_county_gridmet_stacks(shapes_dir_out, nc_dir, '1997-01-01', '2006-12-31')
 # ========================= EOF ====================================================================

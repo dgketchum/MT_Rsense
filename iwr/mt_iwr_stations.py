@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import pandas as pd
 import geopandas as gpd
@@ -231,10 +232,10 @@ def write_ghcn_iwr_station_shapefile(stations_file, out_shp, csv_dir, out_csv):
                 values = splt[:5] + [' '.join(splt[5:])] + ['missing from db']
                 lines.append(values)
 
-    # for l in lines:
-    #     src = os.path.join(csv_dir, '{}.csv'.format(l[0]))
-    #     dst = os.path.join(out_csv, '{}.csv'.format(l[0]))
-    #     shutil.copyfile(src, dst)
+    for l in lines:
+        src = os.path.join(csv_dir, '{}.csv'.format(l[0]))
+        dst = os.path.join(out_csv, '{}.csv'.format(l[0]))
+        shutil.copyfile(src, dst)
 
     gdf = gpd.GeoDataFrame(data=lines, columns=['STAID', 'LAT', 'LON', 'ELEV', 'STATE', 'NAME', 'PACKAGED'])
     geo = [Point(float(r['LON']), float(r['LAT'])) for i, r in gdf.iterrows()]
