@@ -29,15 +29,15 @@ def modified_blaney_criddle(df, lat_degrees):
     p = df['PP'].resample('M').sum()
     p = p.groupby(p.index.month).mean() / 25.4
 
-    dt = df['MM'].groupby([df.index.month, df.index.day]).mean() * 9 / 5 + 32
+    dtmm = df['MM'].groupby([df.index.month, df.index.day]).mean() * 9 / 5 + 32
     yr_ind = pd.date_range('2000-01-01', '2000-12-31', freq='d')
-    dt.index = yr_ind
-    season_start = dt[dt > 50.].index[0]
+    dtmm.index = yr_ind
+    season_start = dtmm[dtmm > 50.].index[0]
 
-    dt = df['MN'].groupby([df.index.month, df.index.day]).mean() * 9 / 5 + 32
+    dtmn = df['MN'].groupby([df.index.month, df.index.day]).mean() * 9 / 5 + 32
     yr_ind = pd.date_range('2000-01-01', '2000-12-31', freq='d')
-    dt.index = yr_ind
-    season_end = dt.loc['2000-07-01':][dt < 28.].index[0]
+    dtmn.index = yr_ind
+    season_end = dtmn.loc['2000-07-01':][dtmn < 28.].index[0]
 
     season_length = (season_end - season_start).days
 
@@ -63,7 +63,7 @@ def modified_blaney_criddle(df, lat_degrees):
 
     dates, d_accum, pct_season = [midpoint], [counter], [counter / season_length]
     temps, pct_day_hrs = [temp], [daylight]
-    for d, v in dt.loc[midpoint: season_end].iteritems():
+    for d, v in dtmm.loc[midpoint: season_end].iteritems():
         counter += 1
         if d.day == 15:
             dates.append(d)
@@ -112,7 +112,8 @@ def modified_blaney_criddle(df, lat_degrees):
     df['kc'] = kc.loc[df.index]
     df['k'] = df['kc'] * df['kt']
     df['u'] = df['k'] * df['f']
-    pass
+    df['ref_u'] = df['kt'] * df['f']
+    return df, season_start, season_end
 
 
 if __name__ == '__main__':
