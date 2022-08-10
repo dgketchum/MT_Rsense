@@ -5,6 +5,7 @@ from calendar import monthrange
 
 import pandas as pd
 import numpy as np
+import xarray as xr
 
 lat_to_sunshine = {50: [5.99, 6.32, 8.24, 9.24, 10.68, 10.92, 10.99, 9.99, 8.46, 7.44, 6.08, 5.65],
                    49: [6.08, 6.36, 8.25, 9.20, 10.60, 10.82, 10.90, 9.94, 8.46, 7.48, 6.16, 5.75],
@@ -20,8 +21,12 @@ lat_to_sunshine = {50: [5.99, 6.32, 8.24, 9.24, 10.68, 10.92, 10.99, 9.99, 8.46,
 
 alfalfa_kc = [0.63, 0.73, 0.86, 0.99, 1.08, 1.13, 1.11, 1.06, 0.99, 0.91, 0.78, 0.64]
 
+EFF_PPT = pd.read_csv(os.path.join(os.path.dirname(__file__), 'eff_precip_neh_chap2.csv'))
+
 
 def modified_blaney_criddle_2d(df, lat_degrees=None):
+    # INCOMPLETE
+    # TODO: complete this function
     mid_months = [i for i, _ in enumerate(df.time.values) if pd.to_datetime(_).day == 15]
     t = df['MM'][mid_months].resample(time='1M').mean()
     t = t.groupby('time.month').mean() * 9 / 5 + 32
@@ -29,17 +34,21 @@ def modified_blaney_criddle_2d(df, lat_degrees=None):
     p = df['PP'].resample(time='1M').sum()
     p = p.groupby('time.month').mean() / 25.4
 
-    # https://stackoverflow.com/questions/54776283/how-to-call-the-xarrays-groupby-function-to-group-data-by-a-combination-of-year
-    dtmm = df['MM'].grouppby([df.index.month, df.index.day]).mean() * 9 / 5 + 32
-    yr_ind = pd.date_range('2000-01-01', '2000-12-31', freq='d')
-    dtmm.index = yr_ind
-    season_start = dtmm[dtmm > 50.].index[0]
+    dtmm = df['MM'].groupby('time.dayofyear').mean() - 273.15
+    dtmm = dtmm * 9 / 5 + 32
+    season_start = dtmm.where(lambda x: x > 50.0).idxmin(dim='dayofyear')
 
-    dtmn = df['MN'].groupby([df.index.month, df.index.day]).mean() * 9 / 5 + 32
-    yr_ind = pd.date_range('2000-01-01', '2000-12-31', freq='d')
-    dtmn.index = yr_ind
-    season_end = dtmn.loc['2000-07-01':][dtmn < 28.].index[0]
+    dtmn = df['MN'].groupby('time.dayofyear').mean() - 273.15
+    dtmn = dtmn * 9 / 5 + 32
+    cutoff = 183
+    dtmn = dtmn[cutoff:, :, :]
+    didx = np.ones_like(dtmn) * 377
+    tidx = np.ones_like(dtmn) * 28.0
+    doy_cube = np.broadcast_to(dtmn.dayofyear.data, dtmn.data.T.shape).T
+    arr = dtmn.data
+    season_end = np.where(arr < tidx, doy_cube, didx).argmin(axis=0) + cutoff + 1
 
+    # TODO: pick up from here
     season_length = (season_end - season_start).days
 
     lat = round(lat_degrees)
@@ -117,7 +126,7 @@ def modified_blaney_criddle_2d(df, lat_degrees=None):
     return df, season_start, season_end
 
 
-def modified_blaney_criddle(df, lat_degrees=None):
+def modified_blaney_criddle(df, lat_degrees=None, elev=None, season_start=None, season_end=None):
     mid_months = [d for d in df.index if d.day == 15]
     t = df['MM'].loc[mid_months].resample('M').mean()
     t = t.groupby(t.index.month).mean() * 9 / 5 + 32
@@ -128,12 +137,19 @@ def modified_blaney_criddle(df, lat_degrees=None):
     dtmm = df['MM'].groupby([df.index.month, df.index.day]).mean() * 9 / 5 + 32
     yr_ind = pd.date_range('2000-01-01', '2000-12-31', freq='d')
     dtmm.index = yr_ind
-    season_start = dtmm[dtmm > 50.].index[0]
 
-    dtmn = df['MN'].groupby([df.index.month, df.index.day]).mean() * 9 / 5 + 32
-    yr_ind = pd.date_range('2000-01-01', '2000-12-31', freq='d')
-    dtmn.index = yr_ind
-    season_end = dtmn.loc['2000-07-01':][dtmn < 28.].index[0]
+    if not season_start:
+        season_start = dtmm[dtmm > 50.].index[0]
+    else:
+        season_start = pd.to_datetime(season_start)
+
+    if not season_end:
+        dtmn = df['MN'].groupby([df.index.month, df.index.day]).mean() * 9 / 5 + 32
+        yr_ind = pd.date_range('2000-01-01', '2000-12-31', freq='d')
+        dtmn.index = yr_ind
+        season_end = dtmn.loc['2000-07-01':][dtmn < 28.].index[0]
+    else:
+        season_end = pd.to_datetime(season_end)
 
     season_length = (season_end - season_start).days
 
@@ -199,6 +215,9 @@ def modified_blaney_criddle(df, lat_degrees=None):
     df['f'] = df['t'] * df['p'] / 100.
 
     df['kt'] = df['t'] * 0.0173 - 0.314
+    df['kt'][df['t'] < 36.] = 0.3
+
+    elevation_corr = 1 + (0.1 * np.floor(elev / 1000.))
 
     kc = pd.Series(alfalfa_kc, index=[d for d in yr_ind if d.day == 15])
     kc = kc.reindex(yr_ind)
@@ -206,10 +225,10 @@ def modified_blaney_criddle(df, lat_degrees=None):
     kc.iloc[-1] = 0.6
     kc = kc.interpolate()
     df['kc'] = kc.loc[df.index]
-    df['k'] = df['kc'] * df['kt']
+    df['k'] = df['kc'] * elevation_corr * df['kt']
     df['u'] = df['k'] * df['f']
     df['ref_u'] = df['kt'] * df['f']
-    return df, season_start, season_end
+    return df, season_start, season_end, kc
 
 
 if __name__ == '__main__':

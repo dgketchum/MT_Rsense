@@ -498,8 +498,6 @@ class GridMet(Thredds):
             if return_array:
                 return subset
 
-
-
         else:
             subset = xray.loc[dict(lat=slice((self.bbox.north + 1),
                                              (self.bbox.south - 1)),

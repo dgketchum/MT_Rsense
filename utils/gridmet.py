@@ -17,15 +17,19 @@ def mt_county_gridmet_stacks(shapes_dir, out_dir, start, end):
         for var in vars_:
             name_ = os.path.basename(shp_).split('.')[0]
             out_ = os.path.join(out_dir, '{}_{}_{}_{}.nc'.format(var, start[:4], end[:4], name_))
-            gridmet_subset_stack(shp_, '1997-01-01', '2006-12-13', var, out_)
+            if os.path.exists(out_):
+                continue
+            gridmet_subset_stack(shp_, '1997-01-01', '2006-12-13', var, out_, epsg=None)
 
 
-def gridmet_subset_stack(extent, start, end, variable, filename):
+def gridmet_subset_stack(extent, start, end, variable, filename, epsg):
     with fiona.open(extent, 'r') as src:
         for f in src:
             polygon = shape(f['geometry'])
             w, s, e, n = (x for x in polygon.bounds)
-            bounds = GeoBounds(w, s, e, n).to_geographic(5071)
+            bounds = GeoBounds(w, s, e, n)
+            if epsg:
+                bounds = bounds.to_geographic(epsg)
     gridmet = GridMet(variable=variable, start=start, end=end, bbox=bounds,
                       clip_feature=polygon)
     ds = gridmet.subset_nc(return_array=True)

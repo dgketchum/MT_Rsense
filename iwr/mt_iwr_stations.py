@@ -221,8 +221,9 @@ def write_ghcn_iwr_station_shapefile(stations_file, out_shp, csv_dir, out_csv):
             for staid in stations:
                 _file = os.path.join(csv_dir, '{}.csv'.format(staid))
                 df = pd.read_csv(_file)
-                if df.shape[0] > length:
+                if df.shape[0] > length and all([1 if c in df.columns else 0 for c in ['PRCP', 'TMIN', 'TMAX']]):
                     found[name] = staid
+                    length = df.shape[0]
 
     found_id = [v for k, v in found.items()]
     with open(stations_file, 'r') as fp:

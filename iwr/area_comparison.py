@@ -1,6 +1,7 @@
 import os
 
 import xarray as xr
+import numpy as np
 from reference_et.modified_bcriddle import modified_blaney_criddle_2d
 
 
@@ -17,14 +18,14 @@ def area_comparison_iwr_asce(_dir, co_list):
         for f in l:
             var = os.path.basename(f).split('_')[0]
             if first:
-                ds = xr.open_dataset(f).rename({rename[var][0]: rename[var][1]})
+                df = xr.open_dataset(f).rename({rename[var][0]: rename[var][1]})
                 first = False
             else:
                 arr = xr.open_dataset(f).rename({rename[var][0]: rename[var][1]})
-                ds = xr.merge([ds, arr])
+                df = xr.merge([df, arr])
 
-        ds['MM'] = (ds['MN'] + ds['MX']) / 2
-        etbc = modified_blaney_criddle_2d(ds)
+        df['MM'] = (df['MN'] + df['MX']) / 2
+        etbc = modified_blaney_criddle_2d(df)
 
 
 if __name__ == '__main__':

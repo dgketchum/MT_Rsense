@@ -1,5 +1,6 @@
 import json
 import os
+from time import sleep
 from calendar import monthrange
 from pprint import pprint
 from datetime import datetime
@@ -14,7 +15,7 @@ with open('/home/dgketchum/PycharmProjects/MT_Rsense/data/openet_auth.json', 'r'
     API_KEY = json.load(j)['auth']
 
 
-def point_series(shp, out):
+def point_series(shp, out, var='et'):
     gdf = gpd.read_file(shp)
     start, end = '2016-01-01', '2021-12-31'
     ct = 0
@@ -28,7 +29,7 @@ def point_series(shp, out):
                   'end_date': end,
                   'lon': lon, 'lat': lat,
                   'output_file_format': 'json',
-                  'variable': 'etof',
+                  'variable': var,
                   'model': 'ensemble',
                   'ref_et_source': 'gridmet',
                   'units': 'metric',
@@ -38,14 +39,19 @@ def point_series(shp, out):
         endpoint = 'raster/timeseries/point'
         url = server + endpoint
 
-        resp = requests.get(url=url, headers=header, params=params, verify=False)
-        data = [d['etof'] for d in resp.json()]
-        time = [d['time'] for d in resp.json()]
-        time = to_datetime(time)
-        df = DataFrame(data, index=time, columns=[row['FID']])
-        df.to_csv(file_)
-        ct += 1
-        print(ct, file_)
+        try:
+            resp = requests.get(url=url, headers=header, params=params, verify=False)
+            data = [d[var] for d in resp.json()]
+            time_ = [d['time'] for d in resp.json()]
+            time_ = to_datetime(time_)
+            df = DataFrame(data, index=time_, columns=[row['FID']])
+            df.to_csv(file_)
+            ct += 1
+            print(ct, file_)
+            sleep(1.)
+        except TypeError as e:
+            print(row['FID'], 'failed', e)
+            sleep(1.)
 
 
 def monthly_ensemble(shp, year, month, filename_suffix='upper_yellowstone'):
@@ -95,8 +101,8 @@ if __name__ == '__main__':
     d = '/media/research/IrrigationGIS'
     if not os.path.exists(d):
         d = '/home/dgketchum/data/IrrigationGIS'
-    r = os.path.join(d, 'Montana', 'water_rights', 'management_factors')
+    r = os.path.join(d, 'Montana', 'water_rights', 'hua', 'comparison_data')
     shp_ = os.path.join(r, 'sweetgrass_fields_sample.shp')
-    out_ = os.path.join(r, 'sweetgrass_fields_etof')
+    out_ = os.path.join(r, 'sweetgrass_fields_et')
     point_series(shp_, out_)
 # ========================= EOF ====================================================================
