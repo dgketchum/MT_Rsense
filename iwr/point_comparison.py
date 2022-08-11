@@ -281,7 +281,8 @@ def check_implementation(station='USC00242409', data_dir=None, iwr_table=None,
 
     bc, start, end, kc = modified_blaney_criddle(df, lat, elev,
                                                  season_start='2000-05-09',
-                                                 season_end='2000-09-19')
+                                                 season_end='2000-09-19',
+                                                 mid_month=False)
 
     pass
 
@@ -308,7 +309,7 @@ if __name__ == '__main__':
     # point_comparison_agrimet(station_dir=_dir, out_figs=fig_dir, out_shp=out_shp)
 
     iwr_table = None
-    start, end = '1970-01-01', '2000-12-31'
+    start, end = '1971-01-01', '2000-12-31'
     # start, end = '1997-01-01', '2006-12-31'
-    check_implementation('USC00242409', iwr_data_dir, iwr_table, start=start, end=end)
+    # check_implementation('USC00242409', iwr_data_dir, iwr_table, start=start, end=end)
 # ========================= EOF ====================================================================

@@ -21,7 +21,11 @@ lat_to_sunshine = {50: [5.99, 6.32, 8.24, 9.24, 10.68, 10.92, 10.99, 9.99, 8.46,
 
 alfalfa_kc = [0.63, 0.73, 0.86, 0.99, 1.08, 1.13, 1.11, 1.06, 0.99, 0.91, 0.78, 0.64]
 
-EFF_PPT = pd.read_csv(os.path.join(os.path.dirname(__file__), 'eff_precip_neh_chap2.csv'))
+
+def effective_ppt_table():
+    # NEH 2-148
+    _file = os.path.join(os.path.dirname(__file__), 'eff_precip_neh_chap2.csv')
+    return pd.read_csv(_file, index_col=0)
 
 
 def modified_blaney_criddle_2d(df, lat_degrees=None):
@@ -126,13 +130,27 @@ def modified_blaney_criddle_2d(df, lat_degrees=None):
     return df, season_start, season_end
 
 
-def modified_blaney_criddle(df, lat_degrees=None, elev=None, season_start=None, season_end=None):
-    mid_months = [d for d in df.index if d.day == 15]
-    t = df['MM'].loc[mid_months].resample('M').mean()
+def modified_blaney_criddle(df, lat_degrees=None, elev=None, season_start=None, season_end=None,
+                            mid_month=False):
+    # TODO: implement effective precipitation calculations
+    if mid_month:
+        # NEH 2-233 "...mean temperature is assumed to occur on the 15th day of each month..."
+        # however, this gives results that differ substantially from NRCS IWR database files
+        mid_months = [d for d in df.index if d.day == 15]
+        t = df['MM'].loc[mid_months].resample('M').mean()
+    else:
+        # this matches IWR database files almost exactly
+        t = df['MM'].resample('M').mean()
     t = t.groupby(t.index.month).mean() * 9 / 5 + 32
 
     p = df['PP'].resample('M').sum()
-    p = p.groupby(p.index.month).mean() / 25.4
+    ppt_quantiles = pd.DataFrame(np.zeros((12, 1)) * np.nan, index=[x for x in range(1, 13)])
+    eff_ppt_lookup = effective_ppt_table()
+
+    for m in range(1, 13):
+        mdata = np.array([p.loc[i] / 25.4 for i in p.index if i.month == m])
+        quantile = np.quantile(mdata, 0.2)
+        ppt_quantiles.loc[m] = quantile
 
     dtmm = df['MM'].groupby([df.index.month, df.index.day]).mean() * 9 / 5 + 32
     yr_ind = pd.date_range('2000-01-01', '2000-12-31', freq='d')
@@ -228,6 +246,10 @@ def modified_blaney_criddle(df, lat_degrees=None, elev=None, season_start=None, 
     df['k'] = df['kc'] * elevation_corr * df['kt']
     df['u'] = df['k'] * df['f']
     df['ref_u'] = df['kt'] * df['f']
+
+    # rounded = [np.round(ppt * 2) / 2 for ppt in ppt_quantiles.values]
+    # ppt_quantiles['eff_ppt'] = [eff_ppt_lookup.loc[r,]]
+
     return df, season_start, season_end, kc
 
 
