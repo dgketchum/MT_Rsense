@@ -4,8 +4,7 @@ from pandas import concat, Series, read_csv, DataFrame, date_range
 from datetime import date, datetime, timedelta
 from dateutil.rrule import rrule, DAILY
 import numpy as np
-import matplotlib as mpl
-import matplotlib.dates as mdates
+import rasterio
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -37,6 +36,22 @@ plt.style.use('seaborn-whitegrid')
 sns.set_style("white", {'axes.linewidth': 0.5})
 
 from gridmet import GridMet
+
+
+def aspect_histogram(raster, out):
+    with rasterio.open(raster, 'r') as src:
+        a = src.read()
+    a = a.ravel()
+    a = a[a > -0.1]
+    h = np.histogram(a, bins=100)
+    x, y = [x for x in h[1][:-1]], h[0]
+    df = Series(y, index=x)
+    sns.lineplot(data=df)
+    plt.xlabel('Cardinal Direction (degrees)')
+    plt.ylabel('Count')
+    plt.suptitle('Lidar Aspect Histogram (60 cm)\n14480 Harpers Bridge Rd.')
+    # plt.show()
+    plt.savefig(out)
 
 
 def point_climatology(lat, lon, out_csv):
@@ -138,7 +153,7 @@ def histogram(df, fig_):
     ax_bottom.set_xlabel(None)
     ax_bottom.set_ylabel(None)
 
-    ax_main.set(title='Curtiss Rd., Fortine, MT\nDate of Annual Minimum Temperatures', xlabel='Date',
+    ax_main.set(title='14480 Harpers Bridge Rd., Missoula, MT\nDate of Annual Minimum Temperatures', xlabel='Date',
                 ylabel='Minimum Temperature (F)')
     ax_main.title.set_fontsize(20)
 
@@ -180,7 +195,7 @@ def time_series(df, title='Mean Minimum Temperature', fig=None):
     dummy_x = [int(dt.strftime("%j")) for dt in df.index if dt.day == 1]
     plt.xticks(dummy_x, dates, fontsize=15)
     plt.setp(ax.get_xticklabels(), rotation=0)
-    plt.title("Curtiss Rd., Fortine, MT\nDaily {}\n "
+    plt.title("14480 Harpers Bridge Rd., Missoula, MT\nDaily {}\n "
               "Standard Deviation Band".format(title), fontsize=20)
     # Axis limits
     s, e = plt.gca().get_xlim()
@@ -193,8 +208,11 @@ if __name__ == '__main__':
     d = '/media/research/IrrigationGIS/climate/'
     if not os.path.exists(d):
         d = '/home/dgketchum/data/IrrigationGIS/climate/'
-    out_ = os.path.join(d, 'fortine', 'fortine_climate.csv')
-    out_min_winter_t = os.path.join(d, 'fortine', 'fortine_climate_min_winter_temp.csv')
-    point_climatology(48.753, -114.854, out_)
-    plot_climatology(out_)
+    out_ = os.path.join(d, 'harpers', 'harpers_climate.csv')
+    out_min_winter_t = os.path.join(d, 'harpers', 'harpers_climate_min_winter_temp.csv')
+    # point_climatology(46.933, -114.199, out_)
+    # plot_climatology(out_)
+    aspect = '/media/research/IrrigationGIS/Montana/iad/harpers_aspect.tif'
+    out_aspect = '/media/research/IrrigationGIS/Montana/iad/harpers_aspect.png'
+    aspect_histogram(aspect, out_aspect)
 # ========================= EOF ====================================================================

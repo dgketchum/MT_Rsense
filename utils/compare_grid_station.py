@@ -3,10 +3,11 @@ import os
 import numpy as np
 import fiona
 from shapely.geometry import shape
-from pandas import concat, read_csv, to_datetime
+from pandas import concat, read_csv, to_datetime, date_range
 import matplotlib.pyplot as plt
 
 from thredds import GridMet
+from agrimet import Agrimet, load_stations
 
 
 def compare_gridmet_ghcn(stations, station_data, out_dir):
@@ -54,6 +55,48 @@ def compare_gridmet_ghcn(stations, station_data, out_dir):
         pass
 
 
+def compare_gridmet_agrimet(station, station_data, out_dir):
+    stations = load_stations()
+    s_data = stations[station]
+    lon, lat = tuple(s_data['geometry']['coordinates'])
+    _file = os.path.join(station_data, '{}.csv'.format(station))
+    sta_df = read_csv(_file, parse_dates=True, infer_datetime_format=True, header=0,
+                      index_col=[0], skiprows=[1, 2])
+    sta_df = sta_df.interpolate('linear', limit=5, limit_direction='forward', axis=0)
+    sta_df = sta_df.dropna(subset=['ET'])
+    sta_df.index = [to_datetime(dt) for dt in sta_df.index]
+
+    sta_df['mday'] = ['{}-{}'.format(x.month, x.day) for x in sta_df.index]
+    target_range = date_range('2000-{}-{}'.format(4, 15),
+                              '2000-{}-{}'.format(10, 15))
+    accept = ['{}-{}'.format(x.month, x.day) for x in target_range]
+    sta_df.dropna(subset=['ETOS'], inplace=True)
+    sta_df['mask'] = [1 if d in accept else 0 for d in sta_df['mday']]
+    sta_df = sta_df[sta_df['mask'] == 1]
+
+    size = sta_df.groupby(sta_df.index.year).size()
+    for i, s in size.iteritems():
+        if s < len(target_range) - 1:
+            sta_df = sta_df.loc[[x for x in sta_df.index if x.year != i]]
+
+    years = list(set([d.year for d in sta_df.index]))
+    sta_df = sta_df.loc[[x for x in sta_df.index if x.year in years]]
+
+    grd = GridMet(variable='etr', start='{}-01-01'.format(min(years)),
+                  end='{}-12-31'.format(max(years)),
+                  lat=lat, lon=lon)
+    grd = grd.get_point_timeseries()
+    grd = grd.loc[sta_df.index]
+    df = concat([sta_df, grd], axis=1)
+    df['ratio'] = df['etr'] / df['ETRS']
+    months = list(set([x.month for x in df.index]))
+    dct = {}
+    for m in months:
+        mdata = np.array([r['ratio'] for i, r in df.iterrows() if i.month == m]).mean()
+        dct[m] = mdata
+    print(dct)
+
+
 if __name__ == '__main__':
     d = '/media/research/IrrigationGIS/climate/'
     if not os.path.exists(d):
@@ -62,5 +105,9 @@ if __name__ == '__main__':
     stations_ = os.path.join(d, 'ghcn', 'ghcn_stations_bitterroot.shp')
     station_data_ = os.path.join(d, 'ghcn', 'ghcn_daily_summaries_4FEB2022')
     out_dir_ = os.path.join(d, 'ghcn', 'ghcn_gridmet_comp')
-    compare_gridmet_ghcn(stations_, station_data_, out_dir_)
+    # compare_gridmet_ghcn(stations_, station_data_, out_dir_)
+
+    station_data_ = os.path.join(d, 'agrimet', 'mt_stations')
+    out_dir_ = os.path.join(d, 'ghcn', 'ghcn_gridmet_comp')
+    compare_gridmet_agrimet('covm', station_data_, out_dir_)
 # ========================= EOF ====================================================================

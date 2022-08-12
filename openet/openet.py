@@ -44,7 +44,7 @@ def point_series(shp, out, var='et'):
             data = [d[var] for d in resp.json()]
             time_ = [d['time'] for d in resp.json()]
             time_ = to_datetime(time_)
-            df = DataFrame(data, index=time_, columns=[row['FID']])
+            df = DataFrame(data, index=time_, columns=[row['IType']])
             df.to_csv(file_)
             ct += 1
             print(ct, file_)
@@ -101,8 +101,10 @@ if __name__ == '__main__':
     d = '/media/research/IrrigationGIS'
     if not os.path.exists(d):
         d = '/home/dgketchum/data/IrrigationGIS'
-    r = os.path.join(d, 'Montana', 'water_rights', 'hua', 'comparison_data')
-    shp_ = os.path.join(r, 'sweetgrass_fields_sample.shp')
-    out_ = os.path.join(r, 'sweetgrass_fields_et')
-    point_series(shp_, out_)
+    # r = os.path.join(d, 'Montana', 'water_rights', 'hua', 'comparison_data')
+    # shp_ = os.path.join(r, 'sweetgrass_fields_sample.shp')
+    r = os.path.join(d, 'Montana', 'iad')
+    shp_ = os.path.join(r, 'Harpers_Itype_Centroids.shp')
+    out_ = os.path.join(r, 'harper_fields_etof')
+    point_series(shp_, out_, var='etof')
 # ========================= EOF ====================================================================
