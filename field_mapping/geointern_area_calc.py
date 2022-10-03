@@ -48,7 +48,7 @@ def calc_areas(_dir):
             if error_ct > 0:
                 pass
         print('\n{} error count: {}\n'.format(os.path.basename(s), error_ct))
-        if 'aea' in os.path.basename(s):
+        if 'dp' in os.path.basename(s):
             dp += area
         if 'flu' in os.path.basename(s):
             flu += area
@@ -64,6 +64,6 @@ if __name__ == '__main__':
         root = '/home/dgketchum/data/IrrigationGIS/Montana/geointernship/progress'
     aea_ = os.path.join(root, 'aea')
     _wgs = os.path.join(root, 'wgs')
-    to_equal_area(_wgs, aea_)
+    # to_equal_area(_wgs, aea_)
     calc_areas(aea_)
 # ========================= EOF ====================================================================

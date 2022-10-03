@@ -5,8 +5,8 @@ from geopandas import read_file, GeoDataFrame
 from shapely.geometry import Polygon, MultiPolygon
 from pandas import to_datetime, Timestamp
 
-OGR = '/home/dgketchum/miniconda3/envs/metric/bin/ogr2ogr'
-OGRINFO = '/home/dgketchum/miniconda3/envs/metric/bin/ogrinfo'
+OGR = '/home/dgketchum/miniconda3/envs/opnt/bin/ogr2ogr'
+OGRINFO = '/home/dgketchum/miniconda3/envs/opnt/bin/ogrinfo'
 
 DROP_UNIQUE = ['OBJECTID', 'POUID', 'ACREAGE', 'TR', 'SECNO', 'QSECTION', 'LLDSID', 'TRSSID', 'SHAPE_Leng',
                'SHAPE_Area', 'geometry']
@@ -14,13 +14,16 @@ DROP_UNIQUE = ['OBJECTID', 'POUID', 'ACREAGE', 'TR', 'SECNO', 'QSECTION', 'LLDSI
 DROP_RESMP = ['HISTRGTTYP', 'LATECLAIM', 'IRRTYPE', 'GOVTLOT']
 
 
-def clip_pou_to_basin(gdb, basin_shp_dir, pou_dir):
+def clip_data_to_basin(gdb, basin_shp_dir, pou_dir, append_str='pou', overwrite=False):
     shapes = [os.path.join(basin_shp_dir, x) for x in os.listdir(basin_shp_dir) if x.endswith('.shp')]
     cmd = [OGRINFO, '--config', '-sql', "CREATE SPATIAL INDEX ON {}".format(gdb.strip('.shp')), gdb]
     check_call(cmd)
     for s in shapes:
-        splt = os.path.basename(s).replace('.shp', '_pou.shp')
+        splt = os.path.basename(s).replace('.shp', '_{}.shp'.format(append_str))
         o = os.path.join(pou_dir,  splt)
+        if os.path.exists(o) and not overwrite:
+            print(o, 'exists, skipping')
+            continue
         cmd = [OGRINFO, '--config', '-sql', "CREATE SPATIAL INDEX ON {}".format(s.strip('.shp')), s]
         check_call(cmd)
         cmd = [OGR, '-progress', '-f', 'ESRI Shapefile', '-clipsrc', s, o, gdb]

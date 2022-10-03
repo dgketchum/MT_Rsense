@@ -26,6 +26,8 @@ UMRB_CLIP = 'users/dgketchum/boundaries/umrb_ylstn_clip'
 CMBRB_CLIP = 'users/dgketchum/boundaries/CMB_RB_CLIP'
 CORB_CLIP = 'users/dgketchum/boundaries/CO_RB'
 
+DNRC_BASINS = 'users/dgketchum/boundaries/DNRC_Basins'
+
 FLUX_SHP = '/media/research/IrrigationGIS/ameriflux/select_flux_sites/select_flux_sites_impacts_ECcorrrected.shp'
 FLUX_DIR = '/media/research/IrrigationGIS/ameriflux/ec_data/monthly'
 
@@ -63,7 +65,8 @@ def extract_terraclimate_monthly(tables, years, description):
             print(out_desc)
 
 
-def extract_gridded_data(tables, years=None, description=None, min_years=0, mask_irr=True, volume=False):
+def extract_gridded_data(tables, years=None, description=None, min_years=0, mask_swb_to_irr=True, volume=False,
+                         mask_ppt_to_irr=False):
     """
     Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
     Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
@@ -90,7 +93,7 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
     # sum = remap.sum().mask(irr_mask)
 
     for yr in years:
-        for month in range(5, 11):
+        for month in range(4, 11):
             s = '{}-{}-01'.format(yr, str(month).rjust(2, '0'))
             end_day = monthrange(yr, month)[1]
             e = '{}-{}-{}'.format(yr, str(month).rjust(2, '0'), end_day)
@@ -125,7 +128,7 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
             ppt = tclime_sums.select('pr_sum').multiply(0.001)
             etr = tclime_sums.select('pet_sum').multiply(0.0001)
 
-            if mask_irr:
+            if mask_swb_to_irr:
                 swb_aet = tclime_sums.select('aet_sum').mask(irr_mask).multiply(0.0001)
             else:
                 swb_aet = tclime_sums.select('aet_sum').multiply(0.0001)
@@ -133,6 +136,8 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
             irr_mask = irr_mask.reproject(crs='EPSG:5070', scale=30)
             et = et.reproject(crs='EPSG:5070', scale=30).resample('bilinear')
             ppt = ppt.reproject(crs='EPSG:5070', scale=30).resample('bilinear')
+            if mask_ppt_to_irr:
+                ppt = ppt.mask(irr_mask)
             etr = etr.reproject(crs='EPSG:5070', scale=30).resample('bilinear')
             swb_aet = swb_aet.reproject(crs='EPSG:5070', scale=30).resample('bilinear')
 
@@ -147,7 +152,6 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
                 ppt = ppt.multiply(area).rename('ppt')
                 etr = etr.multiply(area).rename('etr')
                 swb_aet = swb_aet.multiply(area).rename('aet')
-
             else:
                 irr = irr_mask.multiply(area).rename('irr')
                 et = et.rename('et_ketchum')
@@ -157,8 +161,13 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
                 etr = etr.rename('etr')
                 swb_aet = swb_aet.rename('aet')
 
-            bands = irr.addBands([et, senay, cc, ppt, etr, swb_aet])
-            select_ = ['FID_new', 'et_ketchum', 'et_senay']
+            selector = ['BASINNUM', 'BASINNAME']
+            if volume:
+                bands = irr.addBands([et, cc, ppt, etr, swb_aet])
+                select_ = selector + ['irr', 'et', 'cc', 'ppt', 'etr', 'swb_aet']
+            else:
+                bands = irr.addBands([et, cc, ppt, etr, swb_aet, senay])
+                select_ = selector + ['irr', 'et', 'cc', 'ppt', 'etr', 'swb_aet', 'senay']
 
             if volume:
                 data = bands.reduceRegions(collection=fc,
@@ -169,10 +178,8 @@ def extract_gridded_data(tables, years=None, description=None, min_years=0, mask
                                            reducer=ee.Reducer.mean(),
                                            scale=30)
 
-            # poly = ee.Geometry.Rectangle([-109.45560755, 48.5731717, -109.45069, 48.5757698])
-            # feat = ee.FeatureCollection([ee.Feature(poly, {'system:index': 'abc123'})])
-            # poly_data = bands.reduceRegions(collection=feat, reducer=ee.Reducer.mean(), scale=30)
-            # test = data.getInfo()
+            # fields = data.first().propertyNames().remove('.geo')
+            # p = data.first().getInfo()['properties']
 
             out_desc = '{}_{}_{}'.format(description, yr, month)
             task = ee.batch.Export.table.toCloudStorage(
@@ -349,11 +356,11 @@ def attribute_irrigation(collection, polygons, years):
 if __name__ == '__main__':
     is_authorized()
 
-    # extract_gridded_data(FIELDS, years=[i for i in range(2015, 2016)],
-    #                      description='MSMComp_3MAY2022', min_years=0,
-    #                      mask_irr=False, volume=False)
+    extract_gridded_data(DNRC_BASINS, years=[i for i in range(1991, 2021)],
+                         description='DNRC_Basins_3OCT2022', min_years=5,
+                         mask_swb_to_irr=True, volume=True, mask_ppt_to_irr=True)
 
-    attribute_irrigation(RF_ASSET, FIELDS, years=[x for x in range(1986, 2022)])
+    # attribute_irrigation(RF_ASSET, FIELDS, years=[x for x in range(1986, 2022)])
 
     # get_landcover_info('huc6_MT_intersect_dissolve', glob='7MAR2022')
 # ========================= EOF ================================================================================
