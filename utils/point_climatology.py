@@ -211,8 +211,8 @@ if __name__ == '__main__':
     out_ = os.path.join(d, 'harpers', 'harpers_climate.csv')
     out_min_winter_t = os.path.join(d, 'harpers', 'harpers_climate_min_winter_temp.csv')
     # point_climatology(46.933, -114.199, out_)
-    # plot_climatology(out_)
+    plot_climatology(out_)
     aspect = '/media/research/IrrigationGIS/Montana/iad/harpers_aspect.tif'
     out_aspect = '/media/research/IrrigationGIS/Montana/iad/harpers_aspect.png'
-    aspect_histogram(aspect, out_aspect)
+    # aspect_histogram(aspect, out_aspect)
 # ========================= EOF ====================================================================

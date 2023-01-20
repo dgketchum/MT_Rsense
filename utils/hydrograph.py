@@ -1,82 +1,65 @@
-from pandas import read_csv, to_datetime
-
 import os
-import fiona
-import hydrofunctions as hf
-from pandas import date_range, DatetimeIndex, DataFrame
+import json
+
+import pandas as pd
+import numpy as np
+import dataretrieval.nwis as nwis
 
 
-def get_station_daily_data(param, start, end, sid, freq='dv', out_dir=None):
-    try:
-        nwis = hf.NWIS(sid, freq, start_date=start, end_date=end)
-        df = nwis.df(param)
+def get_station_daily_data(start, end, sid, out_dir=None, overwrite=False, full_months=False):
+    dt_range = pd.date_range(start, end, freq='D')
+    ct_df = pd.DataFrame(index=pd.DatetimeIndex(dt_range), data=np.arange(len(dt_range)))
+    ct_df = ct_df.groupby([ct_df.index.year, ct_df.index.month]).agg('count')
+    counts = [r[0] for i, r in ct_df.iterrows()]
 
-        if freq == 'iv':
-            out_file = os.path.join(out_dir, '{}_{}.csv'.format(sid, start[:4]))
-            df.to_csv(out_file)
+    if out_dir:
+        out_file = os.path.join(out_dir, '{}.csv'.format(sid))
+        if os.path.exists(out_file) and not overwrite:
+            print(sid, 'exists, skipping')
+            return None
 
-        elif out_dir:
-            out_file = os.path.join(out_dir, '{}.csv'.format(sid))
-            df.to_csv(out_file)
+    df = nwis.get_record(sites=sid, service='dv', start=start, end=end, parameterCd='00060')
+    df = df.tz_convert(None)
 
-        else:
-            return df
+    if df.empty:
+        print(sid, ' is empty')
+        return None
 
-    except ValueError as e:
-        print(e)
-    except hf.exceptions.HydroNoDataError:
-        print('no data for {} to {}'.format(start, end))
-        pass
+    q_col = '00060_Mean'
+    df = df.rename(columns={q_col: 'q'})
+    df = df.reindex(pd.DatetimeIndex(dt_range), axis=0)
 
+    df['q'] = np.where(df['q'] < 0, np.zeros_like(df['q']) * np.nan, df['q'])
+    nan_count = np.count_nonzero(np.isnan(df['q']))
 
-def get_station_daterange_data(year_start, daily_q_dir, aggregate_q_dir, start_month=None, end_month=None,
-                               resample_freq='M', convert_to_mcube=False):
-    q_files = [os.path.join(daily_q_dir, x) for x in os.listdir(daily_q_dir)]
-
-    s, e = '{}-01-01'.format(year_start), '2020-12-31'
-    daterange = date_range(s, e, freq='D')
-    idx = DatetimeIndex(daterange, tz=None)
-
-    out_records, short_records = [], []
-    for c in q_files:
-        sid = os.path.basename(c).split('.')[0]
-        df = read_hydrograph(c)
-
-        if start_month or end_month:
-            idx_window = idx[idx.month.isin([x for x in range(start_month, end_month + 1)])]
-            df = df[df.index.month.isin([x for x in range(start_month, end_month + 1)])]
-            df = df[df.index.year.isin([x for x in range(year_start, 2021)])]
-            idx = idx_window
-
-        dflen, idxlen = df.shape[0], idx.shape[0]
-        if dflen < idxlen:
-            short_records.append(sid)
-            if float(dflen) / idxlen < 0.8:
-                print(sid, 'df: {}, idx: {}, q skipped'.format(df.shape[0], int(idx.shape[0])))
-                continue
-            df = df.reindex(idx)
-
-        # cfs to m ^3 d ^-1
-        if convert_to_mcube:
-            df = df * 2446.58
-        df = df.resample(resample_freq).agg(DataFrame.sum, skipna=False)
-
-        out_file = os.path.join(aggregate_q_dir, '{}.csv'.format(sid))
+    # exclude months without complete data
+    if nan_count > 0 and full_months:
+        df['q'] = df['q'].interpolate(limit=7, method='linear')
+        df['q'] = df['q'].dropna(axis=0)
+        record_ct = df['q'].groupby([df.index.year, df.index.month]).agg('count')
+        records = [r for i, r in record_ct.items()]
+        mask = [int(a == b) for a, b in zip(records, counts)]
+        missing_mo = len(counts) - sum(mask)
+        mask = pd.Series(index=pd.DatetimeIndex(pd.date_range(start, end, freq='M')),
+                         data=mask).resample('D').bfill()
+        df = df.loc[mask[mask == 1].index, 'q']
+        print('write {}, missing {} months'.format(sid, missing_mo))
+    else:
+        df = df['q']
+    if out_dir:
         df.to_csv(out_file)
-        out_records.append(sid)
-        print(sid)
-
-    print('{} processed'.format(len(out_records)))
+    else:
+        return df
 
 
 def read_hydrograph(c):
-    df = read_csv(c)
+    df = pd.read_csv(c)
     if 'Unnamed: 0' in list(df.columns):
         df = df.rename(columns={'Unnamed: 0': 'dt'})
     try:
-        df['dt'] = to_datetime(df['dt'])
+        df['dt'] = pd.to_datetime(df['dt'])
     except KeyError:
-        df['dt'] = to_datetime(df['datetimeUTC'])
+        df['dt'] = pd.to_datetime(df['datetimeUTC'])
     df = df.set_index('dt')
     try:
         df.drop(columns='datetimeUTC', inplace=True)
@@ -98,6 +81,5 @@ if __name__ == '__main__':
         daily = os.path.join(d, 'daily')
         monthly = os.path.join(d, 'monthly')
         sid = os.path.basename(d)
-        get_station_daily_data('discharge', '2016-01-01', '2021-12-31', sid, freq='dv', out_dir=daily)
-        get_station_daterange_data(2016, daily, aggregate_q_dir=monthly, start_month=1, end_month=12)
+        get_station_daily_data('2016-01-01', '2021-12-31', sid, d)
 # ========================= EOF ====================================================================

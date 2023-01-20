@@ -1,5 +1,7 @@
 import os
 from subprocess import check_call
+
+import shapely.errors
 from tqdm import tqdm
 from geopandas import read_file, GeoDataFrame
 from shapely.geometry import Polygon, MultiPolygon
@@ -46,25 +48,28 @@ def get_flat_priority(pou_src, out_file):
 
     first, covered = True, None
     ct = 0
-    for i, (dt, g, obj) in tqdm(pou.iterrows(), total=pou.shape[0]):
+    for i, (dt, g, obj) in pou.iterrows():
         if first:
             flat.loc[ct] = [ct, dt, g, obj]
             ct += 1
             first = False
         else:
-            equal = [i for i, x in enumerate(flat['geo']) if g.almost_equals(x)]
-            if any(equal):
-                continue
-            inter = [i for i, x in enumerate(flat['geo']) if g.intersects(x)]
-            if not any(inter):
-                flat.loc[ct] = [ct, dt, g, obj]
-                ct += 1
-            else:
-                for ix in inter:
-                    g = g.difference(flat.loc[ix]['geo'])
-                if g.area > 0:
+            try:
+                equal = [i for i, x in enumerate(flat['geo']) if g.equals_exact(x, 1.0)]
+                if any(equal):
+                    continue
+                inter = [i for i, x in enumerate(flat['geo']) if g.intersects(x)]
+                if not any(inter):
                     flat.loc[ct] = [ct, dt, g, obj]
                     ct += 1
+                else:
+                    for ix in inter:
+                        g = g.difference(flat.loc[ix]['geo'])
+                    if g.area > 0:
+                        flat.loc[ct] = [ct, dt, g, obj]
+                        ct += 1
+            except shapely.errors.GEOSException:
+                print(i, 'errored')
 
     good_rows = [i for i, x in enumerate(flat['geo']) if isinstance(x, Polygon) or isinstance(x, MultiPolygon)]
     flat = flat.loc[good_rows]
@@ -77,11 +82,14 @@ def get_flat_priority(pou_src, out_file):
 
 
 if __name__ == '__main__':
-    root = '/media/research/IrrigationGIS/Montana/water_rights'
-    pou_c = os.path.join(root, 'pou_clip')
-    pou_f = os.path.join(root, 'pou_flat')
-    _clip = [os.path.join(pou_c, x) for x in os.listdir(pou_c) if x.endswith('.shp')]
+    wr = '/media/research/IrrigationGIS/Montana/water_rights'
+    wa = '/media/research/IrrigationGIS/Montana/water_availability'
+    pou_c = os.path.join(wa, 'basin_wr_gdb')
+    pou_f = os.path.join(wr, 'pou_flat')
+    _clip = [os.path.join(pou_c, x) for x in os.listdir(pou_c) if x.endswith('pou.shp')]
     for c in _clip:
+        if '41K' not in c:
+            continue
         f = os.path.join(pou_f, os.path.basename(c))
         print('processing {}'.format(f))
         get_flat_priority(c, f)
