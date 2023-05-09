@@ -18,6 +18,7 @@ CMBRB_CLIP = 'users/dgketchum/boundaries/CMB_RB_CLIP'
 CORB_CLIP = 'users/dgketchum/boundaries/CO_RB'
 
 DNRC_BASINS = 'users/dgketchum/boundaries/DNRC_Basins'
+TONGUE_FIELDS = 'users/dgketchum/fields/tongue_9MAY2023'
 
 
 def get_geomteries():
@@ -97,7 +98,8 @@ def extract_terraclimate_monthly(tables, years, description):
             print(out_desc)
 
 
-def export_gridded_data(tables, bucket, years, description, features=None, min_years=0, debug=False):
+def export_gridded_data(tables, bucket, years, description, features=None, min_years=0, debug=False,
+                        join_col='STAID'):
     """
     Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
     Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
@@ -112,27 +114,29 @@ def export_gridded_data(tables, bucket, years, description, features=None, min_y
     :param min_years:
     :return:
     """
+    ee.Initialize()
     fc = ee.FeatureCollection(tables)
     if features:
-        fc = fc.filter(ee.Filter.inList('BASINNUM', features))
+        fc = fc.filter(ee.Filter.inList('STAID', features))
     cmb_clip = ee.FeatureCollection(CMBRB_CLIP)
     umrb_clip = ee.FeatureCollection(UMRB_CLIP)
     corb_clip = ee.FeatureCollection(CORB_CLIP)
 
+    eff_ppt_coll = ee.ImageCollection('users/dgketchum/expansion/ept')
+    eff_ppt_coll = eff_ppt_coll.map(lambda x: x.rename('eff_ppt'))
+
     irr_coll = ee.ImageCollection(RF_ASSET)
     coll = irr_coll.filterDate('1987-01-01', '2021-12-31').select('classification')
     remap = coll.map(lambda img: img.lt(1))
-    irr_min_yr_mask = remap.sum().gt(min_years)
-    # sum = remap.sum().mask(irr_mask)
+    irr_min_yr_mask = remap.sum().gte(min_years)
 
     for yr in years:
-        for month in range(4, 11):
+        for month in range(1, 13):
             s = '{}-{}-01'.format(yr, str(month).rjust(2, '0'))
             end_day = monthrange(yr, month)[1]
             e = '{}-{}-{}'.format(yr, str(month).rjust(2, '0'), end_day)
 
             irr = irr_coll.filterDate('{}-01-01'.format(yr), '{}-12-31'.format(yr)).select('classification').mosaic()
-            irr_mask = irr_min_yr_mask.updateMask(irr.lt(1))
 
             annual_coll = ee.ImageCollection('users/dgketchum/ssebop/cmbrb').merge(
                 ee.ImageCollection('users/hoylmanecohydro2/ssebop/cmbrb'))
@@ -150,50 +154,54 @@ def export_gridded_data(tables, bucket, years, description, features=None, min_y
             et_umrb = et_coll.sum().multiply(0.00001).clip(umrb_clip.geometry())
 
             et_sum = ee.ImageCollection([et_cmb, et_corb, et_umrb]).mosaic()
-            et = et_sum.mask(irr_mask)
 
-            tclime = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(s, e).select('aet')
-            tclime_red = ee.Reducer.sum()
-            tclime_sums = tclime.select('aet').reduce(tclime_red)
-            swb_aet = tclime_sums.select('aet_sum').mask(irr_mask).multiply(0.0001)
+            eff_ppt = eff_ppt_coll.filterDate(s, e).select('eff_ppt').mosaic()
 
             ppt, etr = extract_gridmet_monthly(yr, month)
-
-            irr_mask = irr_mask.reproject(crs='EPSG:5070', scale=30)
-            et = et.reproject(crs='EPSG:5070', scale=30).resample('bilinear')
-            ppt = ppt.reproject(crs='EPSG:5070', scale=30).resample('bilinear')
-            ppt_irr = ppt.mask(irr_mask).rename('ppt_irr')
-            etr = etr.reproject(crs='EPSG:5070', scale=30).resample('bilinear')
-            swb_aet = swb_aet.reproject(crs='EPSG:5070', scale=30).resample('bilinear')
-
-            cc = et.subtract(swb_aet)
+            ietr = extract_corrected_etr(yr, month)
 
             area = ee.Image.pixelArea()
+
+            irr_mask = irr_min_yr_mask.updateMask(irr.lt(1))
+            et = et_sum.mask(irr_mask)
+            eff_ppt = eff_ppt.mask(irr_mask).rename('eff_ppt')
+            ietr = ietr.mask(irr_mask)
+            irr_mask = irr_mask.reproject(crs='EPSG:5070', scale=30)
             irr = irr_mask.multiply(area).rename('irr')
-            et = et.multiply(area).rename('et')
-            cc = cc.multiply(area).rename('cc')
-            ppt = ppt.multiply(area).rename('ppt')
-            ppt_irr = ppt_irr.multiply(area).rename('ppt_irr')
-            etr = etr.multiply(area).rename('etr')
-            swb_aet = swb_aet.multiply(area).rename('swb_aet')
 
-            if yr > 1986 and month in np.arange(4, 11):
-                bands = irr.addBands([et, cc, ppt, etr, swb_aet, ppt_irr])
-                select_ = ['BASINNUM', 'BASINNAME', 'irr', 'et', 'cc', 'ppt', 'etr', 'swb_aet', 'ppt_irr']
+            et = et.reproject(crs='EPSG:5070', scale=30).resample('bilinear').rename('et')
+            eff_ppt = eff_ppt.reproject(crs='EPSG:5070', scale=30).resample('bilinear').rename('eff_ppt')
+            ppt = ppt.reproject(crs='EPSG:5070', scale=30).resample('bilinear').rename('ppt')
+            etr = etr.reproject(crs='EPSG:5070', scale=30).resample('bilinear').rename('etr')
+            ietr = ietr.reproject(crs='EPSG:5070', scale=30).resample('bilinear').rename('ietr')
+
+            cc = et.subtract(eff_ppt).rename('cc')
+
+            et = et.multiply(area)
+            eff_ppt = eff_ppt.multiply(area)
+            cc = cc.multiply(area)
+            ppt = ppt.multiply(area)
+            etr = etr.multiply(area)
+            ietr = ietr.multiply(area)
+
+            if yr > 1986 and month in range(4, 11):
+                bands = irr.addBands([et, cc, ppt, etr, eff_ppt, ietr])
+                select_ = [join_col, 'irr', 'et', 'cc', 'ppt', 'etr', 'eff_ppt', 'ietr']
+
             else:
-                bands = ppt.addBands([etr, ppt])
-                select_ = ['BASINNUM', 'BASINNAME', 'ppt', 'etr']
-
-            data = bands.reduceRegions(collection=fc,
-                                       reducer=ee.Reducer.sum(),
-                                       scale=30)
+                bands = ppt.addBands([etr])
+                select_ = [join_col, 'ppt', 'etr']
 
             if debug:
                 pt = bands.sample(region=get_geomteries()[2],
                                   numPixels=1,
                                   scale=30)
-                fields = pt.propertyNames().remove('.geo')
-                p = data.first().getInfo()['properties']
+                p = pt.first().getInfo()['properties']
+                print('propeteries {}'.format(p))
+
+            data = bands.reduceRegions(collection=fc,
+                                       reducer=ee.Reducer.sum(),
+                                       scale=30)
 
             out_desc = '{}_{}_{}'.format(description, yr, month)
             task = ee.batch.Export.table.toCloudStorage(
@@ -203,6 +211,7 @@ def export_gridded_data(tables, bucket, years, description, features=None, min_y
                 fileNamePrefix=out_desc,
                 fileFormat='CSV',
                 selectors=select_)
+
             task.start()
             print(out_desc)
 
@@ -299,14 +308,18 @@ def attribute_irrigation(collection, polygons, years):
             task.start()
 
 
+def extract_corrected_etr(year, month):
+    m_str = str(month).rjust(2, '0')
+    end_day = monthrange(year, month)[1]
+    ic = ee.ImageCollection('projects/openet/reference_et/gridmet/monthly')
+    band = ic.filterDate('{}-{}-01'.format(year, m_str), '{}-{}-{}'.format(year, m_str, end_day)).select('etr').first()
+    return band.multiply(0.001)
+
+
 if __name__ == '__main__':
     is_authorized()
-    # feats = [k for k, v in BASINS.items() if v[1]]
-    # export_gridded_data(DNRC_BASINS, 'wudr', years=[i for i in range(1987, 2022)],
-    #                     description='basins_30OCT2022', min_years=5, features=None)
-    region = 'users/dgketchum/boundaries/MT'
-    pts = 'users/dgketchum/hydrography/naip_pts'
-    year_ = 2017
-    desc = 'naip'
-    extract_naip(desc, pts, region, year_)
+    export_gridded_data(TONGUE_FIELDS, 'wudr', years=[i for i in range(1987, 2022)],
+                        description='tongue_fields_9MAY2023', min_years=5, features=None,
+                        join_col='FID')
+
 # ========================= EOF ================================================================================
