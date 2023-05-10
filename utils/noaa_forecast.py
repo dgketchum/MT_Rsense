@@ -1,18 +1,19 @@
 import os
-import pytz
-from datetime import datetime, date
+import tempfile
+import urllib
+from datetime import datetime
 
 import numpy as np
+import xarray
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+from mpl_toolkits.basemap import Basemap
+
 import pandas as pd
 import seaborn as sns
-import matplotlib.dates as mdates
-from toolbox import EasyMap, pc
-from paint.standard2 import cm_tmp, cm_pcp
-import matplotlib.pyplot as plt
-
 from herbie import Herbie
 from noaa_sdk import NOAA
-
 
 """"
  Get NOAA data from some different sources: gridded Global Forecast System and North American Mesoscale model
@@ -30,38 +31,29 @@ from noaa_sdk import NOAA
 
 """
 
+QPF_URL = 'https://ftp.wpc.ncep.noaa.gov/2p5km_qpf/p24m_{}00f{}.grb'
+GFS_URL = 'https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.{}/00/atmos/gfs.t00z.pgrb2.0p25.f{}'
 
-def get_gridded_forecast(met_dir, start_date='2023-05-04'):
+
+def get_gridded_forecast(met_dir, lat, lon, start_date='2023-04-09'):
     """
     Get gridded meteorological data from GFS and NAM, using NAM up to three days out, then GFS to seven days.
     """
-    now = datetime.strptime(start_date, '%Y-%m-%d')
-    mountain_tz = pytz.timezone('US/Mountain')
-    forecast_hours = list(range(24, 264, 24))
 
+    forecast_hours = list(range(24, 192, 24))
 
-    for fxx in forecast_hours:
-        if fxx <= 10:
-            key_csv = '../data/gfs_keys.csv'
-            model = 'nam'
-            product = None
-            now = mountain_tz.localize(now)
-            now = now.astimezone(pytz.utc)
-            rounded = datetime(
-                year=now.year,
-                month=now.month,
-                day=now.day,
-                hour=(now.hour // 6) * 6,
-                minute=0,
-                second=0,
-                microsecond=0)
-        else:
-            key_csv = '../data/gfs_keys.csv'
-            model = 'gfs'
-            product = 'pgrb2.0p25'
-            rounded = date.today()
+    if lon < 0:
+        mod_lon = 180 - lon
 
-        dt_str = rounded.strftime('%Y-%m-%d %H')
+    dt_range = pd.date_range(start_date, periods=7)
+    dt_start = datetime.strptime(start_date, '%Y-%m-%d')
+    dt_str = dt_start.strftime('%Y-%m-%d %H')
+
+    dsl_tmx, dsl_tmn, dsl_qpf = [], [], []
+    for fxx, dt in zip(forecast_hours, dt_range):
+        key_csv = '../data/gfs_keys.csv'
+        model = 'gfs'
+        product = 'pgrb2.0p25'
 
         H = Herbie(
             dt_str,
@@ -84,16 +76,47 @@ def get_gridded_forecast(met_dir, start_date='2023-05-04'):
 
         var_search = {v['variable'].lower(): v['search_this'] for k, v in inv.iterrows()}
 
-        ds = H.xarray(var_search['tmax'])
-        slice_args = dict(latitude=slice(50, 31.5), longitude=slice(360 - 125, 360 - 100))
-        ds = ds.sel(**slice_args)
-        tmmx = H.xarray(var_search['tmax']).sel(**slice_args).tmax.values
-        tmmn = H.xarray(var_search['tmin']).sel(**slice_args).tmin.values
+        tmmx = H.xarray(var_search['tmax']).sel(latitude=lat, longitude=lon, method='nearest').tmax.values.item()
+        tmmx -= 273.15
+        dsl_tmx.append(tmmx)
+
+        tmmn = H.xarray(var_search['tmin']).sel(latitude=lat, longitude=lon, method='nearest').tmin.values.item()
+        tmmn -= 273.15
+        dsl_tmn.append(tmmn)
+
+        response = urllib.request.urlopen(QPF_URL.format(dt_start.strftime('%Y%m%d'), str(fxx).rjust(3, '0')))
+        _file = response.read()
+        with tempfile.NamedTemporaryFile(suffix=".grib2") as f:
+            f.write(_file)
+            qpf = xarray.open_dataset(f.name)
+            qpf['longitude'] = xarray.where(qpf['longitude'] >= 180, qpf['longitude'] - 360, qpf['longitude'])
+            abslat = np.abs(qpf.latitude - lat)
+            abslon = np.abs(qpf.longitude - lon)
+            c = np.maximum(abslon, abslat)
+            ([yloc], [xloc]) = np.where(c == np.min(c))
+            pt_ds = qpf.sel(x=xloc, y=yloc)
+            qpf_val = pt_ds.tp.values.item()
+            plt.scatter(lon, lat, color='b')
+            plt.text(lon, lat, 'requested')
+            qpf.tp.plot(x='longitude', y='latitude')
+            plt.scatter(pt_ds.longitude, pt_ds.latitude, color='r')
+            plt.text(pt_ds.longitude, pt_ds.latitude, 'nearest')
+            plt.title('speed at nearest point: %s' % pt_ds.tp.data)
+            m = Basemap(llcrnrlon=qpf.longitude.values.min(),
+                        llcrnrlat=qpf.latitude.values.min(),
+                        urcrnrlon=qpf.longitude.values.max(),
+                        urcrnrlat=qpf.latitude.values.max(),
+                        projection='cyl')
+            m.drawcoastlines()
+            m.drawcountries()
+            plt.show()
+            dsl_qpf.append(qpf_val)
+    pass
 
 
-def test_noaa():
+def test_noaa(lat, lon):
     n = NOAA()
-    res = n.get_forecasts('59802', 'US')
+    res = n.points_forecast(lat, lon)
     l = [r for r in res]
     df = pd.DataFrame(l)
 
@@ -118,5 +141,6 @@ if __name__ == '__main__':
 
     # test_noaa()
     met_dir_ = os.path.join(root, 'climate', 'forecast')
-    get_gridded_forecast(met_dir_)
+    get_gridded_forecast(met_dir_, lat=46.9, lon=-113.9, start_date='2023-05-10')
+    # test_noaa(lat=46.9, lon=-113.9)
 # ========================= EOF ====================================================================
