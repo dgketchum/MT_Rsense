@@ -366,7 +366,7 @@ class StandardPrmsBuild:
 
             for i, f in enumerate(feats, start=1):
                 geo = shape(f['geometry'])
-                idx = ix.intersects(geo)
+                idx = ix.intersect(geo)
                 for x in idx:
                     data[x[0]] = i
 

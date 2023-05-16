@@ -10,9 +10,8 @@ from utils.hydrograph import get_station_daily_data
 
 
 def write_basin_datafile(gage_json, data_file,
-                         station_json=None, ghcn_data=None, out_csv=None, start='1990-01-01',
+                         station_json, ghcn_data, out_csv=None, forecast=False, start='1990-01-01',
                          units='metric', nodata_value=-9999.9):
-
     dt_index = date_range(start, '2021-12-31')
 
     with open(gage_json, 'r') as fp:
@@ -22,13 +21,12 @@ def write_basin_datafile(gage_json, data_file,
         if k != '06192500':
             continue
         s, e = v['start'], v['end']
-        df = get_station_daily_data('discharge', s, e, k, freq='dv')
+        df = get_station_daily_data(s, e, k)
         df.columns = ['runoff']
 
         if to_datetime(start) > to_datetime(s):
             df = df.loc[start:]
 
-        df = df.tz_convert(None)
         df = df.reindex(dt_index)
 
         if units == 'metric':
@@ -165,5 +163,10 @@ def write_basin_datafile(gage_json, data_file,
 
 
 if __name__ == '__main__':
-    pass
+    gages = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/gages/gages.json'
+    _file = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/uyws_carter_5000/' \
+            'input/uyws_carter_5000_runoff.data'
+    station_js = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/met/selected_stations.json'
+    ghcn_ = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/ghcn'
+    write_basin_datafile(gages, station_json=station_js, data_file=_file, ghcn_data=ghcn_)
 # ========================= EOF ====================================================================

@@ -49,7 +49,7 @@ def get_station_daily_data(start, end, sid, out_dir=None, overwrite=False, full_
     if out_dir:
         df.to_csv(out_file)
     else:
-        return df
+        return pd.DataFrame(df)
 
 
 def read_hydrograph(c):

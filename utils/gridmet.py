@@ -6,8 +6,8 @@ from pandas import date_range, to_datetime, Series
 from shapely.geometry import shape
 from pyproj import Proj
 
-from thredds import GridMet
-from bounds import GeoBounds
+from utils.thredds import GridMet
+from utils.bounds import GeoBounds
 
 
 def mt_county_gridmet_stacks(shapes_dir, out_dir, start, end):

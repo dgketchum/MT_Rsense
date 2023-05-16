@@ -1,7 +1,8 @@
 import os
+import pytz
 import tempfile
 import urllib
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import xarray
@@ -40,17 +41,21 @@ def get_gridded_forecast(met_dir, lat, lon, start_date='2023-04-09'):
     Get gridded meteorological data from GFS and NAM, using NAM up to three days out, then GFS to seven days.
     """
 
-    forecast_hours = list(range(24, 192, 24))
+    forecast_hours = list(range(3, 192, 3))
 
     if lon < 0:
         mod_lon = 180 - lon
 
-    dt_range = pd.date_range(start_date, periods=7)
     dt_start = datetime.strptime(start_date, '%Y-%m-%d')
     dt_str = dt_start.strftime('%Y-%m-%d %H')
 
-    dsl_tmx, dsl_tmn, dsl_qpf = [], [], []
-    for fxx, dt in zip(forecast_hours, dt_range):
+    dt_idx = [(dt_start + timedelta(hours=fxx)) for fxx in forecast_hours]
+    df = pd.DataFrame(index=dt_idx, columns=['tmin', 'tmax', 'ppt'])
+    df.index = df.index.tz_localize(pytz.utc)
+    df['fcst_hrs'] = forecast_hours
+
+    for i, r in df.iterrows():
+        fxx = r['fcst_hrs']
         key_csv = '../data/gfs_keys.csv'
         model = 'gfs'
         product = 'pgrb2.0p25'
@@ -76,42 +81,36 @@ def get_gridded_forecast(met_dir, lat, lon, start_date='2023-04-09'):
 
         var_search = {v['variable'].lower(): v['search_this'] for k, v in inv.iterrows()}
 
-        tmmx = H.xarray(var_search['tmax']).sel(latitude=lat, longitude=lon, method='nearest').tmax.values.item()
+        tmmx = H.xarray(var_search['tmax'])
+        tmmx = tmmx.sel(latitude=lat, longitude=mod_lon, method='nearest').tmax.values.item()
         tmmx -= 273.15
-        dsl_tmx.append(tmmx)
 
-        tmmn = H.xarray(var_search['tmin']).sel(latitude=lat, longitude=lon, method='nearest').tmin.values.item()
+        tmmn = H.xarray(var_search['tmin'])
+        tmmn = tmmn.sel(latitude=lat, longitude=mod_lon, method='nearest').tmin.values.item()
         tmmn -= 273.15
-        dsl_tmn.append(tmmn)
 
-        response = urllib.request.urlopen(QPF_URL.format(dt_start.strftime('%Y%m%d'), str(fxx).rjust(3, '0')))
-        _file = response.read()
-        with tempfile.NamedTemporaryFile(suffix=".grib2") as f:
-            f.write(_file)
-            qpf = xarray.open_dataset(f.name)
-            qpf['longitude'] = xarray.where(qpf['longitude'] >= 180, qpf['longitude'] - 360, qpf['longitude'])
-            abslat = np.abs(qpf.latitude - lat)
-            abslon = np.abs(qpf.longitude - lon)
-            c = np.maximum(abslon, abslat)
-            ([yloc], [xloc]) = np.where(c == np.min(c))
-            pt_ds = qpf.sel(x=xloc, y=yloc)
-            qpf_val = pt_ds.tp.values.item()
-            plt.scatter(lon, lat, color='b')
-            plt.text(lon, lat, 'requested')
-            qpf.tp.plot(x='longitude', y='latitude')
-            plt.scatter(pt_ds.longitude, pt_ds.latitude, color='r')
-            plt.text(pt_ds.longitude, pt_ds.latitude, 'nearest')
-            plt.title('speed at nearest point: %s' % pt_ds.tp.data)
-            m = Basemap(llcrnrlon=qpf.longitude.values.min(),
-                        llcrnrlat=qpf.latitude.values.min(),
-                        urcrnrlon=qpf.longitude.values.max(),
-                        urcrnrlat=qpf.latitude.values.max(),
-                        projection='cyl')
-            m.drawcoastlines()
-            m.drawcountries()
-            plt.show()
-            dsl_qpf.append(qpf_val)
-    pass
+        if fxx % 24 == 0:
+            response = urllib.request.urlopen(QPF_URL.format(dt_start.strftime('%Y%m%d'), str(fxx).rjust(3, '0')))
+            _file = response.read()
+            with tempfile.NamedTemporaryFile(suffix=".grib2") as f:
+                f.write(_file)
+                qpf = xarray.open_dataset(f.name)
+                qpf['longitude'] = xarray.where(qpf['longitude'] >= 180, qpf['longitude'] - 360, qpf['longitude'])
+                abslat = np.abs(qpf.latitude - lat)
+                abslon = np.abs(qpf.longitude - lon)
+                c = np.maximum(abslon, abslat)
+                ([yloc], [xloc]) = np.where(c == np.min(c))
+                pt_ds = qpf.sel(x=xloc, y=yloc)
+                qpf_val = pt_ds.tp.values.item()
+                df.loc[i] = {'ppt': qpf_val, 'tmin': tmmn, 'tmax': tmmx}
+        else:
+            df.loc[i] = {'ppt': 0.0, 'tmin': tmmn, 'tmax': tmmx}
+
+    mountain = pytz.timezone('US/Mountain')
+    df.index = df.index.tz_convert(mountain)
+    df_d = df.resample('D')
+    agg_funcs = {'ppt': 'sum', 'tmin': 'min', 'tmax': 'max'}
+    df = df_d.agg(agg_funcs)
 
 
 def test_noaa(lat, lon):

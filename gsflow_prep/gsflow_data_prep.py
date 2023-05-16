@@ -12,6 +12,7 @@ from rtree import index
 from scipy.stats.stats import linregress
 
 from utils.elevation import elevation_from_coordinate
+from utils.noaa_forecast import get_gridded_forecast
 
 
 def get_gage_stations(basin_shp, gages_shp, out_json):
@@ -266,6 +267,16 @@ def attribute_precip_zones(ppt_zones_shp, csv, out_shp):
     print('wrote {}'.format(out_shp))
 
 
+def forecast_bias_monthly(station_meta, bias_meta):
+    with open(station_meta, 'r') as js:
+        stations = json.load(js)
+
+    for sid, meta in stations.items():
+        pass
+
+
 if __name__ == '__main__':
-    pass
+    station_js = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/met/selected_stations.json'
+    bias_js = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/met/station_forecast_bias.json'
+    forecast_bias_monthly()
 # ========================= EOF ====================================================================
