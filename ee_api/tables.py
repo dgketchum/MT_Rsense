@@ -1,11 +1,82 @@
 import os
 
 import numpy as np
-from pandas import read_csv, concat
+import pandas as pd
 from shapely.geometry import Polygon
 from geopandas import GeoDataFrame
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
+
+
+def write_et_data(gridded_dir, summary, csv_all, csv_fields, start_year=1987,
+                  end_year=2021, glob='glob',
+                  join_key='FID'):
+
+    missing, missing_ct, processed_ct = [], 0, 0
+
+    l = [os.path.join(gridded_dir, x) for x in os.listdir(gridded_dir) if glob in x]
+    l.reverse()
+
+    first = True
+    for csv in l:
+        splt = os.path.basename(csv).split('_')
+        y, m = int(splt[-2]), int(splt[-1].split('.')[0])
+
+        if first:
+            df = pd.read_csv(csv, index_col=join_key)
+            o_cols = list(df.columns)
+            df.columns = ['{}_{}_{}'.format(col, y, m) for col in list(df.columns)]
+            first = False
+        else:
+            c = pd.read_csv(csv, index_col=join_key)
+            cols = list(c.columns)
+            c.columns = ['{}_{}_{}'.format(col, y, m) for col in cols]
+            df = pd.concat([df, c], axis=1)
+
+    df.to_csv(csv_all)
+    df = df.copy()
+    dfd = df.T.to_dict(orient='dict')
+    s, e = '{}-01-01'.format(start_year), '{}-12-31'.format(end_year)
+    idx = pd.DatetimeIndex(pd.date_range(s, e, freq='M'))
+
+    sdf = pd.DataFrame(columns=o_cols, index=df.index)
+
+    months = [(idx.year[x], idx.month[x]) for x in range(idx.shape[0])]
+
+    for i, d in dfd.items():
+        irr, cc, et, = [], [], []
+        for y, m in months:
+            try:
+                cc_, et_ = d['cc_{}_{}'.format(y, m)], d['et_{}_{}'.format(y, m)]
+                cc.append(cc_)
+                et.append(et_)
+            except KeyError:
+                cc.append(np.nan)
+                et.append(np.nan)
+
+            try:
+                irr_ = d['irr_{}_{}'.format(y, m)]
+                irr.append(irr_)
+            except KeyError:
+                irr.append(np.nan)
+
+        irr = irr, 'irr'
+        cc = cc, 'cc'
+        et = et, 'et'
+
+        ppt = [d['ppt_{}_{}'.format(y, m)] for y, m in months], 'ppt'
+
+        recs = pd.DataFrame(dict([(x[1], x[0]) for x in [irr, et, cc, ppt]]), index=idx)
+        _file = os.path.join(csv_fields, '{}.csv'.format(i))
+        recs.to_csv(_file)
+        print(_file)
+        recs = recs[['irr', 'cc']]
+        annual = recs.resample('A')
+        agg_funcs = {'irr': 'mean', 'cc': 'sum'}
+        annual = annual.agg(agg_funcs)
+        sdf.loc[i] = annual.mean(axis=0)
+
+    sdf.to_csv(summary)
 
 
 def concatenate_field_water_balance(extracts, out_filename, glob='glob', join_key='FID',
@@ -18,7 +89,7 @@ def concatenate_field_water_balance(extracts, out_filename, glob='glob', join_ke
         splt = os.path.basename(csv).split('_')
         y, m = int(splt[-2]), int(splt[-1].split('.')[0])
         if first:
-            df = read_csv(csv, index_col=join_key)
+            df = pd.read_csv(csv, index_col=join_key)
             # df.drop(columns=['irr'], inplace=True)
             df.columns = ['aet' if 'swb' in col else col for col in list(df.columns)]
             df.columns = ['{}_{}_{}'.format(col, y, m) for col in list(df.columns)]
@@ -28,13 +99,13 @@ def concatenate_field_water_balance(extracts, out_filename, glob='glob', join_ke
             df[join_key] = df.index
             first = False
         else:
-            c = read_csv(csv, index_col=join_key)
+            c = pd.read_csv(csv, index_col=join_key)
             # c.drop(columns=['irr'], inplace=True)
             c.columns = ['aet' if 'swb' in col else col for col in list(c.columns)]
             c.columns = ['{}_{}_{}'.format(col, y, m) for col in list(c.columns)]
             df.columns = [c.replace('ketchum', 'k') for c in df.columns]
             df.columns = [c.replace('senay', 's') for c in df.columns]
-            df = concat([df, c], axis=1)
+            df = pd.concat([df, c], axis=1)
 
     df.to_csv(out_filename)
     if fig:
@@ -67,7 +138,7 @@ def concatenate_field_water_balance(extracts, out_filename, glob='glob', join_ke
         t_gdf.index = t_gdf['FID_new']
         t_gdf.drop(columns=['FID_new'], inplace=True)
         geo = t_gdf['geometry']
-        df = concat([df, t_gdf], axis=1)
+        df = pd.concat([df, t_gdf], axis=1)
         gpd = GeoDataFrame(df, crs='epsg:5071', geometry=geo)
         gpd.drop(columns=['FID_new'], inplace=True)
         gpd.to_file(out_filename.replace('.csv', '.shp'))
@@ -87,18 +158,11 @@ def to_polygon(j):
 
 
 if __name__ == '__main__':
-    _bucket = 'gs://wudr'
-    south = False
-    root = '/media/research/IrrigationGIS'
-    if not os.path.exists(root):
-        root = '/home/dgketchum/data/IrrigationGIS'
-    _tables = 'Montana/st_mary/ssebop_data/depth'
-    tables = os.path.join(root, _tables, '3MAY2022')
-    o_file = os.path.join(root, _tables, 'et_comp_3MAY2022.csv')
-    _glob = '3MAY2022'
-    template_shape = os.path.join(root, 'Montana', 'st_mary',
-                                  'All_Milk_River_Basin_Irrigation_NoFallow_wChannel_wgridcel_update.shp')
-    concatenate_field_water_balance(tables, out_filename=o_file, glob=_glob, template_geometry=template_shape,
-                                    join_key='FID_new')
+    gis = '/media/research/IrrigationGIS/Montana/tongue'
+    csv_ = os.path.join(gis, 'gridded_data')
+    csv_fields = os.path.join(gis, 'fields')
+    csv_all = os.path.join(gis, 'all_data.csv')
+    csv_out = os.path.join(gis, 'summary_data.csv')
+    write_et_data(csv_, csv_out, csv_all, csv_fields, glob='tongue_fields_9MAY2023', join_key='FID')
 
 # ========================= EOF ====================================================================

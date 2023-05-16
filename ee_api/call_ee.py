@@ -19,6 +19,7 @@ CORB_CLIP = 'users/dgketchum/boundaries/CO_RB'
 
 DNRC_BASINS = 'users/dgketchum/boundaries/DNRC_Basins'
 TONGUE_FIELDS = 'users/dgketchum/fields/tongue_9MAY2023'
+UCF_POU = 'users/dgketchum/fields/ucf_pou_10MAY2023'
 
 
 def get_geomteries():
@@ -99,7 +100,7 @@ def extract_terraclimate_monthly(tables, years, description):
 
 
 def export_gridded_data(tables, bucket, years, description, features=None, min_years=0, debug=False,
-                        join_col='STAID'):
+                        join_col='STAID', extra_cols=None, volumes=False):
     """
     Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
     Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
@@ -177,12 +178,13 @@ def export_gridded_data(tables, bucket, years, description, features=None, min_y
 
             cc = et.subtract(eff_ppt).rename('cc')
 
-            et = et.multiply(area)
-            eff_ppt = eff_ppt.multiply(area)
-            cc = cc.multiply(area)
-            ppt = ppt.multiply(area)
-            etr = etr.multiply(area)
-            ietr = ietr.multiply(area)
+            if volumes:
+                et = et.multiply(area)
+                eff_ppt = eff_ppt.multiply(area)
+                cc = cc.multiply(area)
+                ppt = ppt.multiply(area)
+                etr = etr.multiply(area)
+                ietr = ietr.multiply(area)
 
             if yr > 1986 and month in range(4, 11):
                 bands = irr.addBands([et, cc, ppt, etr, eff_ppt, ietr])
@@ -192,16 +194,25 @@ def export_gridded_data(tables, bucket, years, description, features=None, min_y
                 bands = ppt.addBands([etr])
                 select_ = [join_col, 'ppt', 'etr']
 
+            if extra_cols:
+                select_ += extra_cols
+
             if debug:
-                pt = bands.sample(region=get_geomteries()[2],
-                                  numPixels=1,
-                                  scale=30)
-                p = pt.first().getInfo()['properties']
+                samp = fc.filterMetadata('FID', 'equals', 1).geometry()
+                field = bands.reduceRegions(collection=samp,
+                                            reducer=ee.Reducer.mean(),
+                                            scale=30)
+                p = field.first().getInfo()['properties']
                 print('propeteries {}'.format(p))
 
-            data = bands.reduceRegions(collection=fc,
-                                       reducer=ee.Reducer.sum(),
-                                       scale=30)
+            if volumes:
+                data = bands.reduceRegions(collection=fc,
+                                           reducer=ee.Reducer.sum(),
+                                           scale=30)
+            else:
+                data = bands.reduceRegions(collection=fc,
+                                           reducer=ee.Reducer.mean(),
+                                           scale=30)
 
             out_desc = '{}_{}_{}'.format(description, yr, month)
             task = ee.batch.Export.table.toCloudStorage(
@@ -224,8 +235,8 @@ def extract_gridmet_monthly(year, month):
     else:
         dataset = ee.ImageCollection('IDAHO_EPSCOR/GRIDMET').filterDate('{}-{}-01'.format(year, m_str),
                                                                         '{}-{}-01'.format(year, m_str_next))
-    pet = dataset.select('etr').sum().multiply(0.001).rename('gm_etr')
-    ppt = dataset.select('pr').sum().multiply(0.001).rename('gm_ppt')
+    pet = dataset.select('etr').sum().multiply(0.001)
+    ppt = dataset.select('pr').sum().multiply(0.001)
     return ppt, pet
 
 
@@ -320,6 +331,6 @@ if __name__ == '__main__':
     is_authorized()
     export_gridded_data(TONGUE_FIELDS, 'wudr', years=[i for i in range(1987, 2022)],
                         description='tongue_fields_9MAY2023', min_years=5, features=None,
-                        join_col='FID')
+                        join_col='FID', debug=False, volumes=False)
 
 # ========================= EOF ================================================================================
