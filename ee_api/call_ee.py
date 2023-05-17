@@ -133,6 +133,8 @@ def export_gridded_data(tables, bucket, years, description, features=None, min_y
 
     for yr in years:
         for month in range(1, 13):
+            if month != 4:
+                continue
             s = '{}-{}-01'.format(yr, str(month).rjust(2, '0'))
             end_day = monthrange(yr, month)[1]
             e = '{}-{}-{}'.format(yr, str(month).rjust(2, '0'), end_day)
@@ -187,8 +189,10 @@ def export_gridded_data(tables, bucket, years, description, features=None, min_y
                 ietr = ietr.multiply(area)
 
             if yr > 1986 and month in range(4, 11):
-                bands = irr.addBands([et, cc, ppt, etr, eff_ppt, ietr])
-                select_ = [join_col, 'irr', 'et', 'cc', 'ppt', 'etr', 'eff_ppt', 'ietr']
+                # bands = irr.addBands([et, cc, ppt, etr, eff_ppt, ietr])
+                # select_ = [join_col, 'irr', 'et', 'cc', 'ppt', 'etr', 'eff_ppt', 'ietr']
+                bands = irr.addBands([ppt])
+                select_ = [join_col, 'irr']
 
             else:
                 bands = ppt.addBands([etr])
@@ -198,9 +202,9 @@ def export_gridded_data(tables, bucket, years, description, features=None, min_y
                 select_ += extra_cols
 
             if debug:
-                samp = fc.filterMetadata('FID', 'equals', 1).geometry()
+                samp = fc.filterMetadata('FID', 'equals', 1403).geometry()
                 field = bands.reduceRegions(collection=samp,
-                                            reducer=ee.Reducer.mean(),
+                                            reducer=ee.Reducer.sum(),
                                             scale=30)
                 p = field.first().getInfo()['properties']
                 print('propeteries {}'.format(p))
@@ -330,7 +334,7 @@ def extract_corrected_etr(year, month):
 if __name__ == '__main__':
     is_authorized()
     export_gridded_data(TONGUE_FIELDS, 'wudr', years=[i for i in range(1987, 2022)],
-                        description='tongue_fields_9MAY2023', min_years=5, features=None,
-                        join_col='FID', debug=False, volumes=False)
+                        description='tongue_irr_9MAY2023', min_years=5, features=None,
+                        join_col='FID', debug=False, volumes=True)
 
 # ========================= EOF ================================================================================

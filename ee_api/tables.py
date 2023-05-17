@@ -11,10 +11,11 @@ from scipy.stats import linregress
 def write_et_data(gridded_dir, summary, csv_all, csv_fields, start_year=1987,
                   end_year=2021, glob='glob',
                   join_key='FID'):
-
     missing, missing_ct, processed_ct = [], 0, 0
 
-    l = [os.path.join(gridded_dir, x) for x in os.listdir(gridded_dir) if glob in x]
+    et_data = os.path.join(gridded_dir, 'et')
+    l = [os.path.join(et_data, x) for x in os.listdir(et_data) if glob in x]
+    irr_data = os.path.join(gridded_dir, 'irr')
     l.reverse()
 
     first = True
@@ -33,8 +34,15 @@ def write_et_data(gridded_dir, summary, csv_all, csv_fields, start_year=1987,
             c.columns = ['{}_{}_{}'.format(col, y, m) for col in cols]
             df = pd.concat([df, c], axis=1)
 
+        if m == 4:
+            f = os.path.join(irr_data, 'tongue_irr_9MAY2023_{}_4.csv'.format(y))
+            c = pd.read_csv(f, index_col=join_key)
+            match = [i for i in c.index if i in df.index]
+            df.loc[match, 'irr_{}_{}'.format(y, m)] = c.loc[match, 'irr']
+
     df.to_csv(csv_all)
     df = df.copy()
+    df = df.fillna(0.0)
     dfd = df.T.to_dict(orient='dict')
     s, e = '{}-01-01'.format(start_year), '{}-12-31'.format(end_year)
     idx = pd.DatetimeIndex(pd.date_range(s, e, freq='M'))
@@ -44,15 +52,21 @@ def write_et_data(gridded_dir, summary, csv_all, csv_fields, start_year=1987,
     months = [(idx.year[x], idx.month[x]) for x in range(idx.shape[0])]
 
     for i, d in dfd.items():
-        irr, cc, et, = [], [], []
+        irr, cc, et, ietr, ept = [], [], [], [], []
         for y, m in months:
             try:
-                cc_, et_ = d['cc_{}_{}'.format(y, m)], d['et_{}_{}'.format(y, m)]
+                cc_, et_, ietr_ = d['cc_{}_{}'.format(y, m)], d['et_{}_{}'.format(y, m)], d['ietr_{}_{}'.format(y, m)]
+                ept_ = d['eff_ppt_{}_{}'.format(y, m)]
                 cc.append(cc_)
                 et.append(et_)
+                ietr.append(ietr_)
+                ept.append(ept_)
+
             except KeyError:
                 cc.append(np.nan)
                 et.append(np.nan)
+                ietr.append(np.nan)
+                ept.append(np.nan)
 
             try:
                 irr_ = d['irr_{}_{}'.format(y, m)]
@@ -63,16 +77,20 @@ def write_et_data(gridded_dir, summary, csv_all, csv_fields, start_year=1987,
         irr = irr, 'irr'
         cc = cc, 'cc'
         et = et, 'et'
+        ietr = ietr, 'ietr'
+        ept = ept, 'eff_ppt'
 
         ppt = [d['ppt_{}_{}'.format(y, m)] for y, m in months], 'ppt'
+        etr = [d['etr_{}_{}'.format(y, m)] for y, m in months], 'etr'
 
-        recs = pd.DataFrame(dict([(x[1], x[0]) for x in [irr, et, cc, ppt]]), index=idx)
+        recs = pd.DataFrame(dict([(x[1], x[0]) for x in [irr, et, cc, ppt, etr, ietr, ept]]), index=idx)
         _file = os.path.join(csv_fields, '{}.csv'.format(i))
-        recs.to_csv(_file)
-        print(_file)
-        recs = recs[['irr', 'cc']]
+        # recs.to_csv(_file)
+        # print(_file)
+        recs = recs[['irr', 'et', 'cc', 'ppt', 'etr', 'ietr', 'eff_ppt']]
         annual = recs.resample('A')
-        agg_funcs = {'irr': 'mean', 'cc': 'sum'}
+        agg_funcs = {'irr': 'mean', 'cc': 'sum', 'eff_ppt': 'sum', 'et': 'sum',
+                     'ppt': 'sum', 'etr': 'sum', 'ietr': 'sum'}
         annual = annual.agg(agg_funcs)
         sdf.loc[i] = annual.mean(axis=0)
 
