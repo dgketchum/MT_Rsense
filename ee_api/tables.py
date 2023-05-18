@@ -85,8 +85,8 @@ def write_et_data(gridded_dir, summary, csv_all, csv_fields, start_year=1987,
 
         recs = pd.DataFrame(dict([(x[1], x[0]) for x in [irr, et, cc, ppt, etr, ietr, ept]]), index=idx)
         _file = os.path.join(csv_fields, '{}.csv'.format(i))
-        # recs.to_csv(_file)
-        # print(_file)
+        recs.to_csv(_file)
+        print(_file)
         recs = recs[['irr', 'et', 'cc', 'ppt', 'etr', 'ietr', 'eff_ppt']]
         annual = recs.resample('A')
         agg_funcs = {'irr': 'mean', 'cc': 'sum', 'eff_ppt': 'sum', 'et': 'sum',
