@@ -38,8 +38,6 @@ EARTH_RADIUS = 6371.
 
 WEATHER_PARAMETRS_UNCONVERTED = [('DATETIME', 'Date - [YYYY-MM-DD]'),
                                  ('ET', 'Evapotranspiration Kimberly-Penman - [in]'),
-                                 ('ETos', 'Evapotranspiration ASCE-EWRI Grass - [in]'),
-                                 ('ETrs', 'Evapotranspiration ASCE-EWRI Alfalfa - [in]'),
                                  ('MM', 'Mean Daily Air Temperature - [F]'),
                                  ('MN', 'Minimum Daily Air Temperature - [F]'),
                                  ('MX', 'Maximum Daily Air Temperature - [F]'),
@@ -57,9 +55,7 @@ WEATHER_PARAMETRS_UNCONVERTED = [('DATETIME', 'Date - [YYYY-MM-DD]'),
                                  ]
 
 WEATHER_PARAMETRS = [('DATETIME', 'Date', '[YYYY-MM-DD]'),
-                     ('ET', 'Evapotranspiration Kimberly-Penman', '[mm]'),
-                     ('ETos', 'Evapotranspiration ASCE-EWRI Grass', '[mm]'),
-                     ('ETrs', 'Evapotranspiration ASCE-EWRI Alfalfa', '[mm]'),
+                     ('ET', 'Modified Penman ETr', '[mm]'),
                      ('MM', 'Mean Daily Air Temperature', '[C]'),
                      ('MN', 'Minimum Daily Air Temperature', '[C]'),
                      ('MX', 'Maximum Daily Air Temperature', '[C]'),
@@ -79,7 +75,7 @@ TARGET_COLUMNS = ['{a}_et', '{a}_etos', '{a}_etrs', '{a}_mm', '{a}_mn',
                   '{a}_mx', '{a}_pp', '{a}_pu', '{a}_sr', '{a}_ta', '{a}_tg',
                   '{a}_ua', '{a}_ud', '{a}_wg', '{a}_wr', '{a}_ym']
 
-STANDARD_PARAMS = ['et', 'etos', 'etrs', 'mm', 'mn',
+STANDARD_PARAMS = ['et', 'mm', 'mn',
                    'mx', 'pp', 'pu', 'sr', 'ta', 'tg',
                    'ua', 'ud', 'wg', 'wr', 'ym']
 
