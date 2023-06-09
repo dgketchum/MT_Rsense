@@ -6,7 +6,7 @@ from collections import OrderedDict
 import numpy as np
 from pandas import read_csv, date_range, to_datetime, isna, DataFrame
 
-from utils.hydrograph import get_station_daily_data
+from utils.hydrograph import get_station_instantaneous_flows
 
 
 def write_basin_datafile(gage_json, data_file,
@@ -21,7 +21,7 @@ def write_basin_datafile(gage_json, data_file,
         if k != '06192500':
             continue
         s, e = v['start'], v['end']
-        df = get_station_daily_data(s, e, k)
+        df = get_station_instantaneous_flows(s, e, k)
         df.columns = ['runoff']
 
         if to_datetime(start) > to_datetime(s):

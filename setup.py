@@ -16,25 +16,13 @@
 
 import os
 
-from setuptools import setup
-
-os.environ['TRAVIS_CI'] = 'True'
-setup_kwargs = {}
-
-try:
-    from setuptools import setup
-    # setup_kwargs = {'entry_points': {'console_scripts': ['metio=metio.metio_cli:cli_runner']}}
-except ImportError:
-    from distutils.core import setup
-    # setup_kwargs = {'scripts': ['bin/metio/metio_cli']}
+from setuptools import setup, find_packages
 
 tag = '0.0.01'
 
-setup(name='mt-rense',
+setup(name='MT_Rsense',
       version=tag,
       description='Montana DNRC Remote Sensing Tools',
-      setup_requires=[],
-      py_modules=['utils'],
       license='Apache',
       classifiers=[
           'Intended Audience :: Science/Research',
@@ -45,13 +33,12 @@ setup(name='mt-rense',
       author='David Ketchum',
       author_email='dgketchum@gmail.com',
       platforms='Posix; MacOS X; Windows',
-      packages=['utils'],
+      packages=find_packages(),
       download_url='https://github.com/{}/{}/archive/{}.tar.gz'.format('dgketchum', 'MT_Rsense', tag),
       url='https://github.com/dgketchum/MT_Rsense',
       install_requires=['numpy', 'geopy', 'pandas', 'requests', 'fiona',
                         'future', 'xarray', 'pyproj', 'rasterio',
-                        'netcdf4', 'refet', 'bounds'],
-      **setup_kwargs)
+                        'netcdf4', 'refet', 'bounds'])
 
 
 # ============= EOF ==============================================================

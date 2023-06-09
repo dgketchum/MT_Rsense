@@ -13,7 +13,7 @@ from rasterio.transform import Affine
 from rasterio.mask import mask
 from rasterio.warp import reproject, Resampling
 from rasterio.warp import calculate_default_transform as cdt
-from xarray import open_dataset, open_mfdataset
+from xarray import open_dataset
 from pandas import date_range, DataFrame
 
 warnings.simplefilter(action='ignore', category=DeprecationWarning)

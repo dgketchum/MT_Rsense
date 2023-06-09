@@ -12,7 +12,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 from utils.hydrograph import read_hydrograph
-from utils.hydrograph import get_station_daily_data
+from utils.hydrograph import get_station_flows
 
 BASINS = {'38H': (None, None, None),
           '39E': (29756, None, None),
@@ -365,7 +365,7 @@ def compile_availability_data(wr_dir, model_hydrograph, demands_data, crop_cons_
         years = range(1980, 2022)
         gs_obs = DataFrame(index=doy_idx, columns=years)
         if not os.path.exists(gs_file) and gage:
-            gs_hydro = get_station_daily_data('1980-01-01', '2021-12-31', gage)
+            gs_hydro = get_station_instantaneous_flows('1980-01-01', '2021-12-31', gage)
             if isinstance(gs_hydro, type(None)):
                 continue
             for yr in years:
