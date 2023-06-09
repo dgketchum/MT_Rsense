@@ -6,8 +6,7 @@ import ee
 from openet import ssebop as ssebop_model
 
 from ee_api import is_authorized
-from ee_api.ee_utils import long_term_ndvi, landsat_masked
-from water_availability.basin_availability import BASINS
+from ee_api.ee_utils import landsat_masked
 
 sys.path.insert(0, os.path.abspath('..'))
 sys.setrecursionlimit(5000)
