@@ -20,7 +20,10 @@ def point_series(shp, out, var='et'):
     start, end = '2016-01-01', '2021-12-31'
     ct = 0
     for i, row in gdf.iterrows():
-        file_ = os.path.join(out, str(row['FID']).rjust(3, '0'))
+        fid = row['FID']
+        if not fid <= 20:
+            continue
+        file_ = os.path.join(out, str(fid).rjust(3, '0'))
         if os.path.exists(file_):
             continue
         lon, lat = row.geometry.centroid.xy[0], row.geometry.centroid.xy[1]
