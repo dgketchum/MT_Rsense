@@ -307,17 +307,6 @@ class XyzDistBuild(StandardPrmsBuild):
         self.control.write(self.control_file)
 
 
-def dt_index_to_dct(dt_range):
-    dct = {}
-    time_div = ['Year', 'Month', 'day', 'hr', 'min', 'sec']
-    dct['Year'] = [i.year for i in dt_range]
-    dct['Month'] = [i.month for i in dt_range]
-    dct['day'] = [i.day for i in dt_range]
-    for t_ in time_div[3:]:
-        dct[t_] = [0 for _ in dt_range]
-    return dct
-
-
 def plot_stats(stats, file=None):
     fig, ax = plt.subplots(figsize=(16, 6))
     stats = stats.loc['2017-01-01': '2017-12-31']

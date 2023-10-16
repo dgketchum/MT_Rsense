@@ -1,4 +1,5 @@
 import os
+import json
 from copy import deepcopy
 
 import pandas as pd
@@ -501,6 +502,9 @@ if __name__ == '__main__':
     shp = os.path.join(d, 'AdminBasinsShapefile', 'BasinBoundaries_USGSALB.shp')
     out_ = os.path.join(d, 'water_availability', 'master_hydrograph.csv')
     basin_data_ = os.path.join(d, 'water_availability', 'daily_demands_data')
-    compile_to_single_file(basin_data_, shp, out_)
+    # compile_to_single_file(basin_data_, shp, out_)
+
+    with open('/home/dgketchum/Downloads/gages_assessment/admin_basin_gaged_outlets.json', 'w') as fp:
+        fp.write(json.dumps(BASINS))
 
 # ========================= EOF ====================================================================

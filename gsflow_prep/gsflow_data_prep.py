@@ -278,5 +278,5 @@ def forecast_bias_monthly(station_meta, bias_meta):
 if __name__ == '__main__':
     station_js = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/met/selected_stations.json'
     bias_js = '/media/research/IrrigationGIS/Montana/upper_yellowstone/gsflow_prep/met/station_forecast_bias.json'
-    forecast_bias_monthly()
+    forecast_bias_monthly('292977899')
 # ========================= EOF ====================================================================

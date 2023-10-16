@@ -10,8 +10,6 @@ from tqdm import tqdm
 
 from utils.hydrograph import read_hydrograph, get_station_flows
 
-HSTART, HEND = 1980, 2022
-
 
 def get_flow_data(_dir, overwrite=False, **stations):
     for k, v in stations.items():
@@ -175,14 +173,17 @@ def process_hydrograph(csv, inst_q_dir, fig_dir, min_flow=400, long_name='Gage',
 
 
 if __name__ == '__main__':
-    isf = '/home/dgketchum/Downloads/12334550/milltown_isf.csv'
+    ucf = '/media/research/IrrigationGIS/Montana/water_rights/hydrographs/12334550/ucf_isf.csv'
+    blkft = '/media/research/IrrigationGIS/Montana/water_rights/hydrographs/12340000/blackfoot_isf.csv'
 
-    d = {'12334550': (500, 'Clark Fork at Turah Bridge nr Bonner MT', isf)}
+    d = {'12340000': (700, 'Blackfoot River near Bonner MT', blkft)}
 
     others = {'06052500': (947, 'Gallatin River at Logan MT', None),
+              '12334550': (500, 'Clark Fork at Turah Bridge nr Bonner MT', ucf),
               '06076690': (150, 'Smith River near Ft Logan MT', None),
-              '06195600': (945, 'Shields River nr Livingston MT', None),
-              '12340000': (700, 'Blackfoot River near Bonner MT', None)}
+              '06195600': (945, 'Shields River nr Livingston MT', None)}
+
+    HSTART, HEND = 1990, 2022
 
     root = '/media/research/IrrigationGIS/Montana/water_rights/hydrographs'
     overwrite = False
