@@ -39,7 +39,7 @@ class BBox(object):
         return w, s, e, n
 
     def to_epsg(self, epsg):
-        in_proj = Proj({'init': 'epsg:{}'.format(epsg)})
+        in_proj = Proj({'epsg:{}'.format(epsg)})
         w, s = in_proj(self.west, self.south)
         e, n = in_proj(self.east, self.north)
         return w, s, e, n

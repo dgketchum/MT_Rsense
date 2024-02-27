@@ -5,8 +5,9 @@ import fiona
 from pandas import date_range, to_datetime, Series
 from shapely.geometry import shape
 from pyproj import Proj
+import rasterio
 
-from utils.thredds import GridMet
+from utils.thredds import GridMet, TopoWX
 from utils.bounds import GeoBounds
 
 
@@ -22,7 +23,9 @@ def mt_county_gridmet_stacks(shapes_dir, out_dir, start, end):
             gridmet_subset_stack(shp_, '1997-01-01', '2006-12-13', var, out_, epsg=None)
 
 
-def gridmet_subset_stack(extent, start, end, variable, filename, epsg):
+def gridmet_subset_stack(extent, start, end, variable, filename, epsg, template_raster):
+    with rasterio.open(template_raster, 'r') as ras:
+        profile = ras.profile
     with fiona.open(extent, 'r') as src:
         for f in src:
             polygon = shape(f['geometry'])
@@ -32,7 +35,7 @@ def gridmet_subset_stack(extent, start, end, variable, filename, epsg):
                 bounds = bounds.to_geographic(epsg)
     gridmet = GridMet(variable=variable, start=start, end=end, bbox=bounds,
                       clip_feature=polygon)
-    ds = gridmet.subset_nc(return_array=True)
+    ds = gridmet.full_array(start, end)
     ds.to_netcdf(filename)
     print(filename)
 
@@ -53,12 +56,16 @@ def nc_point_extract(points, nc, out_dir):
 
 
 if __name__ == '__main__':
-    d = '/media/research/IrrigationGIS'
+    d = '/home/dgketchum/IrrigationGIS'
     if not os.path.exists(d):
         d = '/home/dgketchum/data/IrrigationGIS'
 
-    shapes_co = os.path.join(d, 'boundaries', 'mt_counties', 'mt_counties.shp')
-    shapes_dir_out = os.path.join(d, 'boundaries', 'mt_counties', 'individual_shapes')
-    nc_dir = os.path.join(d, 'climate', 'gridmet_nc', 'mt_counties')
-    mt_county_gridmet_stacks(shapes_dir_out, nc_dir, '1997-01-01', '2006-12-31')
+    shapes = os.path.join(d, 'boundaries', 'tl_2017_us_state.shp')
+    rasters = os.path.join(d, 'climate_data', 'topowx')
+    template = '/home/dgketchum/IrrigationGIS/climate_data/gridmet_elev.tif'
+
+    for y in range(1990, 2023):
+        r = os.path.join(rasters, 'tmmn_{}.tif'.format(y))
+        gridmet_subset_stack(shapes, '{}-01-01'.format(y), '{}-01-31'.format(y),
+                             'tmmn', filename=rasters, epsg=4326, template_raster=template)
 # ========================= EOF ====================================================================

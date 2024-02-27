@@ -65,14 +65,14 @@ class Thredds:
             bounds = (bb[0], bb[1],
                       bb[2], bb[3])
 
-        dst_affine, dst_width, dst_height = cdt(CRS({'init': 'epsg:4326'}),
-                                                CRS({'init': 'epsg:4326'}),
+        dst_affine, dst_width, dst_height = cdt(CRS.from_epsg(4326),
+                                                CRS.from_epsg(4326),
                                                 subset.shape[1],
                                                 subset.shape[2],
                                                 *bounds,
                                                 )
 
-        profile.update({'crs': CRS({'init': 'epsg:4326'}),
+        profile.update({'crs': CRS.from_epsg(4326),
                         'transform': dst_affine,
                         'width': dst_width,
                         'height': dst_height,
@@ -422,6 +422,19 @@ class GridMet(Thredds):
 
         if not self.bbox and not self.lat:
             raise AttributeError('No bbox or coordinates given')
+
+    def full_array(self, start=None, end=None):
+
+        url = self._build_url()
+        url = url + '#fillmismatch'
+        xray = open_dataset(url, decode_times=True)
+
+        if start and end:
+            xray = xray.rename({'day': 'time'})
+            subset = xray.loc[dict(time=slice(self.start, self.end))]
+            return subset
+
+        return xray
 
     def subset_daily_tif(self, out_filename=None):
 
