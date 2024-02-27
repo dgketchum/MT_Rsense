@@ -66,6 +66,6 @@ if __name__ == '__main__':
 
     for y in range(1990, 2023):
         r = os.path.join(rasters, 'tmmn_{}.tif'.format(y))
-        gridmet_subset_stack(shapes, '{}-01-01'.format(y), '{}-01-31'.format(y),
+        gridmet_subset_stack(shapes, '{}-01-01'.format(y), '{}-12-31'.format(y),
                              'tmmn', filename=rasters, epsg=4326, template_raster=template)
 # ========================= EOF ====================================================================
