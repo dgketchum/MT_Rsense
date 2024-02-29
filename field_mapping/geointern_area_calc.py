@@ -22,6 +22,8 @@ os.environ['GDAL_DATA'] = 'miniconda3/envs/gcs/share/gdal/'
 def to_equal_area(in_dir, out_dir):
     in_shp = [os.path.join(in_dir, x) for x in os.listdir(in_dir) if x.endswith('.shp')]
     for s in in_shp:
+        if 'flu' in s:
+            continue
         out_shp = os.path.join(out_dir, os.path.basename(s))
         cmd = [OGR, '-f', 'ESRI Shapefile', '-s_srs', WGS, '-t_srs', AEA, out_shp, s]
         try:
@@ -64,6 +66,6 @@ if __name__ == '__main__':
         root = '/home/dgketchum/data/IrrigationGIS/Montana/geointernship/progress'
     aea_ = os.path.join(root, 'aea')
     _wgs = os.path.join(root, 'wgs')
-    # to_equal_area(_wgs, aea_)
-    calc_areas(aea_)
+    to_equal_area(_wgs, aea_)
+    # calc_areas(aea_)
 # ========================= EOF ====================================================================
