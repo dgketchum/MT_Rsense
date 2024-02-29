@@ -19,6 +19,8 @@ CORB_CLIP = 'users/dgketchum/boundaries/CO_RB'
 
 DNRC_BASINS = 'users/dgketchum/boundaries/DNRC_Basins'
 TONGUE_FIELDS = 'users/dgketchum/fields/tongue_9MAY2023'
+TONGUE_ANNEX = 'users/dgketchum/fields/tongue_annex_20OCT2023'
+GWIC_MT_WEST = 'users/dgketchum/wells/west_monitoring_wells_sf'
 UCF_POU = 'users/dgketchum/fields/ucf_pou_10MAY2023'
 
 
@@ -100,25 +102,19 @@ def extract_terraclimate_monthly(tables, years, description):
 
 
 def export_gridded_data(tables, bucket, years, description, features=None, min_years=0, debug=False,
-                        join_col='STAID', extra_cols=None, volumes=False):
+                        join_col='STAID', extra_cols=None, volumes=False, buffer=None):
     """
     Reduce Regions, i.e. zonal stats: takes a statistic from a raster within the bounds of a vector.
     Use this to get e.g. irrigated area within a county, HUC, or state. This can mask based on Crop Data Layer,
     and can mask data where the sum of irrigated years is less than min_years. This will output a .csv to
     GCS wudr bucket.
-    :param features:
-    :param bucket:
-    :param tables: vector data over which to take raster statistics
-    :param years: years over which to run the stats
-    :param description: export name append str
-    :param cdl_mask:
-    :param min_years:
-    :return:
     """
     ee.Initialize()
     fc = ee.FeatureCollection(tables)
     if features:
         fc = fc.filter(ee.Filter.inList('STAID', features))
+    if buffer:
+        fc = fc.map(lambda x: x.buffer(buffer))
     cmb_clip = ee.FeatureCollection(CMBRB_CLIP)
     umrb_clip = ee.FeatureCollection(UMRB_CLIP)
     corb_clip = ee.FeatureCollection(CORB_CLIP)
@@ -133,7 +129,7 @@ def export_gridded_data(tables, bucket, years, description, features=None, min_y
 
     for yr in years:
         for month in range(1, 13):
-            if month != 4:
+            if month != 7:
                 continue
             s = '{}-{}-01'.format(yr, str(month).rjust(2, '0'))
             end_day = monthrange(yr, month)[1]
@@ -178,19 +174,19 @@ def export_gridded_data(tables, bucket, years, description, features=None, min_y
             etr = etr.reproject(crs='EPSG:5070', scale=30).resample('bilinear').rename('etr')
             ietr = ietr.reproject(crs='EPSG:5070', scale=30).resample('bilinear').rename('ietr')
 
-            cc = et.subtract(eff_ppt).rename('cc')
+            iwu = et.subtract(eff_ppt).rename('iwu')
 
             if volumes:
                 et = et.multiply(area)
                 eff_ppt = eff_ppt.multiply(area)
-                cc = cc.multiply(area)
+                iwu = iwu.multiply(area)
                 ppt = ppt.multiply(area)
                 etr = etr.multiply(area)
                 ietr = ietr.multiply(area)
 
             if yr > 1986 and month in range(4, 11):
-                # bands = irr.addBands([et, cc, ppt, etr, eff_ppt, ietr])
-                # select_ = [join_col, 'irr', 'et', 'cc', 'ppt', 'etr', 'eff_ppt', 'ietr']
+                # bands = irr.addBands([irr, et, iwu, ppt, etr, eff_ppt, ietr])
+                # select_ = [join_col, 'irr', 'et', 'iwu', 'ppt', 'etr', 'eff_ppt', 'ietr']
                 bands = irr.addBands([ppt])
                 select_ = [join_col, 'irr']
 
@@ -202,12 +198,12 @@ def export_gridded_data(tables, bucket, years, description, features=None, min_y
                 select_ += extra_cols
 
             if debug:
-                samp = fc.filterMetadata('FID', 'equals', 1403).geometry()
+                samp = fc.filterMetadata('gwicid', 'equals', 77225).geometry()
                 field = bands.reduceRegions(collection=samp,
                                             reducer=ee.Reducer.sum(),
                                             scale=30)
                 p = field.first().getInfo()['properties']
-                print('propeteries {}'.format(p))
+                print('{} propeteries {}'.format(yr, p))
 
             if volumes:
                 data = bands.reduceRegions(collection=fc,
@@ -333,8 +329,11 @@ def extract_corrected_etr(year, month):
 
 if __name__ == '__main__':
     is_authorized()
-    export_gridded_data(TONGUE_FIELDS, 'wudr', years=[i for i in range(1987, 2022)],
-                        description='tongue_irr_9MAY2023', min_years=5, features=None,
-                        join_col='FID', debug=False, volumes=True)
+
+    buffers = [100, 250, 500, 1000, 5000]
+    for buf in buffers:
+        export_gridded_data(GWIC_MT_WEST, 'wudr', years=[i for i in range(1987, 2022)],
+                            description='gwic_{}_7FEB2024'.format(buf), min_years=5, features=None,
+                            join_col='gwicid', debug=True, volumes=True, buffer=buf)
 
 # ========================= EOF ================================================================================

@@ -14,28 +14,31 @@ def write_et_data(gridded_dir, summary, csv_all, csv_fields, start_year=1987,
     missing, missing_ct, processed_ct = [], 0, 0
 
     et_data = os.path.join(gridded_dir, 'et')
-    l = [os.path.join(et_data, x) for x in os.listdir(et_data) if glob in x]
+    l = sorted([os.path.join(et_data, x) for x in os.listdir(et_data) if glob in x])
     irr_data = os.path.join(gridded_dir, 'irr')
-    l.reverse()
-
     first = True
     for csv in l:
         splt = os.path.basename(csv).split('_')
-        y, m = int(splt[-2]), int(splt[-1].split('.')[0])
+        y, m, radius = int(splt[-2]), int(splt[-1].split('.')[0]), int(splt[1].split('.')[0])
+        print(m, y, radius)
 
         if first:
             df = pd.read_csv(csv, index_col=join_key)
+            drop = [c for c in df.columns if 'irr' in c]
+            df.drop(columns=drop, inplace=True)
             o_cols = list(df.columns)
             df.columns = ['{}_{}_{}'.format(col, y, m) for col in list(df.columns)]
             first = False
         else:
             c = pd.read_csv(csv, index_col=join_key)
+            drop = [c for c in c.columns if 'irr' in c]
+            c.drop(columns=drop, inplace=True)
             cols = list(c.columns)
             c.columns = ['{}_{}_{}'.format(col, y, m) for col in cols]
             df = pd.concat([df, c], axis=1)
 
-        if m == 4:
-            f = os.path.join(irr_data, 'tongue_irr_9MAY2023_{}_4.csv'.format(y))
+        if m == 7:
+            f = os.path.join(irr_data, '{}7FEB2024_{}_7.csv'.format(glob, y))
             c = pd.read_csv(f, index_col=join_key)
             match = [i for i in c.index if i in df.index]
             df.loc[match, 'irr_{}_{}'.format(y, m)] = c.loc[match, 'irr']
@@ -51,19 +54,20 @@ def write_et_data(gridded_dir, summary, csv_all, csv_fields, start_year=1987,
 
     months = [(idx.year[x], idx.month[x]) for x in range(idx.shape[0])]
 
-    for i, d in dfd.items():
-        irr, cc, et, ietr, ept = [], [], [], [], []
+    for ii, d in dfd.items():
+        i = int(ii)
+        irr, iwu, et, ietr, ept = [], [], [], [], []
         for y, m in months:
             try:
-                cc_, et_, ietr_ = d['cc_{}_{}'.format(y, m)], d['et_{}_{}'.format(y, m)], d['ietr_{}_{}'.format(y, m)]
+                iwu_, et_, ietr_ = d['iwu_{}_{}'.format(y, m)], d['et_{}_{}'.format(y, m)], d['ietr_{}_{}'.format(y, m)]
                 ept_ = d['eff_ppt_{}_{}'.format(y, m)]
-                cc.append(cc_)
+                iwu.append(iwu_)
                 et.append(et_)
                 ietr.append(ietr_)
                 ept.append(ept_)
 
             except KeyError:
-                cc.append(np.nan)
+                iwu.append(np.nan)
                 et.append(np.nan)
                 ietr.append(np.nan)
                 ept.append(np.nan)
@@ -75,7 +79,7 @@ def write_et_data(gridded_dir, summary, csv_all, csv_fields, start_year=1987,
                 irr.append(np.nan)
 
         irr = irr, 'irr'
-        cc = cc, 'cc'
+        iwu = iwu, 'iwu'
         et = et, 'et'
         ietr = ietr, 'ietr'
         ept = ept, 'eff_ppt'
@@ -83,13 +87,13 @@ def write_et_data(gridded_dir, summary, csv_all, csv_fields, start_year=1987,
         ppt = [d['ppt_{}_{}'.format(y, m)] for y, m in months], 'ppt'
         etr = [d['etr_{}_{}'.format(y, m)] for y, m in months], 'etr'
 
-        recs = pd.DataFrame(dict([(x[1], x[0]) for x in [irr, et, cc, ppt, etr, ietr, ept]]), index=idx)
+        recs = pd.DataFrame(dict([(x[1], x[0]) for x in [irr, et, iwu, ppt, etr, ietr, ept]]), index=idx)
         _file = os.path.join(csv_fields, '{}.csv'.format(i))
         recs.to_csv(_file)
         print(_file)
-        recs = recs[['irr', 'et', 'cc', 'ppt', 'etr', 'ietr', 'eff_ppt']]
+        recs = recs[['irr', 'et', 'iwu', 'ppt', 'etr', 'ietr', 'eff_ppt']]
         annual = recs.resample('A')
-        agg_funcs = {'irr': 'mean', 'cc': 'sum', 'eff_ppt': 'sum', 'et': 'sum',
+        agg_funcs = {'irr': 'mean', 'iwu': 'sum', 'eff_ppt': 'sum', 'et': 'sum',
                      'ppt': 'sum', 'etr': 'sum', 'ietr': 'sum'}
         annual = annual.agg(agg_funcs)
         sdf.loc[i] = annual.mean(axis=0)
@@ -176,11 +180,16 @@ def to_polygon(j):
 
 
 if __name__ == '__main__':
-    gis = '/media/research/IrrigationGIS/Montana/tongue'
-    csv_ = os.path.join(gis, 'gridded_data')
-    csv_fields = os.path.join(gis, 'fields')
-    csv_all = os.path.join(gis, 'all_data.csv')
-    csv_out = os.path.join(gis, 'summary_data.csv')
-    write_et_data(csv_, csv_out, csv_all, csv_fields, glob='tongue_fields_9MAY2023', join_key='FID')
+    gis = '/media/research/IrrigationGIS/wells'
+    csv_ = os.path.join(gis, 'exports')
+
+    for rad in [100, 250, 500, 1000, 5000]:
+        csv_fields = os.path.join(gis, 'by_well', '{}'.format(rad))
+        if not os.path.isdir(csv_fields):
+            os.mkdir(csv_fields)
+        csv_all = os.path.join(gis, 'gwic_west_all_{}.csv'.format(rad))
+        csv_out = os.path.join(gis, 'summaray_data_gwic_west_{}.csv'.format(rad))
+        write_et_data(csv_, csv_out, csv_all, csv_fields,
+                      glob='gwic_{}_'.format(rad), join_key='gwicid')
 
 # ========================= EOF ====================================================================
