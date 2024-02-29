@@ -269,7 +269,10 @@ def check_implementation(station='USC00242409', data_dir=None, iwr_table=None,
 
     lat = df.iloc[0]['LATITUDE']
     lon = df.iloc[0]['LONGITUDE']
-    elev = elevation_from_coordinate(lat, lon)
+
+    # TODO: update elevation getter
+    # elev = elevation_from_coordinate(lat, lon)
+    elev = 1564
 
     df = df[['TMAX', 'TMIN', 'PRCP']]
 
@@ -311,5 +314,5 @@ if __name__ == '__main__':
     iwr_table = None
     start, end = '1971-01-01', '2000-12-31'
     # start, end = '1997-01-01', '2006-12-31'
-    # check_implementation('USC00242409', iwr_data_dir, iwr_table, start=start, end=end)
+    check_implementation('USC00242409', iwr_data_dir, iwr_table, start=start, end=end)
 # ========================= EOF ====================================================================
