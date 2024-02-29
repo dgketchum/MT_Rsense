@@ -6,6 +6,7 @@ from rasterio.crs import CRS
 from fiona import open as fopen
 import fiona
 
+
 class BBox(object):
     def __init__(self):
         self.west = None
@@ -144,6 +145,7 @@ class RasterBounds(BBox):
 
     def get_nwse_tuple(self):
         return self.north, self.west, self.south, self.east
+
 
 class VectorBounds(BBox):
     """ Spatial bounding box from vector extent.

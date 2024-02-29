@@ -60,5 +60,8 @@ if __name__ == '__main__':
     shapes_co = os.path.join(d, 'boundaries', 'mt_counties', 'mt_counties.shp')
     shapes_dir_out = os.path.join(d, 'boundaries', 'mt_counties', 'individual_shapes')
     nc_dir = os.path.join(d, 'climate', 'gridmet_nc', 'mt_counties')
-    mt_county_gridmet_stacks(shapes_dir_out, nc_dir, '1997-01-01', '2006-12-31')
+    # mt_county_gridmet_stacks(shapes_dir_out, nc_dir, '1997-01-01', '2006-12-31')
+    g = GridMet('etr', start='1987-01-01', end='2021-12-31', lat=46.3761, lon=-105.832)
+    df = g.get_point_timeseries()
+    df.to_csv('/media/research/IrrigationGIS/Montana/tongue/gridmet_etr.csv')
 # ========================= EOF ====================================================================

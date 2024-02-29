@@ -497,14 +497,14 @@ if __name__ == '__main__':
     basin_wr_pod = os.path.join(d, 'water_availability', 'basin_wr_gdb')
     demands = os.path.join(d, 'water_availability', 'daily_demands_data')
     cc_data = os.path.join(cc_dir, 'basin_cc_series', '30OCT2022')
-    # compile_availability_data(basin_wr_pod, master_hydro, demands, cc_data)
+    compile_availability_data(basin_wr_pod, master_hydro, demands, cc_data)
 
     shp = os.path.join(d, 'AdminBasinsShapefile', 'BasinBoundaries_USGSALB.shp')
     out_ = os.path.join(d, 'water_availability', 'master_hydrograph.csv')
     basin_data_ = os.path.join(d, 'water_availability', 'daily_demands_data')
     # compile_to_single_file(basin_data_, shp, out_)
 
-    with open('/home/dgketchum/Downloads/gages_assessment/admin_basin_gaged_outlets.json', 'w') as fp:
-        fp.write(json.dumps(BASINS))
+    # with open('/home/dgketchum/Downloads/gages_assessment/admin_basin_gaged_outlets.json', 'w') as fp:
+    #     fp.write(json.dumps(BASINS))
 
 # ========================= EOF ====================================================================

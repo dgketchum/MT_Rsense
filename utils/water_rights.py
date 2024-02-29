@@ -87,10 +87,15 @@ if __name__ == '__main__':
     pou_c = os.path.join(wa, 'basin_wr_gdb')
     pou_f = os.path.join(wr, 'pou_flat')
     _clip = [os.path.join(pou_c, x) for x in os.listdir(pou_c) if x.endswith('pou.shp')]
-    for c in _clip:
-        if '41K' not in c:
-            continue
-        f = os.path.join(pou_f, os.path.basename(c))
-        print('processing {}'.format(f))
-        get_flat_priority(c, f)
+    # for c in _clip:
+    #     if '41K' not in c:
+    #         continue
+    #     f = os.path.join(pou_f, os.path.basename(c))
+    #     print('processing {}'.format(f))
+    #     get_flat_priority(c, f)
+
+    shapes = os.path.join(root, 'gage_basins')
+    pou_d = os.path.join(root, 'pou')
+    gdb_ = os.path.join(root, 'wr_gdb', 'wrpou.shp')
+    clip_data_to_basin(gdb_, basin_shp_dir=shapes, pou_dir=pou_d)
 # ========================= EOF ====================================================================
