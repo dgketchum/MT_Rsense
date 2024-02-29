@@ -26,7 +26,7 @@ def get_flow_data(_dir, overwrite=False, **stations):
 
         if not os.path.exists(h) or overwrite:
 
-            s, e = '{}-01-01'.format(HSTART), '{}-12-31'.format(HEND + 1)
+            s, e = '{}-01-01'.format(HSTART), '{}-12-31'.format(HEND)
             get_station_flows(s, e, k, freq='dv', out_dir=gage, overwrite=True)
 
             for y in range(HSTART, HEND + 1):
@@ -129,23 +129,23 @@ def process_hydrograph(csv, inst_q_dir, fig_dir, min_flow=400, long_name='Gage',
                                                                      len(unverified)))
 
     colors = ['k' for _ in ydf.columns]
-    years = [int(c) for c in ldf.columns]
+    years = [int(c) for c in ydf.columns]
     ax = ydf.plot(logy=True, legend=False, alpha=0.2, color=colors, ylabel='discharge [cfs]',
                   title='{}: {}\n'
                         '{} - {}'.format(long_name, sid, years[0], years[-1]), figsize=(30, 10))
     ax.yaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
 
     ydf = ydf.loc[ydf.index != '02-29']
-    ydf.dropna(how='any', axis=1, inplace=True)
+    # ydf.dropna(how='any', axis=1, inplace=True)
 
     schedule.plot(logy=True, legend=True, color='r', ax=ax)
 
-    last_year = pd.DataFrame(ydf[2022])
+    last_year = pd.DataFrame(ydf[2023])
     last_year.plot(logy=True, legend=True, color='orange', ax=ax, linewidth=3)
 
-    mean_ = pd.DataFrame(ydf.mean(axis=1))
-    mean_.columns = ['Mean Daily Flow (cfs)']
-    mean_.plot(logy=True, legend=True, color='b', ax=ax)
+    median_ = pd.DataFrame(ydf.median(axis=1))
+    median_.columns = ['Median Daily Flow (cfs)']
+    median_.plot(logy=True, legend=True, color='b', ax=ax)
 
     head = ['Call Date, Days < IFR, Min']
     ann = head + [('{}-{},   {},  {:.0f} cfs'.format(p[1], p[0], p[2], p[3])) for p in periods]
@@ -156,7 +156,7 @@ def process_hydrograph(csv, inst_q_dir, fig_dir, min_flow=400, long_name='Gage',
             horizontalalignment='right', verticalalignment='top', bbox=props)
 
     plt.savefig(os.path.join(fig_dir, 'stacked_{}'.format(sid)))
-    plt.show()
+    # plt.show()
 
     jsn = os.path.join(fig_dir, '{}_lf.json'.format(os.path.basename(csv).replace('.csv', '')))
     d = {}
@@ -176,14 +176,15 @@ if __name__ == '__main__':
     ucf = '/media/research/IrrigationGIS/Montana/water_rights/hydrographs/12334550/ucf_isf.csv'
     blkft = '/media/research/IrrigationGIS/Montana/water_rights/hydrographs/12340000/blackfoot_isf.csv'
 
-    d = {'12340000': (700, 'Blackfoot River near Bonner MT', blkft)}
+    d = {'12334550': (500, 'Clark Fork at Turah Bridge nr Bonner MT', ucf)}
 
     others = {'06052500': (947, 'Gallatin River at Logan MT', None),
+              '12340000': (700, 'Blackfoot River near Bonner MT', blkft),
               '12334550': (500, 'Clark Fork at Turah Bridge nr Bonner MT', ucf),
               '06076690': (150, 'Smith River near Ft Logan MT', None),
               '06195600': (945, 'Shields River nr Livingston MT', None)}
 
-    HSTART, HEND = 1990, 2022
+    HSTART, HEND = 1980, 2023
 
     root = '/media/research/IrrigationGIS/Montana/water_rights/hydrographs'
     overwrite = False
