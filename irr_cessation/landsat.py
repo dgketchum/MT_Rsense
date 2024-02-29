@@ -137,6 +137,7 @@ def get_list_info(tif_dir, year, list_=False):
     dstr = ['{}-{}-{}'.format(x[:4], x[4:6], x[-2:]) for x in d]
     dates_ = [pd.to_datetime(x) for x in dstr]
     doy = [int(dt.strftime('%j')) for dt in dates_]
+    # TODO: rewrite sorting, this might fail with multiple path/rows
     return l, d_numeric, doy
 
 
