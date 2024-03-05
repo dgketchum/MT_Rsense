@@ -63,9 +63,17 @@ if __name__ == '__main__':
     shapes = os.path.join(d, 'boundaries', 'tl_2017_us_state.shp')
     rasters = os.path.join(d, 'climate_data', 'topowx')
     template = '/home/dgketchum/IrrigationGIS/climate_data/gridmet_elev.tif'
+    #
+    # for y in range(1990, 2023):
+    #     r = os.path.join(rasters, 'tmmn_{}.tif'.format(y))
+    #     gridmet_subset_stack(shapes, '{}-01-01'.format(y), '{}-12-31'.format(y),
+    #                          'tmmn', filename=rasters, epsg=4326, template_raster=template)
 
-    for y in range(1990, 2023):
-        r = os.path.join(rasters, 'tmmn_{}.tif'.format(y))
-        gridmet_subset_stack(shapes, '{}-01-01'.format(y), '{}-12-31'.format(y),
-                             'tmmn', filename=rasters, epsg=4326, template_raster=template)
+    shapes_co = os.path.join(d, 'boundaries', 'mt_counties', 'mt_counties.shp')
+    shapes_dir_out = os.path.join(d, 'boundaries', 'mt_counties', 'individual_shapes')
+    nc_dir = os.path.join(d, 'climate', 'gridmet_nc', 'mt_counties')
+    # mt_county_gridmet_stacks(shapes_dir_out, nc_dir, '1997-01-01', '2006-12-31')
+    g = GridMet('etr', start='1987-01-01', end='2021-12-31', lat=46.3761, lon=-105.832)
+    df = g.get_point_timeseries()
+    df.to_csv('/media/research/IrrigationGIS/Montana/tongue/gridmet_etr.csv')
 # ========================= EOF ====================================================================

@@ -420,9 +420,6 @@ class GridMet(Thredds):
         if self.start > self.end:
             raise ValueError('start date is after end date')
 
-        if not self.bbox and not self.lat:
-            raise AttributeError('No bbox or coordinates given')
-
     def full_array(self, start=None, end=None):
 
         url = self._build_url()
@@ -432,7 +429,8 @@ class GridMet(Thredds):
         if start and end:
             xray = xray.rename({'day': 'time'})
             subset = xray.loc[dict(time=slice(self.start, self.end))]
-            return subset
+            arr = subset[self.kwords[self.variable]].values
+            return arr
 
         return xray
 
