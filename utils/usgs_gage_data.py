@@ -167,18 +167,20 @@ def find_lowest_flows(shapes, monthly_q, out_shape):
     gdf = gpd.read_file(shapes)
     gdf.index = gdf['STAID']
 
-    years = range(1987, 2022)
-    months = list(range(4, 11))
+    years = range(1900, 2024)
+    months = list(range(1, 13))
 
     periods = [(m,) for m in months] + [list(consecutive_subseq(months, x)) for x in range(2, 7)]
     periods = [item for sublist in periods for item in sublist]
     periods = [i if isinstance(i, tuple) else (i, i) for i in periods]
     str_pers = ['{}-{}'.format(q_win[0], q_win[-1]) for q_win in periods]
+
     nan_data = [np.nan for i, r in gdf.iterrows()]
+
     for p in str_pers:
         gdf[p] = nan_data
 
-    for sid, data in gdf.iterrows():
+    for i, (sid, data) in enumerate(gdf.iterrows()):
         _file = os.path.join(monthly_q, '{}.csv'.format(sid))
 
         try:
@@ -225,13 +227,21 @@ def consecutive_subseq(iterable, length):
 
 
 if __name__ == '__main__':
-    gages_in = '/media/research/IrrigationGIS/usgs_gages/mt_usgs_gages.shp'
-    gages_out = '/media/research/IrrigationGIS/usgs_gages/mt_usgs_gages_por.shp'
-    # get_usgs_station_metadata(gages_in, gages_out)
+    d = '/media/research/IrrigationGIS'
+    if not os.path.isdir(d):
+        home = os.path.expanduser('~')
+        d = os.path.join(home, 'data', 'IrrigationGIS')
 
-    daily_q_ = '/media/research/IrrigationGIS/usgs_gages/mt_hydrographs_daily'
+    gages_in = os.path.join(d, 'usgs_gages', 'mt_usgs_gages.shp')
+    gages_out = os.path.join(d, 'usgs_gages', 'mt_usgs_gages_por.shp')
+    get_usgs_station_metadata(gages_in, gages_out)
+
+    daily_q_ = os.path.join(d, 'usgs_gages', 'mt_hydrographs_daily')
     get_station_daily_data('1900-01-01', '2023-11-01', gages_out, daily_q_)
+
     monthly_q_ = '/media/research/IrrigationGIS/usgs_gages/mt_hydrographs_monthly'
     get_station_daterange_data(daily_q_,  monthly_q_, resample_freq='M')
+
+    find_lowest_flows()
 
 # ========================= EOF ====================================================================
